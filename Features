@@ -1,0 +1,304 @@
+Features
+========
+
+- Compiled
+- Static, weak typing
+- Message-passing concurrency system (green threads)
+- Tuples
+    - Only supports tuples of compile-time determinable fixed types and lengths
+- Multiple return
+- Compatible with C ABI (at LEAST able to call C)
+- Simple parsing syntax
+- No exceptions
+    - No exceptions
+- D-style scope statement (deferred execution)
+    - Support both end-of-function and true end-of-scope
+- Basic function templating
+    - Basically simple templating on type, none of that fancy stuff
+- Pattern matching
+    - Match statement
+    - From multiple return
+- Type variants
+    - Basically a cross between structs and tagged unions
+    - Support for simple pattern matching on elements
+- "Maybe" types for pointers (or Option?)
+    - Also, only maybe. Might drop this if theoretical baggage is too much
+- Local label breaks and continues
+- Universal Function Call Syntax
+- Primitive dynamic arrays
+    - Perhaps not even support static arrays (like [10]int or [len]int)
+    - Would then only support manually handled arrays (*int) and dynamic ([]int)
+- Primitive associative arrays (probably only support basic-type keys?
+    (string, int)): [string]int
+- Primitive sets (probably only support basic-type keys?): setof int or {}int or <>int
+    - Primitive set operations:
+        - Set union: setOne <|> setTwo
+        - set intersection: setOne <&> setTwo
+- out storage class
+    - Implicitely a reference type, can only be written to
+- in storage class
+    - Implicitely a reference type, can only be read from
+- Optional function contracts:
+    - in {}
+    - out {}
+- Post-execution result-tweaking:
+    - "return" block:
+        - Return value of function is in given value dictated by return
+        - return (result) { if (result % 2 == 0) result = 1; }
+
+func example(val: int, ptr: **int, len: uint, arr: []int, output: out chan!(int),
+    input: in chan!(int)): (int)
+in
+{
+    assert(val > 0);
+}
+return (result)
+{
+    result = result + 1;
+}
+out
+{
+    assert(result != 100);
+}
+body
+{
+    for (i: uint = 0; i < len; i++)
+    {
+        free(ptr[i]);
+    }
+    foreach (elem; arr)
+    {
+        printf("%d\n", elem);
+    }
+    output <-=  val * val;
+    val = <- input + val + <- input;
+    return val;
+}
+
+func hailstoneSteps(start: int, output: out chan!(int)): (void)
+{
+    while (start > 1)
+    {
+        output <-= start;
+        if (start % 2 == 0)
+        {
+            start /= 2;
+        }
+        else
+        {
+            start = start * 3 + 1;
+        }
+    }
+    output <-= start;
+    output.close();
+}
+
+func hailstoneStart(start: int): (uint, bool)
+{
+    if (start < 1)
+    {
+        return (0, false);
+    }
+    input := new chan!(int);
+    count: uint;
+    spawn hailstoneSteps(start, input);
+    while (input.open)
+    {
+        printf("%d\n", <-input);
+        count++;
+    }
+    return (count, true);
+}
+
+struct VariantExample
+{
+    name: string;
+    | x: int,
+    | y: float,
+    ;
+}
+
+--------------------------------------------------------------------------------
+
+func myFuncOne(start: int, input: chan!int): void
+{
+    label outer:
+    for (;;)
+    {
+        match (val, ok = <- input)
+        {
+            _, !ok:
+                printf("Channel is closed!");
+                break outer;
+            val, _:
+                printf("Value is %d: \n", val);
+                // No fallthrough, will loop at for(;;)
+            // Covered all cases
+        }
+    }
+}
+
+typedef Maybe(T*)
+{
+    | so: Just!(T*),
+    | no: None,
+    ;
+}
+
+func testPointer(ptr: Maybe): void
+{
+    match (ptr)
+    {
+        Maybe.so:
+            // Handle having the pointer
+        Maybe.no:
+            // Handle not having the pointer
+    }
+}
+
+struct chan(T)
+{
+    val: T;
+}
+
+typerange Charop: char
+{
+    | '+',
+    | '-',
+    | '*',
+    | '/',
+    ;
+}
+
+typedef Expr
+{
+    | var: Variable,
+    | num: Number,
+    | arith: (leftExpr: Expr, op: CharOp, rightExpr: Expr),
+    ;
+}
+
+typedef Variable
+{
+    name: string;
+    type: string;
+}
+
+typedef Number
+{
+    | valf: float,
+    | vali: int,
+    ;
+}
+
+func printVisitor(node: Expr, indent: string): void
+{
+    match (node) // Match elem
+    {
+        Expr.var:
+            var.printVisitor(indent ~ "  ");
+        Expr.num:
+            num.printVisitor(indent ~ "  ");
+        Expr.arith is leftExpr, op, rightExpr :
+            printf("%c\n", op);
+            leftExpr.printVisitor(indent ~ "  ");
+            rightExpr.printVisitor(indent ~ "  ");
+    }
+}
+
+struct TreeNode(T)
+{
+    | None,
+    |
+        elem: T,
+        leftNode: TreeNode!T,
+        rightNode: TreeNode!T,
+    ;
+}
+
+typedef AST;
+
+typedef Stmt: AST;
+typedef Expr: AST
+{
+    | num: int;
+    | binOp: (leftExpr: Expr, op: char, rightExpr: Expr),
+    ;
+}
+
+typedef Assignment: Stmt
+{
+    lvalue: Variable;
+    rvalue: Expr;
+}
+
+typedef BinOp: Expr
+{
+
+}
+
+typedef Complex
+{
+    | name: string,
+    | id: uint,
+    ;
+
+    | address: string,
+    | phone: []byte,
+    ;
+}
+
+func complexMatch(x: Complex): void
+{
+    match (x)
+    {
+        name as Complex.name, address as Complex.address:
+            printf("Name: %s, address: %s\n", name, address);
+        name as Complex.name, phone as Complex.phone:
+            printf("Name: %s, phone: ", name);
+            foreach (val; phone)
+            {
+                printf("%d", val);
+            }
+            printf("\n");
+        id as Complex.id, _ if id == 0:
+            printf("Hello, Overmind\n");
+        id as Complex.id, _:
+            printf("ID: %u", id);
+    }
+}
+
+// 1 * (2 + 3)
+two: Expr(num = 2);
+three: Expr(num = 3);
+paren: Expr(binop = (two, '+', three));
+one: Expr(num = 1);
+mult: Expr(binOp = (one, '*', paren);
+
+source: string;
+
+func parseExpr(): AST
+{
+    return sum();
+}
+
+func buildExpr(tokens: []char)
+{
+    nodes: []Expr;
+    foreach (tok; tokens)
+    {
+        match (tok)
+        {
+            '0'..'9':
+                num: Expr(num = toInt(tok));
+                nodes ~= num;
+            '+' | '-' | '*' | '/':
+
+        }
+    }
+}
+
+// Actually OCaml:
+# type 'a bin_tree =
+     Empty
+   | Node of 'a bin_tree * 'a * 'a bin_tree ;;
