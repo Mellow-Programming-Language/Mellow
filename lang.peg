@@ -1,0 +1,36 @@
+Program :: (Variant)+ ;
+
+Variant :: #"variant" VariantId TemplateParamList? #"{" VariantEntry+ #";"? #"}";
+VariantId :: Identifier;
+VariantEntry :: #"|" TagId VariantVarDeclList? #","?;
+TagId :: Identifier;
+VariantVarDeclList :: #"is" VariableTypePair (#"," VariableTypePair)*;
+
+VariableTypePair :: VariableId #":" TypeId;
+VariableId :: Identifier;
+
+Identifier :: /[a-zA-Z_][a-zA-Z0-9_]*/;
+
+TypeId :: BasicType | ArrayType | TypeTuple | UserType;
+ArrayType :: (PointerDecl | DynArrayDecl)+ (BasicType | TypeTuple | UserType);
+PointerDecl :: #"*";
+DynArrayDecl :: #"[" #"]";
+TypeTuple :: #"(" TypeId (#"," TypeId)* #")";
+UserType :: Identifier TemplateInstantiation?;
+BasicType :: Int32
+           | BoolType
+           | Int16
+           | Int8
+           | CharType
+           | Int64
+           ;
+Int32 :: "int32";
+BoolType :: "bool";
+Int16 :: "int16";
+Int8 :: "int8";
+CharType :: "char";
+Int64 :: "int64";
+
+TemplateInstantiation :: #"!" TemplateParamList;
+TemplateParamList :: #"(" TemplateId (#"," TemplateId)* #")";
+TemplateId :: TypeId;
