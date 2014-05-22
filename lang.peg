@@ -1,4 +1,27 @@
-Program :: (Variant)+ ;
+Program :: ( Variant
+           | StructDef
+           | FuncDef
+           )+
+           ;
+
+StructDef :: #"struct" StructId TemplateParamList? #"{" (StructEntry | StructFunction)+ #"}";
+StructId :: Identifier;
+StructEntry :: VariableTypePair #";";
+StructFunction :: FuncDef;
+
+FuncDef :: #"func" FuncId FuncDefArgList FuncReturnType FuncBodyBlocks;
+FuncId :: Identifier;
+FuncDefArgList :: #"(" (VariableTypePair (#"," VariableTypePair)*)? #")";
+FuncReturnType :: (#":" (TypeId | TypeTuple))?;
+FuncBodyBlocks :: ( BareBlock
+                  | (InBlock? OutBlock? ReturnModBlock? BodyBlock)
+                  );
+InBlock :: #"in" BareBlock;
+OutBlock :: #"out" BareBlock;
+ReturnModBlock :: #"return" (Identifier | IdTuple) BareBlock;
+BodyBlock :: #"body" BareBlock;
+
+BareBlock :: #"{" Statement* #"}";
 
 Variant :: #"variant" VariantId TemplateParamList? #"{" VariantEntry+ #";"? #"}";
 VariantId :: Identifier;
@@ -6,15 +29,71 @@ VariantEntry :: #"|" TagId VariantVarDeclList? #","?;
 TagId :: Identifier;
 VariantVarDeclList :: #"is" VariableTypePair (#"," VariableTypePair)*;
 
+Statement :: FuncDef
+           | ReturnStmt
+           | IfStmt
+           | WhileStmt
+           | ForStmt
+           | ForeachStmt
+           | Declaration
+           ;
+
+ReturnStmt :: #"return" Expr #";";
+
+IfStmt :: #"if" #"(" BoolExpr #")" BareBlock (ElseIfStmt)* ElseStmt?;
+ElseIfStmt :: #"else" #"if" #"(" BoolExpr #")" BareBlock;
+ElseStmt :: #"else" BareBlock;
+
+WhileStmt :: #"while" #"(" BoolExpr #")" BareBlock;
+
+ForStmt :: #"for" #"(" ForInit BooleanStmt Expr #")" #"{" Statement* #"}";
+ForInit :: DeclAssignment | Assignment;
+
+ForeachStmt :: #"foreach" #"(" (Foreach1 | Foreach2) #";" Expr #")" #"{" Statement* #"}";
+Foreach1 :: VariableId;
+Foreach2 :: VariableId #"," VariableId;
+
+DeclAssignment :: VariableTypePair #"=" Expr #";";
+Assignment :: VariableId #"=" Expr #";";
+AssignmentExpr :: VariableId #"=" Expr;
+
+Declaration :: VariableTypePair #";";
+
+BooleanStmt :: BoolExpr #";";
+
+BoolExpr :: TrueExpr | FalseExpr | Expr;
+TrueExpr :: #"true";
+FalseExpr :: #"false";
+
+Expr :: AssignmentExpr
+      | Sum
+      ;
+
 VariableTypePair :: VariableId #":" TypeId;
 VariableId :: Identifier;
 
-Identifier :: /[a-zA-Z_][a-zA-Z0-9_]*/;
+Sum :: Product (SumOp Product)*;
+Product :: Value (MulOp Value)*;
+Value :: Number
+       | VariableId
+       ;
 
-TypeId :: BasicType | ArrayType | TypeTuple | UserType;
+SumOp :: /[+-]/;
+MulOp :: /[*\/%]/;
+
+Number :: IntNum | FloatNum;
+IntNum :: /-?[1-9][0-9]*|0/;
+FloatNum :: /-?[0-9]*\.[0-9]*/;
+
+Identifier :: /[a-zA-Z_][a-zA-Z0-9_]*/;
+IdTuple :: #"(" Identifier (#"," Identifier)* #")";
+
+TypeId :: BasicType | ArrayType | SetType | HashType | TypeTuple | UserType;
 ArrayType :: (PointerDecl | DynArrayDecl)+ (BasicType | TypeTuple | UserType);
 PointerDecl :: #"*";
 DynArrayDecl :: #"[" #"]";
+SetType :: #"<" #">" BasicType;
+HashType :: #"[" BasicType #"]" TypeId;
 TypeTuple :: #"(" TypeId (#"," TypeId)* #")";
 UserType :: Identifier TemplateInstantiation?;
 BasicType :: Int32
