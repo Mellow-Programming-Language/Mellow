@@ -6,6 +6,8 @@ Features
 - Message-passing concurrency system (green threads)
 - Tuples
     - Only supports tuples of compile-time determinable fixed types and lengths
+- Arrays of tuples
+    - arglist: [](int, string);
 - Multiple return
 - Compatible with C ABI (at LEAST able to call C)
 - Simple parsing syntax
@@ -45,6 +47,8 @@ Features
     - "return" block:
         - Return value of function is in given value dictated by return
         - return (result) { if (result % 2 == 0) result = 1; }
+- Function pointers (Dlang function)
+- Closures (Dlang delegate)
 
 func example(val: int, ptr: **int, len: uint, arr: []int, output: out chan!(int),
     input: in chan!(int)): (int)
@@ -110,12 +114,73 @@ func hailstoneStart(start: int): (uint, bool)
     return (count, true);
 }
 
-struct VariantExample
+variant Stmt
 {
-    name: string;
-    | x: int,
-    | y: float,
+    | Assign is lvalue: string, rvalue: Expr,
+    | Decl is type: Type, id: string,
+    | Function is funcName: string, retType: Type, argList: [](Type, string),
+        statements: []Stmt,
+    | Return is retVal: Expr,
+    | IfStmt is boolExpr: Expr, statements: []Stmt, elseifblocks: []ElseifBlock,
+        elseblock: Maybe!(Elseblock),
+    | WhileStmt is boolExpr: Expr, statements: []Stmt,
     ;
+}
+
+struct ElseifBlock
+{
+    boolExpr: Expr;
+    statements: []Stmt;
+}
+
+struct ElseBlock
+{
+    statements: []Stmt;
+}
+
+variant Maybe(T)
+{
+    | So is val: T,
+    | No,
+    ;
+}
+
+variant Expr
+{
+    | Number is num: int,
+    | BinaryOp is op: string, left: Expr, right: Expr,
+    | FuncCall is funcName: string, argList: []Expr,
+    | Identifier is id: string,
+    ;
+}
+
+variant Type
+{
+    | Int,
+    | Uint,
+    | Int8,
+    | Uint8,
+    | Int16,
+    | Uint16,
+    | Int32,
+    | Uint32,
+    | Int64,
+    | Uint64,
+    | Char,
+    | String,
+    | Complex is id: string,
+    ;
+}
+
+func testPointer(ptr: Maybe!(int)): (void)
+{
+    match (ptr)
+    {
+        So is (val):
+            printf("Val: %d\n", val);
+        No:
+            printf("Empty pointer!\n");
+    }
 }
 
 --------------------------------------------------------------------------------
@@ -135,24 +200,6 @@ func myFuncOne(start: int, input: chan!int): void
                 // No fallthrough, will loop at for(;;)
             // Covered all cases
         }
-    }
-}
-
-typedef Maybe(T*)
-{
-    | so: Just!(T*),
-    | no: None,
-    ;
-}
-
-func testPointer(ptr: Maybe): void
-{
-    match (ptr)
-    {
-        Maybe.so:
-            // Handle having the pointer
-        Maybe.no:
-            // Handle not having the pointer
     }
 }
 
