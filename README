@@ -1,0 +1,3 @@
+To produce a parser, use whatever the current version of the Parser
+Generator is, pass in lang.peg, and use runner.d and visitor.d (from
+visitorAUTO.d) to produce an executable.

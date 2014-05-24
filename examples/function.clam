@@ -1,0 +1,22 @@
+func example(ptr: Maybe!(int)): void
+in
+{}
+out
+{}
+return (val)
+{}
+body
+{
+    x: int32;
+    for (i: int32 = 0; true; i = i)
+    {}
+    foreach (elem; list)
+    {}
+    func closure()
+    {
+        if (true)
+        {
+            return x;
+        }
+    }
+}
