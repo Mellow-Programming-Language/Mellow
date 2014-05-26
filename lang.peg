@@ -46,20 +46,19 @@ ElseStmt :: #"else" BareBlock;
 
 WhileStmt :: #"while" #"(" BoolExpr #")" BareBlock;
 
-ForStmt :: #"for" #"(" ForInit BooleanStmt Expr #")" #"{" Statement* #"}";
-ForInit :: DeclAssignment | Assignment;
+ForStmt :: #"for" #"(" ForInit BoolExpr #";" Expr #")" #"{" Statement* #"}";
+ForInit :: DeclTypeInfer | DeclAssignment | Assignment;
 
-ForeachStmt :: #"foreach" #"(" (Foreach1 | Foreach2) #";" Expr #")" #"{" Statement* #"}";
+ForeachStmt :: #"foreach" #"(" (Foreach2 | Foreach1) #";" Expr #")" #"{" Statement* #"}";
 Foreach1 :: VariableId;
 Foreach2 :: VariableId #"," VariableId;
 
 DeclAssignment :: VariableTypePair #"=" Expr #";";
+DeclTypeInfer :: VariableId #":=" Expr #";";
 Assignment :: VariableId #"=" Expr #";";
 AssignmentExpr :: VariableId #"=" Expr;
 
 Declaration :: VariableTypePair #";";
-
-BooleanStmt :: BoolExpr #";";
 
 BoolExpr :: TrueExpr | FalseExpr | Expr;
 TrueExpr :: #"true";
@@ -88,7 +87,15 @@ FloatNum :: /-?[0-9]*\.[0-9]*/;
 Identifier :: /[a-zA-Z_][a-zA-Z0-9_]*/;
 IdTuple :: #"(" Identifier (#"," Identifier)* #")";
 
-TypeId :: BasicType | ArrayType | SetType | HashType | TypeTuple | UserType;
+TypeId :: ChanType
+        | BasicType
+        | ArrayType
+        | SetType
+        | HashType
+        | TypeTuple
+        | UserType
+        ;
+ChanType :: #"chan" TemplateInstantiation;
 ArrayType :: (PointerDecl | DynArrayDecl)+ (BasicType | TypeTuple | UserType);
 PointerDecl :: #"*";
 DynArrayDecl :: #"[" #"]";
@@ -102,14 +109,20 @@ BasicType :: Int32
            | Int8
            | CharType
            | Int64
+           | Float
+           | Double
            ;
-Int32 :: "int32";
-BoolType :: "bool";
-Int16 :: "int16";
-Int8 :: "int8";
-CharType :: "char";
-Int64 :: "int64";
+Int64     :: #"int64"   | #"long";
+Int32     :: #"int32"   | #"int";
+Int16     :: #"int16"   | #"short";
+Int8      :: #"int8"    | #"byte";
+Float     :: #"float32" | #"float";
+Double    :: #"float64" | #"double";
+CharType  :: #"char";
+BoolType  :: #"bool";
 
-TemplateInstantiation :: #"!" TemplateParamList;
+TemplateInstantiation :: #"!" TemplateParam;
+TemplateParam :: TemplateParamList | TemplateParamSingle;
 TemplateParamList :: #"(" TemplateId (#"," TemplateId)* #")";
+TemplateParamSingle :: TemplateId;
 TemplateId :: TypeId;
