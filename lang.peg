@@ -4,30 +4,42 @@ Program :: ( Variant
            )+
            ;
 
-StructDef :: #"struct" StructId TemplateParamList? #"{" (StructEntry | StructFunction)+ #"}";
+Sp :: /\s+/;
+
+StructDef :: #'struct' #Sp StructId TemplateParamList?
+             #"{" (StructEntry | StructFunction)+ #"}";
 StructId :: Identifier;
 StructEntry :: VariableTypePair #";";
 StructFunction :: FuncDef;
 
-FuncDef :: #"func" FuncId FuncDefArgList FuncReturnType FuncBodyBlocks;
+FuncDef :: #'func' #Sp FuncId FuncDefArgList FuncReturnType FuncBodyBlocks;
 FuncId :: Identifier;
-FuncDefArgList :: #"(" (VariableTypePair (#"," VariableTypePair)*)? #")";
+FuncDefArgList :: #"(" (FuncSigArg (#"," FuncSigArg)*)? #")";
+FuncSigArg :: VariableId #":" StorageClass* TypeId;
 FuncReturnType :: (#":" (TypeId | TypeTuple))?;
 FuncBodyBlocks :: ( BareBlock
                   | (InBlock? OutBlock? ReturnModBlock? BodyBlock)
                   );
 InBlock :: #"in" BareBlock;
 OutBlock :: #"out" BareBlock;
-ReturnModBlock :: #"return" (Identifier | IdTuple) BareBlock;
+ReturnModBlock :: #'return' ((#Sp Identifier) | (#"" IdTuple)) BareBlock;
 BodyBlock :: #"body" BareBlock;
 
 BareBlock :: #"{" Statement* #"}";
 
-Variant :: #"variant" VariantId TemplateParamList? #"{" VariantEntry+ #";"? #"}";
+StorageClass :: OutClass
+              | InClass
+              | ConstClass
+              ;
+OutClass :: #'out' #Sp;
+InClass :: #'in' #Sp;
+ConstClass :: #'const' #Sp;
+
+Variant :: #'variant' #Sp VariantId TemplateParamList? #"{" VariantEntry+ #";"? #"}";
 VariantId :: Identifier;
 VariantEntry :: #"|" TagId VariantVarDeclList? #","?;
 TagId :: Identifier;
-VariantVarDeclList :: #"is" VariableTypePair (#"," VariableTypePair)*;
+VariantVarDeclList :: #'is' #Sp VariableTypePair (#"," VariableTypePair)*;
 
 Statement :: FuncDef
            | ReturnStmt
@@ -36,12 +48,18 @@ Statement :: FuncDef
            | ForStmt
            | ForeachStmt
            | Declaration
+           | SpawnStmt
+           | YieldStmt
+           | ChanWrite
+           | ChanReadStmt
+           | DeclTypeInfer
+           | ExprStmt
            ;
 
-ReturnStmt :: #"return" Expr #";";
+ReturnStmt :: #'return' #Sp Expr #";";
 
 IfStmt :: #"if" #"(" BoolExpr #")" BareBlock (ElseIfStmt)* ElseStmt?;
-ElseIfStmt :: #"else" #"if" #"(" BoolExpr #")" BareBlock;
+ElseIfStmt :: #'else' #Sp #"if" #"(" BoolExpr #")" BareBlock;
 ElseStmt :: #"else" BareBlock;
 
 WhileStmt :: #"while" #"(" BoolExpr #")" BareBlock;
@@ -60,16 +78,36 @@ AssignmentExpr :: VariableId #"=" Expr;
 
 Declaration :: VariableTypePair #";";
 
+SpawnStmt :: #'spawn' #Sp FuncCall #";";
+
+YieldStmt :: #'yield' #Sp #";";
+
+ChanWrite :: ChanId #"<-=" Expr #";";
+ChanId :: Identifier;
+
+ChanReadStmt :: VariableId ChanRead #";";
+
+FuncCallComplex :: MemberAccesses? FuncCall;
+FuncCall :: FuncId #"(" (Expr (#"," Expr)*)? #")";
+MemberAccesses :: MemberAccess+;
+MemberAccess :: (FuncCall | Number | VariableId | ParenExpr) #".";
+
 BoolExpr :: TrueExpr | FalseExpr | Expr;
 TrueExpr :: #"true";
 FalseExpr :: #"false";
 
-Expr :: AssignmentExpr
+ParenExpr :: #"(" Expr #")";
+ExprStmt :: Expr #";";
+Expr :: FuncCallComplex
+      | ChanRead
+      | AssignmentExpr
       | Sum
       ;
 
 VariableTypePair :: VariableId #":" TypeId;
 VariableId :: Identifier;
+
+ChanRead :: #"<-" ChanId;
 
 Sum :: Product (SumOp Product)*;
 Product :: Value (MulOp Value)*;
@@ -109,17 +147,17 @@ BasicType :: Int32
            | Int8
            | CharType
            | Int64
-           | Float
-           | Double
+           | FloatType
+           | DoubleType
            ;
-Int64     :: #"int64"   | #"long";
-Int32     :: #"int32"   | #"int";
-Int16     :: #"int16"   | #"short";
-Int8      :: #"int8"    | #"byte";
-Float     :: #"float32" | #"float";
-Double    :: #"float64" | #"double";
-CharType  :: #"char";
-BoolType  :: #"bool";
+Int64       :: #"int64"   | #"long";
+Int32       :: #"int32"   | #"int";
+Int16       :: #"int16"   | #"short";
+Int8        :: #"int8"    | #"byte";
+FloatType   :: #"float32" | #"float";
+DoubleType  :: #"float64" | #"double";
+CharType    :: #"char";
+BoolType    :: #"bool";
 
 TemplateInstantiation :: #"!" TemplateParam;
 TemplateParam :: TemplateParamList | TemplateParamSingle;

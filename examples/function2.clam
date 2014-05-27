@@ -1,0 +1,10 @@
+func test(x: in int, y: const int, z: out chan!int): int
+{
+    q := 0;
+    z <-= x;
+    x <- z;
+    1.w(1.m(1, 2, 3), 2, 3).more(4, 5, 6).otherFunc(x, y, 0);
+    spawn coroutine(1, 2, 3);
+    yield;
+    return 0;
+}
