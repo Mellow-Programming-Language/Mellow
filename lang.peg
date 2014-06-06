@@ -41,8 +41,10 @@ VariantEntry :: #"|" TagId VariantVarDeclList? #","?;
 TagId :: Identifier;
 VariantVarDeclList :: #'is' #Sp VariableTypePair (#"," VariableTypePair)*;
 
-Statement :: FuncDef
+Statement :: BareBlock
+           | FuncDef
            | ReturnStmt
+           | MatchStmt
            | IfStmt
            | WhileStmt
            | ForStmt
@@ -65,7 +67,7 @@ ElseStmt :: #"else" BareBlock;
 WhileStmt :: #"while" #"(" BoolExpr #")" BareBlock;
 
 ForStmt :: #"for" #"(" ForInit BoolExpr #";" Expr #")" #"{" Statement* #"}";
-ForInit :: DeclTypeInfer | DeclAssignment | Assignment;
+ForInit :: DeclTypeInfer | DeclAssignment | AssignmentStmt;
 
 ForeachStmt :: #"foreach" #"(" (Foreach2 | Foreach1) #";" Expr #")" #"{" Statement* #"}";
 Foreach1 :: VariableId;
@@ -73,8 +75,7 @@ Foreach2 :: VariableId #"," VariableId;
 
 DeclAssignment :: VariableTypePair #"=" Expr #";";
 DeclTypeInfer :: VariableId #":=" Expr #";";
-Assignment :: VariableId #"=" Expr #";";
-AssignmentExpr :: VariableId #"=" Expr;
+AssignmentStmt :: VariableId #"=" Expr #";";
 
 Declaration :: VariableTypePair #";";
 
@@ -100,9 +101,25 @@ ParenExpr :: #"(" Expr #")";
 ExprStmt :: Expr #";";
 Expr :: FuncCallComplex
       | ChanRead
-      | AssignmentExpr
       | Sum
       ;
+
+MatchStmt :: #"match" #"(" Expr #")" #"{" MatchCase+ #"}";
+MatchCase :: ( MatchIs
+             | StringMatch
+             | ^RangeMatch
+             | CharMatch
+             | NumMatch
+             ) #":" Statement;
+RangeMatch :: NumRangeMatch
+            | CharRangeMatch
+            ;
+MatchIs :: VariantId (#'is' #Sp #"(" Identifier (#"," Identifier)* #")")?;
+CharMatch :: CharLit;
+StringMatch :: StringLit;
+NumMatch :: Number;
+NumRangeMatch :: Number #".." Number;
+CharRangeMatch :: CharLit #".." CharLit;
 
 VariableTypePair :: VariableId #":" TypeId;
 VariableId :: Identifier;
@@ -118,9 +135,11 @@ Value :: Number
 SumOp :: /[+-]/;
 MulOp :: /[*\/%]/;
 
-Number :: IntNum | FloatNum;
+Number :: FloatNum | IntNum;
+CharLit :: /'(?:\\n|\\t|\\r|[^\\])'/;
+StringLit :: /"(?:\\.|[^"\\])*"/;
 IntNum :: /-?[1-9][0-9]*|0/;
-FloatNum :: /-?[0-9]*\.[0-9]*/;
+FloatNum :: /-?[0-9]+\.[0-9]+/;
 
 Identifier :: /[a-zA-Z_][a-zA-Z0-9_]*/;
 IdTuple :: #"(" Identifier (#"," Identifier)* #")";
