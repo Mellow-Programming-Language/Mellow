@@ -2,6 +2,7 @@ import std.stdio;
 import std.string;
 import std.conv;
 import std.algorithm;
+import std.array;
 import parser;
 import visitor;
 
@@ -447,6 +448,16 @@ class TypeTuple : Type
         this.tuple = tuple;
     }
 
+    this (VarTypePair[] typePairs)
+    {
+        const(Type)[] types;
+        foreach (typePair; typePairs)
+        {
+            types ~= typePair.getType();
+        }
+        this.tuple = types;
+    }
+
     uint getLargestPrimSize() const
     {
         return memoryAlgs!((a, b) => a[b], tuple).getLargestPrimSize();
@@ -689,6 +700,82 @@ unittest
     assert(superComplexStr.getOffsetOfSubpart(5) == 104);
     assert(superComplexStr.getOffsetOfSubpart(6) == 112);
     assert(superComplexStr.getOffsetOfSubpart(7) == 168);
+}
+
+class VariantConstructor
+{
+    const string typename;
+    const VarTypePair[] consTypes;
+    private const TypeTuple tupleOfConsTypes;
+
+    this (string typename, VarTypePair[] consTypes)
+    {
+        this.typename = typename;
+        this.consTypes = consTypes;
+        this.tupleOfConsTypes = new TypeTuple(consTypes);
+    }
+
+    string getTypename() const
+    {
+        return typename;
+    }
+
+    uint getAlignedSize() const
+    {
+        return tupleOfConsTypes.getAlignedSize();
+    }
+
+    uint getPackedSize() const
+    {
+        return tupleOfConsTypes.getPackedSize();
+    }
+
+    uint getLargestPrimSize() const
+    {
+        return tupleOfConsTypes.getLargestPrimSize();
+    }
+
+    uint getOffsetOfSubpart(uint index) const
+    {
+        return tupleOfConsTypes.getOffsetOfSubpart(index);
+    }
+}
+
+class Variant
+{
+    const string typename;
+    const VariantConstructor[] varCons;
+
+    this (const string typename, const VariantConstructor[] varCons)
+    {
+        this.typename = typename;
+        this.varCons = varCons;
+    }
+
+    string getTypename() const
+    {
+        return typename;
+    }
+
+    uint getAlignedSize() const
+    {
+        return reduce!((a, b) => max(a, b.getAlignedSize()))(0, varCons);
+    }
+
+    uint getPackedSize() const
+    {
+        return reduce!((a, b) => max(a, b.getPackedSize()))(0, varCons);
+    }
+
+    uint getLargestPrimSize() const
+    {
+        return reduce!((a, b) => max(a, b.getLargestPrimSize()))(0, varCons);
+    }
+
+    uint getOffsetOfTypeInCons(uint consIndex, uint typeIndex)
+    {
+        return varCons[consIndex].getOffsetOfSubpart(typeIndex);
+    }
 }
 
 int main(string[] argv)
