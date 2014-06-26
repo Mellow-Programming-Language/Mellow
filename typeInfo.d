@@ -3,75 +3,55 @@ import std.string;
 import std.conv;
 import std.algorithm;
 import std.array;
-import parser;
-import visitor;
 
 immutable uint PTR_SIZE = 4;
 
+enum StorageClass
+{
+    CONST,
+    REF
+}
+
+enum TypeID
+{
+    PRIMITIVE,
+    STRUCT,
+    VARIANT,
+    TUPLE,
+    INDIRECTION
+}
+
 interface Type
 {
-    // The size of the type, if each component of the type were aligned
-    // according to the C alignment rules.
-    uint getAlignedSize() const;
     // The minimum size required to store the type. The sum total number of
     // bytes of each sub component, ignoring alignment
     uint getPackedSize() const;
-    // The number of bytes that the largest primitive type takes up in a
-    // composed type. Will descend into the type recursively, so if this is
-    // called on a struct that contains structs that contain structs, it will
-    // descend into the deepest parts of the type and find the biggest
-    // primitive out of all of them
+    // The size of the type, if each component of the type were aligned
+    // according to the C alignment rules.
+    uint getAlignedSize() const;
+    // Get the size of the largest primitive type in a complex type composition
     uint getLargestPrimSize() const;
-    // Get the total number of sub parts that compose this type. Basic types
-    // of only a single element yield 1
-    uint getNumSubparts() const;
-    // The offset from 0 that the sub component at 'index' would start in bytes
-    // assuming alignment rules. The first component will always be 0, and the
-    // second component would be (sizeof(component(0)) + padding)
-    uint getOffsetOfSubpart(uint index) const;
-    // Return the type object residing at the given index. If this type is
-    // a primitive type, then index 0 is 'this'. Accesses out of range should
-    // fail
-    Type getTypeOfSubpart(uint index) const;
-    // Returns true if this type is a complex type, that is, not a primitive
-    // type and can conceivably have multiple subparts. True for structs,
-    // variants, tuples, etc., false for primitive types and primitives with
-    // levels of indirection (pointers)
-    bool isComposition() const;
-    // True if the element is an indirection type
-    bool isIndirection() const;
-}
-
-interface NamedType : Type
-{
+    // Return the typeID of the type. Use this for casting
+    TypeID getTypeID() const;
+    // Return stringification of type name
     string getTypename() const;
 }
 
 string createPrimitiveType(string name, uint size)
 {
-    string def = "";
-    def ~= `class Prim_` ~ name.capitalize() ~ ` : NamedType {`         ~ "\n";
-    def ~= `    string getTypename() const`                             ~ "\n";
-    def ~= `    { return "` ~ name ~ `"; }`                             ~ "\n";
-    def ~= `    uint getAlignedSize() const`                            ~ "\n";
-    def ~= `    { return ` ~ size.to!string ~ `; }`                     ~ "\n";
-    def ~= `    uint getPackedSize() const`                             ~ "\n";
-    def ~= `    { return ` ~ size.to!string ~ `; }`                     ~ "\n";
-    def ~= `    uint getLargestPrimSize() const`                        ~ "\n";
-    def ~= `    { return ` ~ size.to!string ~ `; }`                     ~ "\n";
-    def ~= `    uint getNumSubparts() const`                            ~ "\n";
-    def ~= `    { return 1; }`                                          ~ "\n";
-    def ~= `    uint getOffsetOfSubpart(uint index) const`              ~ "\n";
-    def ~= `    in { assert(index == 0); }`                             ~ "\n";
-    def ~= `    body { return 0; }`                                     ~ "\n";
-    def ~= `    Type getTypeOfSubpart(uint index) const`                ~ "\n";
-    def ~= `    in { assert(index == 0); }`                             ~ "\n";
-    def ~= `    body { return cast(Type)this; }`                        ~ "\n";
-    def ~= `    bool isComposition() const`                             ~ "\n";
-    def ~= `    { return false; }`                                      ~ "\n";
-    def ~= `    bool isIndirection() const`                             ~ "\n";
-    def ~= `    { return false; }`                                      ~ "\n";
-    def ~= `}`                                                          ~ "\n";
+    string def = ""
+        ~ `class Prim_` ~ name.capitalize() ~ ` : Type {`         ~ "\n"
+        ~ `    string getTypename() const`                             ~ "\n"
+        ~ `    { return "` ~ name ~ `"; }`                             ~ "\n"
+        ~ `    uint getAlignedSize() const`                            ~ "\n"
+        ~ `    { return ` ~ size.to!string ~ `; }`                     ~ "\n"
+        ~ `    uint getPackedSize() const`                             ~ "\n"
+        ~ `    { return ` ~ size.to!string ~ `; }`                     ~ "\n"
+        ~ `    uint getLargestPrimSize() const`                        ~ "\n"
+        ~ `    { return ` ~ size.to!string ~ `; }`                     ~ "\n"
+        ~ `    TypeID getTypeID() const`                               ~ "\n"
+        ~ `    { return TypeID.PRIMITIVE; }`                           ~ "\n"
+        ~ `}`                                                          ~ "\n";
     return def;
 }
 
@@ -87,11 +67,12 @@ mixin(createPrimitiveType("byte",   1));
 mixin(createPrimitiveType("ubyte",  1));
 mixin(createPrimitiveType("char",   1));
 mixin(createPrimitiveType("bool",   1));
+// Space for the length of the string plus a pointer to the array of chars
+mixin(createPrimitiveType("string", 4 + PTR_SIZE));
 
 enum IndTag
 {
     PTR,
-    ARR,
     DYN_ARR,
     HASH
 }
@@ -116,19 +97,6 @@ class PtrInd : Ind
     }
 }
 
-class ArrInd : Ind
-{
-    IndTag getInd() const
-    {
-        return IndTag.ARR;
-    }
-
-    string indString() const
-    {
-        return "[{static}]";
-    }
-}
-
 class DynArrInd : Ind
 {
     IndTag getInd() const
@@ -138,13 +106,13 @@ class DynArrInd : Ind
 
     string indString() const
     {
-        return "[{dynamic}]";
+        return "[]";
     }
 }
 
 class HashInd : Ind
 {
-    NamedType indexType;
+    Type indexType;
 
     IndTag getInd() const
     {
@@ -163,24 +131,19 @@ class HashInd : Ind
 }
 
 // Ind[irection] type
-class IndType : NamedType
+class IndType : Type
 {
     // This kind of indirection
     const Ind ind;
     // The type this level of indirection is pointing to or working with.
     // So if this type is representing *[][]int, then ind would be PtrInd,
     // and 'type' would be an IndirectionType representing [][]int
-    const NamedType type;
+    const Type type;
 
-    this (Ind ind, NamedType type)
+    this (Ind ind, Type type)
     {
         this.ind = ind;
         this.type = type;
-    }
-
-    bool isIndirection() const
-    {
-        return true;
     }
 
     uint getAlignedSize() const
@@ -198,39 +161,14 @@ class IndType : NamedType
         return PTR_SIZE;
     }
 
-    uint getNumSubparts() const
-    {
-        return 1;
-    }
-
-    uint getOffsetOfSubpart(uint index) const
-    in
-    {
-        assert(index == 0);
-    }
-    body
-    {
-        return 0;
-    }
-
-    Type getTypeOfSubpart(uint index) const
-    in
-    {
-        assert(index == 0);
-    }
-    body
-    {
-        return cast(Type)this;
-    }
-
-    bool isComposition() const
-    {
-        return false;
-    }
-
     string getTypename() const
     {
         return ind.indString() ~ type.getTypename();
+    }
+
+    TypeID getTypeID() const
+    {
+        return TypeID.INDIRECTION;
     }
 
     auto getPointedType() const
@@ -310,6 +248,9 @@ template memoryAlgs(alias aggIndex, alias aggregate)
         return padding;
     }
 
+    // The offset from 0 that the sub component at 'index' would start in bytes
+    // assuming alignment rules. The first component will always be 0, and the
+    // second component would be (sizeof(component(0)) + padding)
     auto getOffsetOfSubpart(uint index)
     {
         if (index == 0)
@@ -321,21 +262,8 @@ template memoryAlgs(alias aggIndex, alias aggregate)
         {
             uint curAlignSize;
             uint curTotalSize;
-            // If the type is a composition, we need only align the type
-            // with the alignment requirements of its largest primitive member
-            if (aggregate.access!(aggIndex)(i).isComposition())
-            {
-                curAlignSize = aggregate.access!(aggIndex)(i)
-                                        .getLargestPrimSize();
-            }
-            // Otherwise, the type is a primitive type, and we just need to
-            // get its total size, which will also be its alignment
-            // requirements
-            else
-            {
-                curAlignSize = aggregate.access!(aggIndex)(i)
-                                        .getAlignedSize();
-            }
+            curAlignSize = aggregate.access!(aggIndex)(i)
+                                    .getLargestPrimSize();
             // Get the total size of the aligned type, which may be different
             // than its alignment requirements
             curTotalSize = aggregate.access!(aggIndex)(i)
@@ -351,23 +279,12 @@ template memoryAlgs(alias aggIndex, alias aggregate)
             totalBytes += curTotalSize;
         }
         uint finalAlignSize;
-        // Any added end padding necessary before the element offset is reached
-        if (aggregate.access!(aggIndex)(index).isComposition())
-        {
-            finalAlignSize = aggregate.access!(aggIndex)(index)
-                                    .getLargestPrimSize();
-        }
-        else
-        {
-            finalAlignSize = aggregate.access!(aggIndex)(index)
-                                    .getAlignedSize();
-        }
+        finalAlignSize = aggregate.access!(aggIndex)(index)
+                                .getLargestPrimSize();
         totalBytes += calcPadding(totalBytes, finalAlignSize);
         return totalBytes;
     }
 
-    // Get the total size of this type if every member is properly aligned
-    // in memory
     auto getAlignedSize()
     {
         if (aggregate.length == 0)
@@ -383,21 +300,8 @@ template memoryAlgs(alias aggIndex, alias aggregate)
             // and the total size of the type when it itself is aligned
             uint curAlignSize;
             uint curTotalSize;
-            // If the type is a composition, we need only align the type
-            // with the alignment requirements of its largest primitive member
-            if (aggregate.access!(aggIndex)(i).isComposition())
-            {
-                curAlignSize = aggregate.access!(aggIndex)(i)
-                                        .getLargestPrimSize();
-            }
-            // Otherwise, the type is a primitive type, and we just need to
-            // get its total size, which will also be its alignment
-            // requirements
-            else
-            {
-                curAlignSize = aggregate.access!(aggIndex)(i)
-                                        .getAlignedSize();
-            }
+            curAlignSize = aggregate.access!(aggIndex)(i)
+                                    .getLargestPrimSize();
             // Get the total size of the aligned type, which may be different
             // than its alignment requirements
             curTotalSize = aggregate.access!(aggIndex)(i)
@@ -427,6 +331,11 @@ template memoryAlgs(alias aggIndex, alias aggregate)
         return totalBytes;
     }
 
+    // The number of bytes that the largest primitive type takes up in a
+    // composed type. Will descend into the type recursively, so if this is
+    // called on a struct that contains structs that contain structs, it will
+    // descend into the deepest parts of the type and find the biggest
+    // primitive out of all of them
     auto getLargestPrimSize()
     {
         uint maxBytes = 0;
@@ -439,13 +348,15 @@ template memoryAlgs(alias aggIndex, alias aggregate)
     }
 }
 
-class TypeTuple : Type
+class TupleType : Type
 {
     const Type[] tuple;
+    const TypeID id;
 
     this (const Type[] tuple)
     {
         this.tuple = tuple;
+        this.id = TypeID.TUPLE;
     }
 
     this (VarTypePair[] typePairs)
@@ -455,7 +366,7 @@ class TypeTuple : Type
         {
             types ~= typePair.getType();
         }
-        this.tuple = types;
+        this(types);
     }
 
     uint getLargestPrimSize() const
@@ -471,6 +382,11 @@ class TypeTuple : Type
     uint getAlignedSize() const
     {
         return memoryAlgs!((a, b) => a[b], tuple).getAlignedSize();
+    }
+
+    TypeID getTypeID() const
+    {
+        return TypeID.TUPLE;
     }
 
     uint getNumSubparts() const
@@ -498,43 +414,66 @@ class TypeTuple : Type
         return cast(Type)tuple[index];
     }
 
-    bool isComposition() const
+    string getTypename() const
     {
-        return true;
-    }
-
-    bool isIndirection() const
-    {
-        return false;
+        string fullname = "";
+        foreach (name; tuple.map!(a => a.getTypename()))
+        {
+            fullname ~= name ~ " ";
+        }
+        return fullname[0..$-1];
     }
 }
 
 unittest
 {
+    struct one
+    {
+        long w;
+        int x;
+        short y;
+        byte z;
+    }
     Type[] types;
     types ~= new Prim_Long();
     types ~= new Prim_Int();
     types ~= new Prim_Short();
     types ~= new Prim_Byte();
-    auto tuple = new TypeTuple(types);
+    auto tuple = new TupleType(types);
     assert(tuple.getPackedSize() == 15);
-    assert(tuple.getAlignedSize() == 16);
-    assert(tuple.getOffsetOfSubpart(0) == 0);
-    assert(tuple.getOffsetOfSubpart(1) == 8);
-    assert(tuple.getOffsetOfSubpart(2) == 12);
-    assert(tuple.getOffsetOfSubpart(3) == 14);
+    assert(tuple.getAlignedSize() == one.sizeof);
+    assert(tuple.getOffsetOfSubpart(0) == one.w.offsetof);
+    assert(tuple.getOffsetOfSubpart(1) == one.x.offsetof);
+    assert(tuple.getOffsetOfSubpart(2) == one.y.offsetof);
+    assert(tuple.getOffsetOfSubpart(3) == one.z.offsetof);
+    struct two
+    {
+        byte w;
+        long x;
+        short y;
+        int z;
+    }
     types = [];
     types ~= new Prim_Byte();
     types ~= new Prim_Long();
     types ~= new Prim_Short();
     types ~= new Prim_Int();
-    tuple = new TypeTuple(types);
+    tuple = new TupleType(types);
     assert(tuple.getPackedSize() == 15);
     assert(tuple.getAlignedSize() == 24);
-    assert(tuple.getOffsetOfSubpart(0) == 0);
-    assert(tuple.getOffsetOfSubpart(1) == 8);
-    assert(tuple.getOffsetOfSubpart(2) == 16);
-    assert(tuple.getOffsetOfSubpart(3) == 20);
+    assert(tuple.getOffsetOfSubpart(0) == two.w.offsetof);
+    assert(tuple.getOffsetOfSubpart(1) == two.x.offsetof);
+    assert(tuple.getOffsetOfSubpart(2) == two.y.offsetof);
+    assert(tuple.getOffsetOfSubpart(3) == two.z.offsetof);
+    struct three
+    {
+        byte w;
+        long x;
+        byte ww;
+        short y;
+        byte www;
+        int z;
+    }
     types = [];
     types ~= new Prim_Byte();
     types ~= new Prim_Long();
@@ -542,26 +481,28 @@ unittest
     types ~= new Prim_Short();
     types ~= new Prim_Byte();
     types ~= new Prim_Int();
-    tuple = new TypeTuple(types);
+    tuple = new TupleType(types);
     assert(tuple.getPackedSize() == 17);
     assert(tuple.getAlignedSize() == 32);
-    assert(tuple.getOffsetOfSubpart(0) == 0);
-    assert(tuple.getOffsetOfSubpart(1) == 8);
-    assert(tuple.getOffsetOfSubpart(2) == 16);
-    assert(tuple.getOffsetOfSubpart(3) == 18);
-    assert(tuple.getOffsetOfSubpart(4) == 20);
-    assert(tuple.getOffsetOfSubpart(5) == 24);
+    assert(tuple.getOffsetOfSubpart(0) == three.w.offsetof);
+    assert(tuple.getOffsetOfSubpart(1) == three.x.offsetof);
+    assert(tuple.getOffsetOfSubpart(2) == three.ww.offsetof);
+    assert(tuple.getOffsetOfSubpart(3) == three.y.offsetof);
+    assert(tuple.getOffsetOfSubpart(4) == three.www.offsetof);
+    assert(tuple.getOffsetOfSubpart(5) == three.z.offsetof);
 }
 
-class Struct : NamedType
+class Struct : Type
 {
     const string typename;
     const VarTypePair[] varTypePairs;
+    const TypeID id;
 
     this (const string typename, const VarTypePair[] varTypePairs)
     {
         this.typename = typename;
         this.varTypePairs = varTypePairs;
+        this.id = TypeID.STRUCT;
     }
 
     string getTypename() const
@@ -583,6 +524,11 @@ class Struct : NamedType
     {
         return memoryAlgs!((a, b) => a[b].type, varTypePairs)
             .getLargestPrimSize();
+    }
+
+    TypeID getTypeID() const
+    {
+        return TypeID.STRUCT;
     }
 
     uint getNumSubparts() const
@@ -611,16 +557,6 @@ class Struct : NamedType
     {
         return cast(Type)varTypePairs[index].type;
     }
-
-    bool isComposition() const
-    {
-        return true;
-    }
-
-    bool isIndirection() const
-    {
-        return false;
-    }
 }
 
 unittest
@@ -640,10 +576,10 @@ unittest
     auto str = new Struct("myStruct", pairs);
     assert(str.getPackedSize() == 15);
     assert(str.getAlignedSize() == first.sizeof);
-    assert(str.getOffsetOfSubpart(0) == 0);
-    assert(str.getOffsetOfSubpart(1) == 8);
-    assert(str.getOffsetOfSubpart(2) == 16);
-    assert(str.getOffsetOfSubpart(3) == 18);
+    assert(str.getOffsetOfSubpart(0) == first.x.offsetof);
+    assert(str.getOffsetOfSubpart(1) == first.w.offsetof);
+    assert(str.getOffsetOfSubpart(2) == first.z.offsetof);
+    assert(str.getOffsetOfSubpart(3) == first.y.offsetof);
     struct complex
     {
         long w;
@@ -663,12 +599,12 @@ unittest
     auto complexStr = new Struct("yourStruct", pairs);
     assert(complexStr.getPackedSize() == 38);
     assert(complexStr.getAlignedSize() == complex.sizeof);
-    assert(complexStr.getOffsetOfSubpart(0) == 0);
-    assert(complexStr.getOffsetOfSubpart(1) == 8);
-    assert(complexStr.getOffsetOfSubpart(2) == 16);
-    assert(complexStr.getOffsetOfSubpart(3) == 24);
-    assert(complexStr.getOffsetOfSubpart(4) == 48);
-    assert(complexStr.getOffsetOfSubpart(5) == 50);
+    assert(complexStr.getOffsetOfSubpart(0) == complex.w.offsetof);
+    assert(complexStr.getOffsetOfSubpart(1) == complex.ww.offsetof);
+    assert(complexStr.getOffsetOfSubpart(2) == complex.x.offsetof);
+    assert(complexStr.getOffsetOfSubpart(3) == complex.f.offsetof);
+    assert(complexStr.getOffsetOfSubpart(4) == complex.y.offsetof);
+    assert(complexStr.getOffsetOfSubpart(5) == complex.z.offsetof);
     struct superComplex
     {
         long w;
@@ -692,27 +628,27 @@ unittest
     auto superComplexStr = new Struct("theirStruct", pairs);
     assert(superComplexStr.getPackedSize() == 114);
     assert(superComplexStr.getAlignedSize() == superComplex.sizeof);
-    assert(superComplexStr.getOffsetOfSubpart(0) == 0);
-    assert(superComplexStr.getOffsetOfSubpart(1) == 8);
-    assert(superComplexStr.getOffsetOfSubpart(2) == 64);
-    assert(superComplexStr.getOffsetOfSubpart(3) == 72);
-    assert(superComplexStr.getOffsetOfSubpart(4) == 80);
-    assert(superComplexStr.getOffsetOfSubpart(5) == 104);
-    assert(superComplexStr.getOffsetOfSubpart(6) == 112);
-    assert(superComplexStr.getOffsetOfSubpart(7) == 168);
+    assert(superComplexStr.getOffsetOfSubpart(0) == superComplex.w.offsetof);
+    assert(superComplexStr.getOffsetOfSubpart(1) == superComplex.c.offsetof);
+    assert(superComplexStr.getOffsetOfSubpart(2) == superComplex.ww.offsetof);
+    assert(superComplexStr.getOffsetOfSubpart(3) == superComplex.x.offsetof);
+    assert(superComplexStr.getOffsetOfSubpart(4) == superComplex.f.offsetof);
+    assert(superComplexStr.getOffsetOfSubpart(5) == superComplex.y.offsetof);
+    assert(superComplexStr.getOffsetOfSubpart(6) == superComplex.cc.offsetof);
+    assert(superComplexStr.getOffsetOfSubpart(7) == superComplex.z.offsetof);
 }
 
 class VariantConstructor
 {
     const string typename;
     const VarTypePair[] consTypes;
-    private const TypeTuple tupleOfConsTypes;
+    private const TupleType tupleOfConsTypes;
 
     this (string typename, VarTypePair[] consTypes)
     {
         this.typename = typename;
         this.consTypes = consTypes;
-        this.tupleOfConsTypes = new TypeTuple(consTypes);
+        this.tupleOfConsTypes = new TupleType(consTypes);
     }
 
     string getTypename() const
@@ -741,15 +677,17 @@ class VariantConstructor
     }
 }
 
-class Variant
+class VariantType : Type
 {
     const string typename;
     const VariantConstructor[] varCons;
+    const TypeID id;
 
     this (const string typename, const VariantConstructor[] varCons)
     {
         this.typename = typename;
         this.varCons = varCons;
+        this.id = TypeID.VARIANT;
     }
 
     string getTypename() const
@@ -772,13 +710,13 @@ class Variant
         return reduce!((a, b) => max(a, b.getLargestPrimSize()))(0, varCons);
     }
 
+    TypeID getTypeID() const
+    {
+        return TypeID.VARIANT;
+    }
+
     uint getOffsetOfTypeInCons(uint consIndex, uint typeIndex)
     {
         return varCons[consIndex].getOffsetOfSubpart(typeIndex);
     }
-}
-
-int main(string[] argv)
-{
-    return 0;
 }

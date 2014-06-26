@@ -1,0 +1,10 @@
+
+
+func main(argv: []string): int
+{
+    return 1 + 2 * (3 + 4) / 5;
+}
+
+func ex(x: const int): (int, int, int)
+{
+}

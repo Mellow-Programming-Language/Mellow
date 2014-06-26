@@ -6,16 +6,14 @@ Program :: ( Variant
 
 Sp :: /\s+/;
 
-StructDef :: #'struct' #Sp StructId TemplateParamList?
-             #"{" (StructEntry | StructFunction)+ #"}";
-StructId :: Identifier;
+StructDef :: #'struct' #Sp Identifier TemplateParamList? StructBody;
+StructBody :: #"{" (StructEntry | StructFunction)+ #"}";
 StructEntry :: VariableTypePair #";";
 StructFunction :: FuncDef;
 
-FuncDef :: #'func' #Sp FuncId FuncDefArgList FuncReturnType FuncBodyBlocks;
-FuncId :: Identifier;
+FuncDef :: #'func' #Sp Identifier FuncDefArgList FuncReturnType FuncBodyBlocks;
 FuncDefArgList :: #"(" (FuncSigArg (#"," FuncSigArg)*)? #")";
-FuncSigArg :: VariableId #":" StorageClass* TypeId;
+FuncSigArg :: Identifier #":" ^StorageClass* TypeId;
 FuncReturnType :: (#":" (TypeId | TypeTuple))?;
 FuncBodyBlocks :: ( BareBlock
                   | (InBlock? OutBlock? ReturnModBlock? BodyBlock)
@@ -27,18 +25,15 @@ BodyBlock :: #"body" BareBlock;
 
 BareBlock :: #"{" Statement* #"}";
 
-StorageClass :: OutClass
-              | InClass
+StorageClass :: RefClass
               | ConstClass
               ;
-OutClass :: #'out' #Sp;
-InClass :: #'in' #Sp;
+RefClass :: #'ref' #Sp;
 ConstClass :: #'const' #Sp;
 
-Variant :: #'variant' #Sp VariantId TemplateParamList? #"{" VariantEntry+ #";"? #"}";
-VariantId :: Identifier;
-VariantEntry :: #"|" TagId VariantVarDeclList? #","?;
-TagId :: Identifier;
+Variant :: #'variant' #Sp Identifier TemplateParamList? VariantBody;
+VariantBody ::  #"{" VariantEntry+ #";"? #"}";
+VariantEntry :: #"|" Identifier VariantVarDeclList? #","?;
 VariantVarDeclList :: #'is' #Sp VariableTypePair (#"," VariableTypePair)*;
 
 Statement :: BareBlock
@@ -70,12 +65,12 @@ ForStmt :: #"for" #"(" ForInit BoolExpr #";" Expr #")" #"{" Statement* #"}";
 ForInit :: DeclTypeInfer | DeclAssignment | AssignmentStmt;
 
 ForeachStmt :: #"foreach" #"(" (Foreach2 | Foreach1) #";" Expr #")" #"{" Statement* #"}";
-Foreach1 :: VariableId;
-Foreach2 :: VariableId #"," VariableId;
+Foreach1 :: Identifier;
+Foreach2 :: Identifier #"," Identifier;
 
 DeclAssignment :: VariableTypePair #"=" Expr #";";
-DeclTypeInfer :: VariableId #":=" Expr #";";
-AssignmentStmt :: VariableId #"=" Expr #";";
+DeclTypeInfer :: Identifier #":=" Expr #";";
+AssignmentStmt :: Identifier #"=" Expr #";";
 
 Declaration :: VariableTypePair #";";
 
@@ -83,15 +78,14 @@ SpawnStmt :: #'spawn' #Sp FuncCall #";";
 
 YieldStmt :: #'yield' #Sp #";";
 
-ChanWrite :: ChanId #"<-=" Expr #";";
-ChanId :: Identifier;
+ChanWrite :: Identifier #"<-=" Expr #";";
 
-ChanReadStmt :: VariableId ChanRead #";";
+ChanReadStmt :: Identifier ChanRead #";";
 
 FuncCallComplex :: MemberAccesses? FuncCall;
-FuncCall :: FuncId #"(" (Expr (#"," Expr)*)? #")";
+FuncCall :: Identifier #"(" (Expr (#"," Expr)*)? #")";
 MemberAccesses :: MemberAccess+;
-MemberAccess :: (FuncCall | Number | VariableId | ParenExpr) #".";
+MemberAccess :: (FuncCall | Number | Identifier | ParenExpr) #".";
 
 BoolExpr :: TrueExpr | FalseExpr | Expr;
 TrueExpr :: #"true";
@@ -114,22 +108,22 @@ MatchCase :: ( MatchIs
 RangeMatch :: NumRangeMatch
             | CharRangeMatch
             ;
-MatchIs :: VariantId (#'is' #Sp #"(" Identifier (#"," Identifier)* #")")?;
+MatchIs :: Identifier (#'is' #Sp #"(" Identifier (#"," Identifier)* #")")?;
 CharMatch :: CharLit;
 StringMatch :: StringLit;
 NumMatch :: Number;
 NumRangeMatch :: Number #".." Number;
 CharRangeMatch :: CharLit #".." CharLit;
 
-VariableTypePair :: VariableId #":" TypeId;
-VariableId :: Identifier;
+VariableTypePair :: Identifier #":" TypeId;
 
-ChanRead :: #"<-" ChanId;
+ChanRead :: #"<-" Identifier;
 
 Sum :: Product (SumOp Product)*;
 Product :: Value (MulOp Value)*;
 Value :: Number
-       | VariableId
+       | Identifier
+       | ParenExpr
        ;
 
 SumOp :: /[+-]/;
@@ -149,34 +143,26 @@ TypeId :: ChanType
         | ArrayType
         | SetType
         | HashType
-        | TypeTuple
         | UserType
         ;
 ChanType :: #"chan" TemplateInstantiation;
-ArrayType :: (PointerDecl | DynArrayDecl)+ (BasicType | TypeTuple | UserType);
+ArrayType :: (PointerDecl | DynArrayDecl) TypeId;
 PointerDecl :: #"*";
 DynArrayDecl :: #"[" #"]";
 SetType :: #"<" #">" BasicType;
 HashType :: #"[" BasicType #"]" TypeId;
 TypeTuple :: #"(" TypeId (#"," TypeId)* #")";
 UserType :: Identifier TemplateInstantiation?;
-BasicType :: Int32
-           | BoolType
-           | Int16
-           | Int8
-           | CharType
-           | Int64
-           | FloatType
-           | DoubleType
+BasicType :: "long"
+           | "int"
+           | "short"
+           | "byte"
+           | "float"
+           | "double"
+           | "char"
+           | "bool"
+           | "string"
            ;
-Int64       :: #"int64"   | #"long";
-Int32       :: #"int32"   | #"int";
-Int16       :: #"int16"   | #"short";
-Int8        :: #"int8"    | #"byte";
-FloatType   :: #"float32" | #"float";
-DoubleType  :: #"float64" | #"double";
-CharType    :: #"char";
-BoolType    :: #"bool";
 
 TemplateInstantiation :: #"!" TemplateParam;
 TemplateParam :: TemplateParamList | TemplateParamSingle;
