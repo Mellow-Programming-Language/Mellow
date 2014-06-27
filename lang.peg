@@ -165,7 +165,5 @@ BasicType :: "long"
            ;
 
 TemplateInstantiation :: #"!" TemplateParam;
-TemplateParam :: TemplateParamList | TemplateParamSingle;
-TemplateParamList :: #"(" TemplateId (#"," TemplateId)* #")";
-TemplateParamSingle :: TemplateId;
-TemplateId :: TypeId;
+TemplateParam :: TemplateParamList | TypeId;
+TemplateParamList :: #"(" TypeId (#"," TypeId)* #")";

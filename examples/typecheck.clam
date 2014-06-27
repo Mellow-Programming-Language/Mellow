@@ -7,4 +7,7 @@ func main(argv: []string): int
 
 func ex(x: const int): (int, int, int)
 {
+    z: []int;
+    y: [string]int;
+    w: chan!(string, [int]string);
 }

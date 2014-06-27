@@ -6,6 +6,7 @@ import std.array;
 import parser;
 import visitor;
 import typeInfo;
+import TypecheckPrintVisitor;
 
 enum Grain
 {
@@ -16,7 +17,9 @@ enum Grain
     PRIM_TYPE,
     STRUCT,
     VARIANT,
-    TUPLE
+    TUPLE,
+    CHAN,
+    TEMPLATE
 }
 
 struct TypeEntry
@@ -33,6 +36,8 @@ struct TypeEntry
         PointerTo pointerTo;
         DynArrOf arrayOf;
         HashWith hashWith;
+        ChanOf chanOf;
+        TemplateInstanceOf templateOf;
     }
 
     this (TypeEntry entry)
@@ -63,6 +68,12 @@ struct TypeEntry
             break;
         case Grain.HASH:
             this.hashWith = entry.hashWith;
+            break;
+        case Grain.CHAN:
+            this.chanOf = entry.chanOf;
+            break;
+        case Grain.TEMPLATE:
+            this.templateOf = entry.templateOf;
             break;
         }
     }
@@ -115,6 +126,18 @@ struct TypeEntry
         this.tag = Grain.HASH;
     }
 
+    this (ChanOf chanOf)
+    {
+        this.chanOf = chanOf;
+        this.tag = Grain.CHAN;
+    }
+
+    this (TemplateInstanceOf templateOf)
+    {
+        this.templateOf = templateOf;
+        this.tag = Grain.TEMPLATE;
+    }
+
     auto getTag()
     {
         return tag;
@@ -140,6 +163,10 @@ struct TypeEntry
             return arrayOf.getTypename();
         case Grain.HASH:
             return hashWith.getTypename();
+        case Grain.CHAN:
+            return chanOf.getTypename();
+        case Grain.TEMPLATE:
+            return templateOf.getTypename();
         }
     }
 }
@@ -169,6 +196,40 @@ static this()
     g_types["char"]   = TypeEntry(new Prim_Char());
     g_types["bool"]   = TypeEntry(new Prim_Bool());
     g_types["string"] = TypeEntry(new Prim_String());
+}
+
+struct TemplateInstanceOf
+{
+    private string instantiatedType;
+    private string templateParamTuple;
+
+    this (string instantiatedType, string templateParamTuple)
+    {
+        this.instantiatedType = instantiatedType;
+        this.templateParamTuple = templateParamTuple;
+    }
+
+    string getInstantiatedType()
+    {
+        return this.instantiatedType;
+    }
+
+    string getTemplateParamTuple()
+    {
+        return this.templateParamTuple;
+    }
+
+    string getTypename()
+    in
+    {
+        assert(instantiatedType in g_types);
+        assert(templateParamTuple in g_types);
+    }
+    body
+    {
+        return g_types[instantiatedType].getTypename()
+            ~ "!(" ~ g_types[templateParamTuple].getTypename() ~ ")";
+    }
 }
 
 struct PointerTo
@@ -212,8 +273,6 @@ struct DynArrOf
     }
     body
     {
-        debug (DEBUG) printAllTypes();
-        debug (DEBUG) writeln("Looking for: ", type);
         return "[]" ~ g_types[type].getTypename();
     }
 
@@ -296,6 +355,19 @@ struct VarTypePair
     string typename;
     string identifier;
     StorageClass[] storeClasses;
+
+    this (string typename, string identifier)
+    {
+        this.typename = typename;
+        this.identifier = identifier;
+    }
+
+    this (string typename, string identifier, StorageClass[] storeClasses)
+    {
+        this.typename = typename;
+        this.identifier = identifier;
+        this.storeClasses = storeClasses;
+    }
 }
 
 class Scope
@@ -439,7 +511,11 @@ class TypeAnnotate : Visitor
     void visit(DeclAssignmentNode node) {}
     void visit(DeclTypeInferNode node) {}
     void visit(AssignmentStmtNode node) {}
-    void visit(DeclarationNode node) {}
+    void visit(DeclarationNode node)
+    {
+        node.children[0].accept(this);
+    }
+
     void visit(SpawnStmtNode node) {}
     void visit(YieldStmtNode node) {}
     void visit(ChanWriteNode node) {}
@@ -473,7 +549,16 @@ class TypeAnnotate : Visitor
     void visit(NumMatchNode node) {}
     void visit(NumRangeMatchNode node) {}
     void visit(CharRangeMatchNode node) {}
-    void visit(VariableTypePairNode node) {}
+    void visit(VariableTypePairNode node)
+    {
+        node.children[0].accept(this);
+        auto varname = curId;
+        node.children[1].accept(this);
+        auto typename = curTypeId;
+        auto pair = VarTypePair(typename, varname);
+        scopes[$-1].typeDecls[varname] = pair;
+    }
+
     void visit(ChanReadNode node) {}
     void visit(SumNode node)
     {
@@ -535,8 +620,16 @@ class TypeAnnotate : Visitor
         node.data["type"] = node.children[0].data["type"];
     }
 
-    void visit(CharLitNode node) {}
-    void visit(StringLitNode node) {}
+    void visit(CharLitNode node)
+    {
+        node.data["type"] = "char";
+    }
+
+    void visit(StringLitNode node)
+    {
+        node.data["type"] = "string";
+    }
+
     void visit(IntNumNode node)
     {
         node.data["type"] = "int";
@@ -560,13 +653,13 @@ class TypeAnnotate : Visitor
 
     void visit(ChanTypeNode node)
     {
-        //auto newChan = new RoughType();
-        //newChan.type = Rough.CHAN;
-        //newChan.name = "chan";
-        //node.children[0].accept(this);
-        //newChan.annotations["templatetype"] = curTypeId[$-1];
-        //curTypeId = curTypeId[0..$-1];
-        //curTypeId ~= newChan;
+        node.children[0].accept(this);
+        auto chan = TypeEntry(ChanOf(curTypeId));
+        curTypeId = chan.getTypename();
+        if (curTypeId !in g_types)
+        {
+            g_types[curTypeId] = chan;
+        }
     }
 
     void visit(ArrayTypeNode node)
@@ -645,9 +738,17 @@ class TypeAnnotate : Visitor
 
     void visit(TemplateParamListNode node)
     {
+        string[] templateTypeTuple;
         foreach (child; node.children)
         {
             child.accept(this);
+            templateTypeTuple ~= curTypeId;
+        }
+        auto tuple = TypeEntry(TupleOf(templateTypeTuple));
+        curTypeId = tuple.getTypename();
+        if (curTypeId !in g_types)
+        {
+            g_types[curTypeId] = tuple;
         }
     }
 
@@ -680,8 +781,9 @@ int main(string[] argv)
     {
         auto vis = new TypeAnnotate();
         vis.visit(cast(ProgramNode)topNode);
-        auto print = new PrintVisitor();
+        auto print = new TypecheckPrintVisitor();
         print.visit(cast(ProgramNode)topNode);
+        printAllTypes();
     }
     else
     {
