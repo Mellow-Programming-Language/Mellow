@@ -378,6 +378,7 @@ class Scope
 class FunctionSignature
 {
     string returnType;
+    string[] templateParamAliases;
     VarTypePair[] params;
 }
 
@@ -752,18 +753,27 @@ class TypeAnnotate : Visitor
         }
     }
 
-    void visit(TemplateParamSingleNode node)
-    {
-        node.children[0].accept(this);
-    }
-
-    void visit(TemplateIdNode node)
-    {
-        node.children[0].accept(this);
-    }
-
     void visit(StructBodyNode node) {}
     void visit(VariantBodyNode node) {}
+    void visit(TemplateTypeParamsNode node)
+    {
+        if (node.children.length > 0)
+        {
+            node.children[0].accept(this);
+        }
+    }
+
+    void visit(TemplateTypeParamListNode node)
+    {
+        string[] typeParams;
+        foreach (child; node.children)
+        {
+            child.accept(this);
+            typeParams ~= curId;
+        }
+        curFunc.templateParamAliases = typeParams;
+    }
+
     void visit(ASTTerminal node) {}
 }
 

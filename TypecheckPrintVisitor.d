@@ -1329,9 +1329,9 @@ class TypecheckPrintVisitor : Visitor
         }
         indent = indent[0..$-2];
     }
-    void visit(TemplateParamSingleNode node)
+    void visit(TemplateTypeParamsNode node)
     {
-        write(indent, "TEMPLATEPARAMSINGLENODE");
+        write(indent, "TEMPLATETYPEPARAMSNODE");
         if ("type" in node.data)
         {
             write(": ", node.data["type"].get!string);
@@ -1344,9 +1344,9 @@ class TypecheckPrintVisitor : Visitor
         }
         indent = indent[0..$-2];
     }
-    void visit(TemplateIdNode node)
+    void visit(TemplateTypeParamListNode node)
     {
-        write(indent, "TEMPLATEIDNODE");
+        write(indent, "TEMPLATETYPEPARAMLISTNODE");
         if ("type" in node.data)
         {
             write(": ", node.data["type"].get!string);
