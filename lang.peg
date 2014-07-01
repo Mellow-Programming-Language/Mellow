@@ -6,12 +6,12 @@ Program :: ( Variant
 
 Sp :: /\s+/;
 
-StructDef :: #'struct' #Sp Identifier TemplateParamList? StructBody;
+StructDef :: #'struct' #Sp Identifier TemplateTypeParams StructBody;
 StructBody :: #"{" (StructEntry | StructFunction)+ #"}";
 StructEntry :: VariableTypePair #";";
 StructFunction :: FuncDef;
 
-FuncDef :: #'func' #Sp Identifier FuncDefArgList FuncReturnType FuncBodyBlocks;
+FuncDef :: #'func' #Sp Identifier TemplateTypeParams FuncDefArgList FuncReturnType FuncBodyBlocks;
 FuncDefArgList :: #"(" (FuncSigArg (#"," FuncSigArg)*)? #")";
 FuncSigArg :: Identifier #":" ^StorageClass* TypeId;
 FuncReturnType :: (#":" (TypeId | TypeTuple))?;
@@ -31,7 +31,7 @@ StorageClass :: RefClass
 RefClass :: #'ref' #Sp;
 ConstClass :: #'const' #Sp;
 
-Variant :: #'variant' #Sp Identifier TemplateParamList? VariantBody;
+Variant :: #'variant' #Sp Identifier TemplateTypeParams VariantBody;
 VariantBody ::  #"{" VariantEntry+ #";"? #"}";
 VariantEntry :: #"|" Identifier VariantVarDeclList? #","?;
 VariantVarDeclList :: #'is' #Sp VariableTypePair (#"," VariableTypePair)*;
@@ -167,3 +167,5 @@ BasicType :: "long"
 TemplateInstantiation :: #"!" TemplateParam;
 TemplateParam :: TemplateParamList | TypeId;
 TemplateParamList :: #"(" TypeId (#"," TypeId)* #")";
+TemplateTypeParams :: TemplateTypeParamList?;
+TemplateTypeParamList :: #"(" Identifier (#"," Identifier)* #")";
