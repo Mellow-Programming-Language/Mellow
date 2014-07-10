@@ -21,7 +21,6 @@ Features
     - Match statement
     - From multiple return
 - Type variants
-    - Basically a cross between structs and tagged unions
     - Support for simple pattern matching on elements
 - "Maybe" types for pointers (or Option?)
     - Also, only maybe. Might drop this if theoretical baggage is too much
@@ -36,10 +35,6 @@ Features
     - Primitive set operations:
         - Set union: setOne <|> setTwo
         - set intersection: setOne <&> setTwo
-- out storage class
-    - Implicitely a reference type, can only be written to
-- in storage class
-    - Implicitely a reference type, can only be read from
 - Optional function contracts:
     - in {}
     - out {}
