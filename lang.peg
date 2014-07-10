@@ -38,67 +38,143 @@ VariantVarDeclList :: #'is' #Sp VariableTypePair (#"," VariableTypePair)*;
 
 Statement :: BareBlock
            | FuncDef
-           | ReturnStmt
+           | (ReturnStmt #";")
            | MatchStmt
            | IfStmt
            | WhileStmt
            | ForStmt
            | ForeachStmt
-           | Declaration
-           | SpawnStmt
-           | YieldStmt
-           | ChanWrite
-           | ChanReadStmt
-           | DeclTypeInfer
-           | ExprStmt
+           | (Declaration #";")
+           | (SpawnStmt #";")
+           | (YieldStmt #";")
+           | (ChanWrite #";")
+           | (ChanReadStmt #";")
+           | (DeclAssignment #";")
+           | (DeclTypeInfer #";")
+           | (AssignmentStmt #";")
+           | (ExprStmt #";")
            ;
 
-ReturnStmt :: #'return' #Sp Expr #";";
+ReturnStmt :: #'return' #Sp BooleanExpr;
 
-IfStmt :: #"if" #"(" BoolExpr #")" BareBlock (ElseIfStmt)* ElseStmt?;
-ElseIfStmt :: #'else' #Sp #"if" #"(" BoolExpr #")" BareBlock;
+IfStmt :: #"if" #"(" BooleanExpr #")" BareBlock (ElseIfStmt)* ElseStmt?;
+ElseIfStmt :: #'else' #Sp #"if" #"(" BooleanExpr #")" BareBlock;
 ElseStmt :: #"else" BareBlock;
 
-WhileStmt :: #"while" #"(" BoolExpr #")" BareBlock;
+WhileStmt :: #"while" #"(" BooleanExpr #")" BareBlock;
 
-ForStmt :: #"for" #"(" ForInit BoolExpr #";" Expr #")" #"{" Statement* #"}";
+ForStmt :: #"for" #"(" ForInit #";" BooleanExpr #";" Expr #")" #"{" Statement* #"}";
 ForInit :: DeclTypeInfer | DeclAssignment | AssignmentStmt;
 
 ForeachStmt :: #"foreach" #"(" (Foreach2 | Foreach1) #";" Expr #")" #"{" Statement* #"}";
 Foreach1 :: Identifier;
 Foreach2 :: Identifier #"," Identifier;
 
-DeclAssignment :: VariableTypePair #"=" Expr #";";
-DeclTypeInfer :: Identifier #":=" Expr #";";
-AssignmentStmt :: Identifier #"=" Expr #";";
+DeclAssignment :: VariableTypePair #"=" BooleanExpr;
+DeclTypeInfer :: Identifier #":=" BooleanExpr;
+AssignmentStmt :: Identifier #"=" BooleanExpr;
 
-Declaration :: VariableTypePair #";";
+Declaration :: VariableTypePair;
 
-SpawnStmt :: #'spawn' #Sp FuncCall #";";
+SpawnStmt :: #'spawn' #Sp FuncCall;
 
-YieldStmt :: #'yield' #Sp #";";
+YieldStmt :: #'yield';
 
-ChanWrite :: Identifier #"<-=" Expr #";";
+ChanWrite :: Identifier #"<-=" Expr;
 
-ChanReadStmt :: Identifier ChanRead #";";
+ChanReadStmt :: Identifier ChanRead;
 
-FuncCallComplex :: MemberAccesses? FuncCall;
-FuncCall :: Identifier #"(" (Expr (#"," Expr)*)? #")";
-MemberAccesses :: MemberAccess+;
-MemberAccess :: (FuncCall | Number | Identifier | ParenExpr) #".";
 
-BoolExpr :: TrueExpr | FalseExpr | Expr;
-TrueExpr :: #"true";
-FalseExpr :: #"false";
+
+
+
+
+
+
+BooleanExpr :: BooleanLiteral
+             | OrTest
+             ;
+BooleanLiteral :: ("true" #Sp)
+                | ("false" #Sp)
+                ;
+OrTest :: AndTest (#"||" AndTest)*;
+AndTest :: NotTest (#"&&" NotTest)*;
+NotTest :: (#"!" NotTest) | ParenBooleanExpr;
+ParenBooleanExpr :: (#"(" BooleanExpr #")")
+                  | Comparison
+                  ;
+Comparison :: Expr (^CompOp Expr)*;
+CompOp :: "<="
+        | ">="
+        | "<"
+        | ">"
+        | "=="
+        | "!="
+        | ('in' #Sp)
+        ;
+Expr :: CommaOp;
+CommaOp :: OrExpr (#"," OrExpr)*;
+OrExpr :: XorExpr (#"|" XorExpr)*;
+XorExpr :: AndExpr (#"^" AndExpr)*;
+AndExpr :: ShiftExpr (#"&" ShiftExpr)*;
+ShiftExpr: SumExpr (("<<" | ">>") SumExpr)*;
+SumExpr :: ProductExpr (("+" | "-") ProductExpr)*;
+ProductExpr :: Value (("*" | "/" | "%") Value)*;
+Value :: ExprCast
+       | ParenExpr
+       | Number
+       | SliceLengthSentinel
+       | ChanRead
+       | Atom
+       ;
+
+ExprCast :: #"cast" #"(" Expr #")";
 
 ParenExpr :: #"(" Expr #")";
-ExprStmt :: Expr #";";
-Expr :: FuncCallComplex
-      | ChanRead
-      | Sum
-      ;
 
-MatchStmt :: #"match" #"(" Expr #")" #"{" MatchCase+ #"}";
+Number :: FloatNum | IntNum;
+CharLit :: /'(?:\\n|\\t|\\r|[^\\])'/;
+StringLit :: /"(?:\\.|[^"\\])*"/;
+IntNum :: /-?[1-9][0-9]*|0/;
+FloatNum :: /-?[0-9]+\.[0-9]+/;
+
+SliceLengthSentinel :: #"$";
+
+ChanRead :: #"<-" Expr;
+
+Atom :: Identifier Trailer?;
+Trailer :: DynArrAccess
+         | FuncCall
+         | MemberAccess
+         ;
+DynArrAccess :: Slicing Trailer?;
+FuncCall :: FuncCallArgList Trailer?;
+MemberAccess :: DotAccess Trailer?;
+Slicing :: #"["
+                ( SingleIndex
+                | IndexRange
+                )
+           #"]"
+           ;
+SingleIndex :: Expr;
+IndexRange :: StartToIndexRange
+            | IndexToEndRange
+            | IndexToIndexRange
+            ;
+StartToIndexRange :: #".." Expr;
+IndexToEndRange :: Expr #"..";
+IndexToIndexRange :: Expr #".." Expr;
+FuncCallArgList :: #"(" (BooleanExpr (#"," BooleanExpr)*)? #")";
+DotAccess :: #"." Atom;
+
+
+
+
+
+
+
+
+MatchStmt :: #"match" #"(" BooleanExpr #")" #"{" MatchCase+ #"}";
 MatchCase :: ( MatchIs
              | StringMatch
              | ^RangeMatch
@@ -125,15 +201,6 @@ Value :: Number
        | Identifier
        | ParenExpr
        ;
-
-SumOp :: /[+-]/;
-MulOp :: /[*\/%]/;
-
-Number :: FloatNum | IntNum;
-CharLit :: /'(?:\\n|\\t|\\r|[^\\])'/;
-StringLit :: /"(?:\\.|[^"\\])*"/;
-IntNum :: /-?[1-9][0-9]*|0/;
-FloatNum :: /-?[0-9]+\.[0-9]+/;
 
 Identifier :: /[a-zA-Z_][a-zA-Z0-9_]*/;
 IdTuple :: #"(" Identifier (#"," Identifier)* #")";
