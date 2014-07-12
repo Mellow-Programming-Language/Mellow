@@ -48,10 +48,6 @@ Statement :: BareBlock
            | (SpawnStmt #";")
            | (YieldStmt #";")
            | (ChanWrite #";")
-           | (ChanReadStmt #";")
-           | (DeclAssignment #";")
-           | (DeclTypeInfer #";")
-           | (AssignmentStmt #";")
            | (ExprStmt #";")
            ;
 
@@ -63,26 +59,28 @@ ElseStmt :: #"else" BareBlock;
 
 WhileStmt :: #"while" #"(" BooleanExpr #")" BareBlock;
 
-ForStmt :: #"for" #"(" ForInit #";" BooleanExpr #";" Expr #")" #"{" Statement* #"}";
-ForInit :: DeclTypeInfer | DeclAssignment | AssignmentStmt;
+ForStmt :: #"for" #"(" ForInit ForConditional ForPostStatement #")"
+           #"{" Statement* #"}";
+ForInit :: ( DeclTypeInfer
+           | DeclAssignment
+           | AssignExisting
+           )?
+           #";"
+           ;
+ForConditional :: BooleanExpr? #";";
+ForPostStatement :: BooleanExpr?;
 
-ForeachStmt :: #"foreach" #"(" (Foreach2 | Foreach1) #";" Expr #")" #"{" Statement* #"}";
-Foreach1 :: Identifier;
-Foreach2 :: Identifier #"," Identifier;
-
-DeclAssignment :: VariableTypePair #"=" BooleanExpr;
-DeclTypeInfer :: Identifier #":=" BooleanExpr;
-AssignmentStmt :: Identifier #"=" BooleanExpr;
+ForeachStmt :: #"foreach" #"(" ForeachArgs #";" BooleanExpr #")"
+               #"{" Statement* #"}";
+ForeachArgs :: Identifier (#"," Identifier)*;
 
 Declaration :: VariableTypePair;
 
 SpawnStmt :: #'spawn' #Sp FuncCall;
 
-YieldStmt :: #'yield';
+YieldStmt :: #'yield' #Sp;
 
-ChanWrite :: Identifier #"<-=" Expr;
-
-ChanReadStmt :: Identifier ChanRead;
+ChanWrite :: Expr #"<-=" Expr;
 
 
 
@@ -91,12 +89,16 @@ ChanReadStmt :: Identifier ChanRead;
 
 
 
-BooleanExpr :: BooleanLiteral
-             | OrTest
-             ;
-BooleanLiteral :: ("true" #Sp)
-                | ("false" #Sp)
-                ;
+BooleanExpr :: CommaOp;
+CommaOp :: AssignmentOp (#"," AssignmentOp)*;
+AssignmentOp :: OrTest
+              | DeclTypeInfer
+              | DeclAssignment
+              | AssignExisting
+              ;
+DeclTypeInfer :: Identifier #":=" OrTest;
+DeclAssignment :: VariableTypePair #"=" OrTest;
+AssignExisting :: Identifier #"=" OrTest;
 OrTest :: AndTest (#"||" AndTest)*;
 AndTest :: NotTest (#"&&" NotTest)*;
 NotTest :: (#"!" NotTest) | ParenBooleanExpr;
@@ -106,27 +108,36 @@ ParenBooleanExpr :: (#"(" BooleanExpr #")")
 Comparison :: Expr (^CompOp Expr)*;
 CompOp :: "<="
         | ">="
-        | "<"
-        | ">"
+        | ('<' #Sp)
+        | ('>' #Sp)
         | "=="
         | "!="
+        | "<|>"
+        | "<&>"
+        | "<^>"
+        | "<->"
+        | "<in>"
         | ('in' #Sp)
         ;
-Expr :: CommaOp;
-CommaOp :: OrExpr (#"," OrExpr)*;
+Expr :: OrExpr;
 OrExpr :: XorExpr (#"|" XorExpr)*;
 XorExpr :: AndExpr (#"^" AndExpr)*;
 AndExpr :: ShiftExpr (#"&" ShiftExpr)*;
 ShiftExpr: SumExpr (("<<" | ">>") SumExpr)*;
 SumExpr :: ProductExpr (("+" | "-") ProductExpr)*;
 ProductExpr :: Value (("*" | "/" | "%") Value)*;
-Value :: ExprCast
+Value :: BooleanLiteral
+       | ExprCast
        | ParenExpr
        | Number
        | SliceLengthSentinel
        | ChanRead
        | Atom
        ;
+
+BooleanLiteral :: ("true" #Sp)
+                | ("false" #Sp)
+                ;
 
 ExprCast :: #"cast" #"(" Expr #")";
 
