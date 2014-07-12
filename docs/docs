@@ -14,12 +14,17 @@ Features
         - This is done terribly, with zero optimizations
         - Transitioning to LLVM would be a wonderful and gigantic effort
     - Statically typed
+    - Simple type inference
     - Interfaces, in the style of Go (static duck typing)
+    - Lambda syntax
     - Simple templating
         - Functions and data structures can be templated over one or more types
         - Not a Turing-complete mess, for better or worse
         - Not as powerful as D
-        - Literally just type templating
+        - Also can take in aliases instead of types, which can be considered
+          a more literal example of the copy-paste template analogy. This
+          allows for passing lambdas to templated functions, like the
+          functional functions 'filter' and 'map'
     - Message passing concurrency system, in the style of Go
         - This is N:1 scheduling, not M:N: Sorry, only one OS thread of
           execution
@@ -49,6 +54,7 @@ Features
           match also operate as alternative syntax for complex if-elsif blocks
     - Maybe type
     - Uniform Function Call Syntax, heavy nod to D
+    - Optional parentheses for function calls when there are no arguments
     - Primitive dynamic arrays that know their length
         - No support for static arrays
     - Primitive associative arrays (hash maps), in the style of D
@@ -78,4 +84,100 @@ Features
       probably not that difficult, but making C able to call Clam code would
       require hand-holding of function signatures to ensure the right thing is
       done, since Clam supports returning tuples
+    - Simple parametric polymorphism
+        - Interfaces can be templated, and so templated code can expect
+          an interface to be implemented by some templated type
+        - This is leveraged by the compiler to provide an interface for users
+          to implement the ability to range over their defined types with
+          'foreach' by implementing a templated interface for their types.
+        - This is leveraged to provide the user with a way to implement
+          the interface expected by the 'in' operator
+    - Assignment is allowed within conditionals for if blocks
+        - This means a variable, whose value is dependent on a condition that
+          also drives the if statement execution, does not need to erroneously
+          live outside of the scope of the if statement just to exist
+        - 'if ((x: uint = y) == z)'
+            - Haven't decided yet what has more precedence. The parens are ugly
+    - If statements and match statements can be used as expressions if the
+      every possible last statement within those statements is written as an
+      expression and each expression returns the same type
 
+Keywords and Operators
+======================
+
+    - if
+    - else if
+    - else
+    - match
+        - case/when (not decided yet)
+        '
+        match (myArray[0] as val) {
+            case 10:
+                writeln("Ten!");
+            case 0 < val < 5:
+                writeln("Is: %d", val);
+            default:
+                writeln("Oh well");
+        }
+        '
+    - struct
+        '
+        struct myStruct {
+            x: uint;
+            y: uint;
+            func this (x: uint, y: uint) {
+                this.x = x;
+                this.y = y;
+            }
+            func mult(): uint {
+                return x * y;
+            }
+        }
+        '
+    - variant
+        '
+        variant Maybe(T) {
+            | so as maybeType: T;
+            | no
+        }
+        '
+    - func  'func myFunc(x: uint): (uint, uint) { return (1, 2); }'
+    - spawn 'spawn myFunc(x, y, z);'
+    - Template instantiation:
+        - ! ("binary") 'Maybe!(int)'
+    - Logical operators:
+        - &&
+        - ||
+        - ! (unary)
+    - Comparison operators:
+        - == 'x == y'
+        - <=
+        - >=
+        - !=
+        - in
+    - Arithmetic operators:
+        - + 'x + y'
+        - -
+        - *
+        - /
+    - Assignment operators:
+        - =  'x = y'
+        - +=
+        - -=
+        - *=
+        - /=
+    - Declare and assign, implies type inference:
+        - := 'x := 2 + 3;'
+    - Channel operators
+        - <-  (channel read)  'x = <- myChan'
+        - <-= (channel write) 'myChan <-= x'
+    - Aggregate data declarations:
+        - myDynamicArray: []uint
+        - myHashWithStringKeysAndUintValues: [string]uint
+        - mySet: <>uint
+    - Lambda function syntax:
+        - lamb, => 'lamb x: int, y: int => x + y'
+        'odds := naturals.filter!(lamb x: int => x % 2 == 1);'
+
+Examples
+========
