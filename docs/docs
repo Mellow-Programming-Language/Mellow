@@ -34,8 +34,8 @@ Features
 * No exceptions
     * No exceptions
 * D-style scope statements
-    * Blocks of code whose execution is deferred to the end of its
-      enclosing function's scope
+    * Blocks of code whose execution is deferred to the end of function it is
+      enclosed within
     * MAYBE: Maybe also could depend on the result of a boolean expression,
       evaluated at the time of potential execution (would require everything
       involved in the expression being valid both in the scope of scope
@@ -196,7 +196,7 @@ Semantics
         ^                         (binop, bitwise XOR)
         &                         (binop, bitwise AND)
         << >>                     (binop, bitwise shift)
-        + -                       (binop, arithmetic sum)
+        + - ~                     (binop, arithmetic sum or concatenate)
         * / %                     (binop, arithmetic mult, div, mod)
         <Literal Value>
 
@@ -218,7 +218,7 @@ Semantics
       of the type expected by the sliceable atom
         * Dynamic arrays must be indexed using a `uint`
         * Associative arrays must be indexed using a value of the type used
-          as the associative array's keys
+          as the keys for the associative array
 * Set operators:
     * union,                `A <|> B`
         * Yields a set containing all elements from both sets
@@ -257,16 +257,48 @@ Semantics
 
     * It is possible to declare a new variable inside the conditional
       component, assigning some expression to the new variable. Note that
-      assignment binds more tightly than everything except the comma
+      assignment binds more loosely than everything except the comma
       operator, so either use the comma operator or use parentheses
       to better communicate intent
 
             if (x := myFunc(), x == 5) {
-                writeln("True: ", x);
+                writeln("x [", x, "]");
+            }
+            else if ((y := myFunc()) == 5) {
+                writeln("Not x [", x, "], but y [", y, "]")
             }
             else {
-                writeln("False: ", x);
+                writeln("Neither of [", x, ", ", y, "]");
             }
+
+* match
+
+        match (<expression> [as <identifier>]) {
+            [
+            when <expression | boolean expression> ::
+                [statement]*
+            ]*
+            [
+            default ::
+                [statement]*
+            ]
+        }
+
+    * Match against the result of some expression. Optionally, bind the result
+      of that expression to an identifier with `as` to be able to use the
+      result of the expression within the match statement itself (if the match
+      is not already over a simple identifier to begin with)
+
+        match (source[0..index] as tok) {
+            when "this" ::
+                writeln("This!");
+            when "that" ::
+                writeln("That!");
+            when tok in ["the other", "nothing at all"] ::
+                writeln("Some!");
+            default ::
+                writeln("Welp!");
+        }
 
 * Assignment is right associative
 
