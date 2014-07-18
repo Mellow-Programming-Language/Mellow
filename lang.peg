@@ -39,11 +39,12 @@ VariantVarDeclList :: #'is' #Sp VariableTypePair (#"," VariableTypePair)*;
 Statement :: BareBlock
            | FuncDef
            | (ReturnStmt #";")
-           | MatchStmt
            | IfStmt
            | WhileStmt
            | ForStmt
            | ForeachStmt
+           | MatchStmtGeneral
+           | MatchStmtVariant
            | (Declaration #";")
            | (SpawnStmt #";")
            | (YieldStmt #";")
@@ -76,7 +77,7 @@ ForeachStmt :: #"foreach" #"(" ForeachArgs #";" BooleanExpr #")"
                ;
 ForeachArgs :: Identifier (#"," Identifier)*;
 
-Declaration :: VariableTypePair;
+Declaration :: VariableTypePair | DeclAssignment | DeclTypeInfer;
 
 SpawnStmt :: #'spawn' #Sp FuncCall;
 
@@ -93,14 +94,22 @@ ChanWrite :: BooleanExpr #"<-=" BooleanExpr;
 
 BooleanExpr :: CommaOp;
 CommaOp :: AssignmentOp (#"," AssignmentOp)*;
-AssignmentOp :: OrTest
+AssignmentOp :: DeclAssignment
               | DeclTypeInfer
-              | DeclAssignment
               | AssignExisting
+              | OrTest
               ;
 DeclTypeInfer :: Identifier #":=" OrTest;
 DeclAssignment :: VariableTypePair #"=" OrTest;
-AssignExisting :: Identifier #"=" OrTest;
+AssignExisting :: Identifier ^AssignExistingOp OrTest;
+AssignExistingOp :: "="
+                  | "+="
+                  | "-="
+                  | "/="
+                  | "*="
+                  | "%="
+                  | "~="
+                  ;
 OrTest :: AndTest (#"||" AndTest)*;
 AndTest :: NotTest (#"&&" NotTest)*;
 NotTest :: (#"!" NotTest) | Comparison;
@@ -125,16 +134,18 @@ AndExpr :: ShiftExpr (#"&" ShiftExpr)*;
 ShiftExpr :: SumExpr (("<<" | ">>") SumExpr)*;
 SumExpr :: ProductExpr (("+" | "-" | "~") ProductExpr)*;
 ProductExpr :: Value (("*" | "/" | "%") Value)*;
-Value :: BooleanLiteral
-       | CharRange
-       | IntRange
-       | ExprCast
-       | ParenExpr
-       | ArrayLiteral
-       | Number
+Value :: (BooleanLiteral Trailer?)
+       | (CharLit Trailer?)
+       | (StringLit Trailer?)
+       | (CharRange Trailer?)
+       | (IntRange Trailer?)
+       | (ExprCast Trailer?)
+       | (ParenExpr Trailer?)
+       | (ArrayLiteral Trailer?)
+       | (Number Trailer?)
        | SliceLengthSentinel
-       | ChanRead
-       | Atom
+       | (ChanRead Trailer?)
+       | (Identifier Trailer?)
        ;
 
 BooleanLiteral :: ("true" #Sp)
@@ -151,8 +162,8 @@ ParenExpr :: #"(" BooleanExpr #")";
 ArrayLiteral :: #"[" Value (#"," Value)* #"]";
 
 Number :: FloatNum | IntNum;
-CharLit :: /'(?:\\n|\\t|\\r|[^\\])'/;
-StringLit :: /"(?:\\.|[^"\\])*"/;
+CharLit :: /'(?:\\.|[^'\\])'/;
+StringLit :: /"(?:\\.|[^"\\])*"/ | /\x60(?:[^\x60]*)\x60/;
 IntNum :: /-?[1-9][0-9]*|0/;
 FloatNum :: /-?[0-9]+\.[0-9]+/;
 
@@ -162,22 +173,24 @@ ChanRead :: #"<-" BooleanExpr;
 
 Atom :: Identifier Trailer?;
 Trailer :: DynArrAccess
+         | TemplateInstanceMaybeTrailer
          | FuncCall
          | MemberAccess
          ;
 DynArrAccess :: Slicing Trailer?;
+TemplateInstanceMaybeTrailer :: TemplateInstantiation Trailer?;
 FuncCall :: FuncCallArgList Trailer?;
 MemberAccess :: DotAccess Trailer?;
 Slicing :: #"["
-                ( SingleIndex
-                | IndexRange
+                ( IndexRange
+                | SingleIndex
                 )
            #"]"
            ;
 SingleIndex :: BooleanExpr;
 IndexRange :: StartToIndexRange
-            | IndexToEndRange
             | IndexToIndexRange
+            | IndexToEndRange
             ;
 StartToIndexRange :: #".." BooleanExpr;
 IndexToEndRange :: BooleanExpr #"..";
@@ -192,11 +205,16 @@ DotAccess :: #"." Atom;
 
 
 
-MatchStmt :: #"match" #"(" MatchedExpression #")" #"{" MatchCase+ #"}";
+MatchStmtGeneral :: #"match" #"(" MatchedExpression #")" #"{" MatchWhen+ #"}";
 MatchedExpression :: BooleanExpr (#"as" Identifier)?;
-MatchCase :: MatchCaseExpr | MatchCaseDefault;
-MatchCaseExpr :: #"when" #Sp BooleanExpr #"::" Statement*;
-MatchCaseDefault :: #"default" #"::" Statement*;
+MatchWhen :: MatchWhenExpr | MatchDefault;
+MatchWhenExpr :: #'when' #Sp BooleanExpr #"::" Statement*;
+MatchDefault :: #"default" #"::" Statement*;
+
+MatchStmtVariant :: #"match" #"(" MatchedExpression #")" #"{" MatchVariant+ #"}";
+MatchVariant :: MatchVariantExpr | MatchDefault;
+MatchVariantExpr :: #"|" MatchVariantConstructor #"::" Statement*;
+MatchVariantConstructor :: Identifier IdTuple?;
 
 VariableTypePair :: Identifier #":" TypeId;
 

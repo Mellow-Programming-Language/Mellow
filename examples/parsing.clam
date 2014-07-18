@@ -4,9 +4,9 @@ func parse(tokenIn: chan!(Token))
     {
         match (tok)
         {
-            L_Paren:
+            | L_Paren ::
                 pass;
-            Integer as (num):
+            | Integer(num) ::
                 pass;
         }
     }
@@ -19,16 +19,16 @@ func tokenize(source: string, tokenOut: chan!(Token))
     {
         match (tok)
         {
-            "(":
-                tokenOut <- Token.L_Paren;
-            ")":
-                tokenOut <- Token.R_Paren;
-            "if":
-                tokenOut <- Token.If;
-            with "^[1-9][0-9]*$".match(tok):
-                tokenOut <- Token.Integer(tok);
-            with "^[a-zA-Z_][a-zA-Z0-9_]*$".match(tok):
-                tokenOut <- Token.Identifier(tok);
+            when "(" ::
+                tokenOut <-= Token.L_Paren;
+            when ")" ::
+                tokenOut <-= Token.R_Paren;
+            when "if" ::
+                tokenOut <-= Token.If;
+            when "^[1-9][0-9]*$".match(tok) ::
+                tokenOut <-= Token.Integer(tok);
+            when "^[a-zA-Z_][a-zA-Z0-9_]*$".match(tok) ::
+                tokenOut <-= Token.Identifier(tok);
         }
     }
 }
@@ -43,15 +43,15 @@ func dumbSplit(source: string): []string
     {
         match (source[index] as ch)
         {
-            with `^\s+$`.match(ch):
+            when `^\s+$`.match(ch) ::
                 index += 1;
-            with ch in ['(', ')', '{', '}', '[', ']', ';', ':', '?', '~']:
-                tokens ~= [ch.to!(string)];
+            when ch in ['(', ')', '{', '}', '[', ']', ';', ':', '?', '~'] ::
+                tokens ~= [ch.to!string];
                 index += 1;
-            with ch in ['`', '"', '\'']:
-                tokens ~= [ch.to!(string)];
+            when ch in ['`', '"', '\''] ::
+                tokens ~= [ch.to!string];
                 index += 1;
-            '<':
+            when '<' ::
                 if (index + 1 < len && source[index+1] in ['=', '-'])
                 {
                     tokens ~= [source[index..index+2]];
@@ -59,10 +59,10 @@ func dumbSplit(source: string): []string
                 }
                 else
                 {
-                    tokens ~= [ch.to!(string)];
+                    tokens ~= [ch.to!string];
                     index += 1;
                 }
-            '>':
+            when '>' ::
                 if (index + 1 < len && source[index+1] == '=')
                 {
                     tokens ~= [source[index..index+2]];
@@ -70,10 +70,10 @@ func dumbSplit(source: string): []string
                 }
                 else
                 {
-                    tokens ~= [ch.to!(string)];
+                    tokens ~= [ch.to!string];
                     index += 1;
                 }
-            with "[a-zA-Z_]".match(ch):
+            when "[a-zA-Z_]".match(ch) ::
                 token := ch.to!string;
                 while (index + 1 < len && "[a-zA-Z0-9_]".match(source[index+1]))
                 {
@@ -82,7 +82,7 @@ func dumbSplit(source: string): []string
                 }
                 tokens ~= token;
                 index += 1;
-            with "[1-9]".match(ch):
+            when "[1-9]".match(ch) ::
                 token := ch.to!string;
                 while (index + 1 < len && "[0-9]".match(source[index+1]))
                 {
