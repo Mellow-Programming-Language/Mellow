@@ -1,6 +1,7 @@
 Program :: ( Variant
            | StructDef
            | FuncDef
+           | InterfaceDef
            )+
            ;
 
@@ -11,7 +12,8 @@ StructBody :: #"{" (StructEntry | StructFunction)+ #"}";
 StructEntry :: VariableTypePair #";";
 StructFunction :: FuncDef;
 
-FuncDef :: #'func' #Sp Identifier TemplateTypeParams FuncDefArgList FuncReturnType FuncBodyBlocks;
+FuncDef :: FuncSignature FuncBodyBlocks;
+FuncSignature :: #'func' #Sp Identifier TemplateTypeParams FuncDefArgList FuncReturnType;
 FuncDefArgList :: #"(" (FuncSigArg (#"," FuncSigArg)*)? #")";
 FuncSigArg :: Identifier #":" ^StorageClass* TypeId;
 FuncReturnType :: (#":" (TypeId | TypeTuple))?;
@@ -20,7 +22,7 @@ FuncBodyBlocks :: ( BareBlock
                   );
 InBlock :: #"in" BareBlock;
 OutBlock :: #"out" BareBlock;
-ReturnModBlock :: #'return' ((#Sp Identifier) | (#"" IdTuple)) BareBlock;
+ReturnModBlock :: #'return' ((#Sp Identifier) | (#"" IdTuple))? BareBlock;
 BodyBlock :: #"body" BareBlock;
 
 BareBlock :: #"{" Statement* #"}";
@@ -32,9 +34,16 @@ RefClass :: #'ref' #Sp;
 ConstClass :: #'const' #Sp;
 
 Variant :: #'variant' #Sp Identifier TemplateTypeParams VariantBody;
-VariantBody ::  #"{" VariantEntry+ #";"? #"}";
+VariantBody ::  #"{" VariantEntry+ #"}";
 VariantEntry :: #"|" Identifier VariantVarDeclList? #","?;
-VariantVarDeclList :: #'is' #Sp VariableTypePair (#"," VariableTypePair)*;
+VariantVarDeclList :: #"(" VariantSubType (#"," VariantSubType)* #")";
+VariantSubType :: VariableTypePair
+                | Identifier
+                ;
+
+InterfaceDef :: #'interface' #Sp Identifier TemplateTypeParams InterfaceBody;
+InterfaceBody :: #"{" InterfaceEntry+ #"}";
+InterfaceEntry :: FuncSignature #";";
 
 Statement :: BareBlock
            | FuncDef
@@ -135,6 +144,7 @@ ShiftExpr :: SumExpr (("<<" | ">>") SumExpr)*;
 SumExpr :: ProductExpr (("+" | "-" | "~") ProductExpr)*;
 ProductExpr :: Value (("*" | "/" | "%") Value)*;
 Value :: (BooleanLiteral Trailer?)
+       | Lambda
        | (CharLit Trailer?)
        | (StringLit Trailer?)
        | (CharRange Trailer?)
@@ -151,6 +161,9 @@ Value :: (BooleanLiteral Trailer?)
 BooleanLiteral :: ("true" #Sp)
                 | ("false" #Sp)
                 ;
+
+Lambda :: #"func" LambdaArgs #"=>" (BareBlock | BooleanExpr);
+LambdaArgs :: #"(" (VariableTypePair (#"," VariableTypePair)*)? #")";
 
 CharRange :: CharLit #".." CharLit;
 IntRange :: IntNum #".." IntNum;
@@ -205,21 +218,27 @@ DotAccess :: #"." Atom;
 
 
 
-MatchStmtGeneral :: #"match" #"(" MatchedExpression #")" #"{" MatchWhen+ #"}";
-MatchedExpression :: BooleanExpr (#"as" Identifier)?;
+MatchStmtGeneral :: #"match" #"(" MatchExpressions #")" #"{" MatchWhen+ #"}";
+MatchExpressions :: (
+                      MatchExpr
+                      (#"," MatchExpr)*
+                    )?
+                     ;
+MatchExpr :: BooleanExpr (#"as" Identifier)?;
 MatchWhen :: MatchWhenExpr | MatchDefault;
 MatchWhenExpr :: #'when' #Sp BooleanExpr #"::" Statement*;
 MatchDefault :: #"default" #"::" Statement*;
 
-MatchStmtVariant :: #"match" #"(" MatchedExpression #")" #"{" MatchVariant+ #"}";
+MatchStmtVariant :: #"match" #"(" MatchExpressions #")" #"{" MatchVariant+ #"}";
 MatchVariant :: MatchVariantExpr | MatchDefault;
 MatchVariantExpr :: #"|" MatchVariantConstructor #"::" Statement*;
-MatchVariantConstructor :: Identifier IdTuple?;
+MatchVariantConstructor :: Identifier VariantIdTuple?;
 
 VariableTypePair :: Identifier #":" TypeId;
 
 Identifier :: /[a-zA-Z_][a-zA-Z0-9_]*/;
 IdTuple :: #"(" Identifier (#"," Identifier)* #")";
+VariantIdTuple :: #"(" VariantSubType (#"," VariantSubType)* #")";
 
 TypeId :: ChanType
         | BasicType

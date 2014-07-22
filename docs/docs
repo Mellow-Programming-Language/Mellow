@@ -15,6 +15,7 @@ Features
     * Transitioning to LLVM would be a wonderful and gigantic effort
 * Statically typed
 * Simple type inference
+* Reference-counted garbage collection
 * Interfaces, in the style of Go (static duck typing)
 * Lambda syntax
 * Simple templating
@@ -140,7 +141,8 @@ Keywords and Operators
             | no
         }
 
-* func  `func myFunc(x: uint): (uint, uint) { return (1, 2); }`
+* func `func myFunc(x: uint): (uint, uint) { return (1, 2); }`
+* func (lambda syntax) `func (x: uint) => x + 1`
 * spawn `spawn myFunc(x, y, z);`
 * Template instantiation:
     * `!` ("binary") `Maybe!(int)`
