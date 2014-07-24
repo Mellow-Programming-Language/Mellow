@@ -187,7 +187,6 @@ Semantics
   preceeding line. If the following line is indented over from the previous
   line, it is considered part of the previous line:
 
-        ,                         (binop, comma)
         =                         (binop, assignment, right-associative)
         ||                        (binop, logical OR)
         &&                        (binop, logical AND)
@@ -259,9 +258,8 @@ Semantics
 
     * It is possible to declare a new variable inside the conditional
       component, assigning some expression to the new variable. Note that
-      assignment binds more loosely than everything except the comma
-      operator, so either use the comma operator or use parentheses
-      to better communicate intent
+      assignment binds more loosely than everything else, so use parentheses
+      to achieve the desired semantics.
 
             if (x := myFunc(), x == 5) {
                 writeln("x [", x, "]");
