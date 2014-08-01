@@ -4,9 +4,9 @@ func parse(tokenIn: chan!(Token))
     {
         match (tok)
         {
-            | L_Paren ::
+            when L_Paren ::
                 pass;
-            | Integer(num) ::
+            when Integer(num) ::
                 pass;
         }
     }

@@ -1,4 +1,4 @@
-Program :: ( Variant
+Program :: ( VariantDef
            | StructDef
            | FuncDef
            | InterfaceDef
@@ -33,12 +33,12 @@ StorageClass :: RefClass
 RefClass :: #'ref' #Sp;
 ConstClass :: #'const' #Sp;
 
-Variant :: #'variant' #Sp Identifier TemplateTypeParams VariantBody;
+VariantDef :: #'variant' #Sp Identifier TemplateTypeParams VariantBody;
 VariantBody ::  #"{" VariantEntry+ #"}";
 VariantEntry :: #"|" Identifier VariantVarDeclList? #","?;
 VariantVarDeclList :: #"(" VariantSubType (#"," VariantSubType)* #")";
 VariantSubType :: VariableTypePair
-                | Identifier
+                | TypeId
                 ;
 
 InterfaceDef :: #'interface' #Sp Identifier TemplateTypeParams InterfaceBody;
@@ -52,64 +52,51 @@ Statement :: BareBlock
            | WhileStmt
            | ForStmt
            | ForeachStmt
-           | MatchStmtGeneral
-           | MatchStmtVariant
+           | MatchStmt
            | (Declaration #";")
+           | (AssignExisting #";")
            | (SpawnStmt #";")
            | (YieldStmt #";")
            | (ChanWrite #";")
-           | (BooleanExpr #";")
+           | (BoolExpr #";")
            ;
 
-ReturnStmt :: #'return' #Sp BooleanExpr;
+ReturnStmt :: #'return' #Sp BoolExpr;
 
-IfStmt :: #"if" #"(" BooleanExpr #")" BareBlock (ElseIfStmt)* ElseStmt?;
-ElseIfStmt :: #'else' #Sp #"if" #"(" BooleanExpr #")" BareBlock;
+IfStmt :: #"if" #"(" CondAssignments BoolExpr #")" BareBlock ElseIfs ElseStmt;
+ElseIfs :: ElseIfStmt*;
+ElseIfStmt :: #'else' #Sp #"if" #"(" BoolExpr #")" BareBlock;
 ElseStmt :: #"else" BareBlock;
 
-WhileStmt :: #"while" #"(" BooleanExpr #")" BareBlock;
+WhileStmt :: #"while" #"(" CondAssignments BoolExpr #")" BareBlock;
 
-ForStmt :: #"for" #"(" ForInit ForConditional ForPostStatement #")"
+ForStmt :: #"for" #"(" ForInit ForConditional ForPostExpression #")"
            #"{" Statement* #"}"
            ;
-ForInit :: ( DeclTypeInfer
-           | DeclAssignment
-           | AssignExisting
-           )?
-           #";"
-           ;
-ForConditional :: BooleanExpr? #";";
-ForPostStatement :: BooleanExpr?;
+ForInit :: Assignment? #";";
+ForConditional :: BoolExpr? #";";
+ForPostExpression :: BoolExpr?;
 
-ForeachStmt :: #"foreach" #"(" ForeachArgs #";" BooleanExpr #")"
+ForeachStmt :: #"foreach" #"(" ForeachArgs #";" BoolExpr #")"
                #"{" Statement* #"}"
                ;
 ForeachArgs :: Identifier (#"," Identifier)*;
 
-Declaration :: VariableTypePair | DeclAssignment | DeclTypeInfer;
+Declaration :: DeclAssignment | DeclTypeInfer | VariableTypePair;
 
-SpawnStmt :: #'spawn' #Sp FuncCall;
+SpawnStmt :: #'spawn' #Sp Identifier FuncCallTrailer;
 
 YieldStmt :: #'yield' #Sp;
 
-ChanWrite :: BooleanExpr #"<-=" BooleanExpr;
+ChanWrite :: BoolExpr #"<-=" BoolExpr;
 
 
 
 
 
-
-
-
-BooleanExpr :: AssignmentOp;
-AssignmentOp :: DeclAssignment
-              | DeclTypeInfer
-              | AssignExisting
-              | OrTest
-              ;
-DeclTypeInfer :: (IdTuple | Identifier) #":=" AssignmentOp;
-DeclAssignment :: (VariableTypePairTuple | VariableTypePair) #"=" AssignmentOp;
-AssignExisting :: (IdTuple | Identifier) ^AssignExistingOp AssignmentOp;
+DeclAssignment :: (VariableTypePairTuple | VariableTypePair) #"=" BoolExpr;
+DeclTypeInfer :: (IdTuple | Identifier) #":=" BoolExpr;
+AssignExisting :: (IdTuple | Identifier) ^AssignExistingOp BoolExpr;
 AssignExistingOp :: "="
                   | "+="
                   | "-="
@@ -118,6 +105,17 @@ AssignExistingOp :: "="
                   | "%="
                   | "~="
                   ;
+Assignment :: DeclAssignment | DeclTypeInfer | AssignExisting;
+CondAssignments :: CondAssign*;
+CondAssign :: Assignment #";";
+
+
+
+
+
+
+
+BoolExpr :: OrTest;
 OrTest :: AndTest (#"||" AndTest)*;
 AndTest :: NotTest (#"&&" NotTest)*;
 NotTest :: (#"!" NotTest) | Comparison;
@@ -128,10 +126,6 @@ CompOp :: "<="
         | ('>' #Sp)
         | "=="
         | "!="
-        | "<|>"
-        | "<&>"
-        | "<^>"
-        | "<->"
         | "<in>"
         | ('in' #Sp)
         ;
@@ -140,13 +134,21 @@ OrExpr :: XorExpr (#"|" XorExpr)*;
 XorExpr :: AndExpr (#"^" AndExpr)*;
 AndExpr :: ShiftExpr (#"&" ShiftExpr)*;
 ShiftExpr :: SumExpr (("<<" | ">>") SumExpr)*;
-SumExpr :: ProductExpr (("+" | "-" | "~") ProductExpr)*;
+SumExpr :: ProductExpr (^SumOp ProductExpr)*;
+SumOp :: "+"
+       | "-"
+       | "~"
+       | "<|>"
+       | "<&>"
+       | "<^>"
+       | "<->"
+       ;
 ProductExpr :: Value (("*" | "/" | "%") Value)*;
 Value :: (BooleanLiteral Trailer?)
        | Lambda
+       | (CharRange Trailer?)
        | (CharLit Trailer?)
        | (StringLit Trailer?)
-       | (CharRange Trailer?)
        | (IntRange Trailer?)
        | (ExprCast Trailer?)
        | (ParenExpr Trailer?)
@@ -161,7 +163,7 @@ BooleanLiteral :: ("true" #Sp)
                 | ("false" #Sp)
                 ;
 
-Lambda :: #"func" LambdaArgs #"=>" (BareBlock | BooleanExpr);
+Lambda :: #"func" LambdaArgs #"=>" (BareBlock | BoolExpr);
 LambdaArgs :: #"(" (VariableTypePair (#"," VariableTypePair)*)? #")";
 
 CharRange :: CharLit #".." CharLit;
@@ -169,7 +171,7 @@ IntRange :: IntNum #".." IntNum;
 
 ExprCast :: #"cast" #"(" TypeId #")";
 
-ParenExpr :: #"(" BooleanExpr #")";
+ParenExpr :: #"(" BoolExpr #")";
 
 ArrayLiteral :: #"[" Value (#"," Value)* #"]";
 
@@ -181,17 +183,17 @@ FloatNum :: /-?[0-9]+\.[0-9]+/;
 
 SliceLengthSentinel :: #"$";
 
-ChanRead :: #"<-" BooleanExpr;
+ChanRead :: #"<-" BoolExpr;
 
 Atom :: Identifier Trailer?;
 Trailer :: DynArrAccess
          | TemplateInstanceMaybeTrailer
-         | FuncCall
+         | FuncCallTrailer
          | MemberAccess
          ;
 DynArrAccess :: Slicing Trailer?;
 TemplateInstanceMaybeTrailer :: TemplateInstantiation Trailer?;
-FuncCall :: FuncCallArgList Trailer?;
+FuncCallTrailer :: FuncCallArgList Trailer?;
 MemberAccess :: DotAccess Trailer?;
 Slicing :: #"["
                 ( IndexRange
@@ -199,15 +201,15 @@ Slicing :: #"["
                 )
            #"]"
            ;
-SingleIndex :: BooleanExpr;
+SingleIndex :: BoolExpr;
 IndexRange :: StartToIndexRange
             | IndexToIndexRange
             | IndexToEndRange
             ;
-StartToIndexRange :: #".." BooleanExpr;
-IndexToEndRange :: BooleanExpr #"..";
-IndexToIndexRange :: BooleanExpr #".." BooleanExpr;
-FuncCallArgList :: #"(" (BooleanExpr (#"," BooleanExpr)*)? #")";
+StartToIndexRange :: #".." BoolExpr;
+IndexToEndRange :: BoolExpr #"..";
+IndexToIndexRange :: BoolExpr #".." BoolExpr;
+FuncCallArgList :: #"(" (BoolExpr (#"," BoolExpr)*)? #")";
 DotAccess :: #"." Atom;
 
 
@@ -216,22 +218,11 @@ DotAccess :: #"." Atom;
 
 
 
-
-MatchStmtGeneral :: #"match" #"(" MatchExpressions #")" #"{" MatchWhen+ #"}";
-MatchExpressions :: (
-                      MatchExpr
-                      (#"," MatchExpr)*
-                    )?
-                     ;
-MatchExpr :: BooleanExpr (#"as" Identifier)?;
+MatchStmt :: #"match" #"(" CondAssignments MatchExpr #")" #"{" MatchWhen+ #"}";
+MatchExpr :: BoolExpr (#'as' #Sp Identifier)?;
 MatchWhen :: MatchWhenExpr | MatchDefault;
-MatchWhenExpr :: #'when' #Sp BooleanExpr #"::" Statement*;
+MatchWhenExpr :: #'when' #Sp BoolExpr #"::" Statement*;
 MatchDefault :: #"default" #"::" Statement*;
-
-MatchStmtVariant :: #"match" #"(" MatchExpressions #")" #"{" MatchVariant+ #"}";
-MatchVariant :: MatchVariantExpr | MatchDefault;
-MatchVariantExpr :: #"|" MatchVariantConstructor #"::" Statement*;
-MatchVariantConstructor :: Identifier VariantIdTuple?;
 
 VariableTypePair :: Identifier #":" TypeId;
 VariableTypePairTuple :: #"(" VariableTypePair (#"," VariableTypePair)* #")";
@@ -268,6 +259,7 @@ BasicType :: "long"
 
 TemplateInstantiation :: #"!" TemplateParam;
 TemplateParam :: TemplateParamList | TypeId;
-TemplateParamList :: #"(" TypeId (#"," TypeId)* #")";
+TemplateParamList :: #"(" TemplateAlias (#"," TemplateAlias)* #")";
+TemplateAlias :: Lambda | TypeId;
 TemplateTypeParams :: TemplateTypeParamList?;
 TemplateTypeParamList :: #"(" Identifier (#"," Identifier)* #")";

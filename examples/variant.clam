@@ -1,19 +1,16 @@
 variant Maybe(T)
 {
-    | So is val: T,
-    | No,
-    ;
+    | So (T)
+    | No
 }
 
 variant Stmt
 {
-    | Assign is lvalue: string, rvalue: Expr,
-    | Decl is type: Type, id: string,
-    | Function is funcName: string, retType: Type, argList: [](Type, string),
-        statements: []Stmt,
-    | Return is retVal: Expr,
-    | IfStmt is boolExpr: Expr, statements: []Stmt, elseifblocks: []ElseifBlock,
-        elseblock: Maybe!(Elseblock),
-    | WhileStmt is boolExpr: Expr, statements: []Stmt,
-    ;
+    | Assign (lvalue: string, rvalue: Expr)
+    | Decl (type: Type, id: string)
+    | Function (funcName: string, retType: Type, argList: []string, statements: []Stmt)
+    | Return (retVal: Expr)
+    | IfStmt (boolExpr: Expr, statements: []Stmt, elseifblocks: []ElseifBlock,
+        elseblock: Maybe!(Elseblock))
+    | WhileStmt (boolExpr: Expr, statements: []Stmt)
 }
