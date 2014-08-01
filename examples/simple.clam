@@ -1,0 +1,15 @@
+func main()
+{
+    a := 0;
+    b := "Hello, world!";
+    c := 'a';
+    d := 1.0;
+    {
+        e := 0;
+    }
+    {
+        e := 0;
+    }
+    e := a + a;
+    return 0 < 2 || 3 == a;
+}
