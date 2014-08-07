@@ -426,19 +426,20 @@ class TypecheckSimple : Visitor
         else
         {
             mixin(populateId(0));
+            auto varName = curId;
             mixin(visitNode(1));
             auto type = node.children[1].data["type"];
             auto searchSymTab = curSymTab;
             while (searchSymTab !is null)
             {
-                if (curId in searchSymTab.syms)
+                if (varName in searchSymTab.syms)
                 {
                     throw new Exception(
-                        curId ~ " already exists in symbol table!");
+                        varName ~ " already exists in symbol table!");
                 }
                 searchSymTab = searchSymTab.parent;
             }
-            curSymTab.syms[curId] = new Symbol(curId, type);
+            curSymTab.syms[varName] = new Symbol(varName, type);
         }
     }
 
