@@ -61,7 +61,7 @@ Statement :: BareBlock
            | (BoolExpr #";")
            ;
 
-ReturnStmt :: #'return' #Sp BoolExpr;
+ReturnStmt :: #'return' #Sp BoolExpr?;
 
 IfStmt :: #"if" #"(" CondAssignments BoolExpr #")" BareBlock ElseIfs ElseStmt;
 ElseIfs :: ElseIfStmt*;
@@ -177,7 +177,7 @@ ArrayLiteral :: #"[" Value (#"," Value)* #"]";
 
 Number :: FloatNum | IntNum;
 CharLit :: /'(?:\\.|[^'\\])'/;
-StringLit :: /"(?:\\.|[^"\\])*"/ | /\x60(?:[^\x60]*)\x60/;
+StringLit :: (/"(?:\\.|[^"\\])*"/ | /\x60(?:[^\x60]*)\x60/)+;
 IntNum :: /-?[1-9][0-9]*|0/;
 FloatNum :: /-?[0-9]+\.[0-9]+/;
 
