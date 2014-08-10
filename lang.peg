@@ -61,7 +61,7 @@ Statement :: BareBlock
            | (BoolExpr #";")
            ;
 
-ReturnStmt :: #'return' #Sp BoolExpr?;
+ReturnStmt :: #'return' (#Sp BoolExpr)?;
 
 IfStmt :: #"if" #"(" CondAssignments BoolExpr #")" BareBlock ElseIfs ElseStmt;
 ElseIfs :: ElseIfStmt*;
