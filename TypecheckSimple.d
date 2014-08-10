@@ -211,7 +211,10 @@ class TypecheckSimple : Visitor
     {
         mixin(tracer("ReturnStmtNode"));
         mixin(passthroughSymtab);
-        mixin(visitNode(0));
+        if (node.children.length > 0)
+        {
+            mixin(visitNode(0));
+        }
     }
 
     void visit(BoolExprNode node)
