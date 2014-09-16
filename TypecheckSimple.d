@@ -8,6 +8,7 @@ import parser;
 import visitor;
 import typeInfo;
 import SymTab;
+import ASTUtils;
 
 enum newSymTab = `curSymTab = new SymTab();
                   node.data["symtab"] = curSymTab;`;

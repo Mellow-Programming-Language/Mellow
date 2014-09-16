@@ -3,3 +3,17 @@ struct Test(T)
     val: T;
     ptr: Maybe!(T);
 }
+
+struct OtherOne
+{
+    val1: []int;
+    val2: <>string;
+    val3: [string][]int;
+}
+
+struct OtherTwo
+{
+    val1: []int;
+    val2: <>string;
+    val3: [string][]int;
+}

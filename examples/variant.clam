@@ -1,16 +1,6 @@
-variant Maybe(T)
+variant Expr
 {
-    | So (T)
-    | No
-}
-
-variant Stmt
-{
-    | Assign (lvalue: string, rvalue: Expr)
-    | Decl (type: Type, id: string)
-    | Function (funcName: string, retType: Type, argList: []string, statements: []Stmt)
-    | Return (retVal: Expr)
-    | IfStmt (boolExpr: Expr, statements: []Stmt, elseifblocks: []ElseifBlock,
-        elseblock: Maybe!(Elseblock))
-    | WhileStmt (boolExpr: Expr, statements: []Stmt)
+    Pass
+    Add (Expr, int)
+    Mult (int, int)
 }
