@@ -390,7 +390,23 @@ class RecordBuilder : Visitor
         }
     }
 
-    auto collectStructs(ASTNode node)
+    private auto collectMultiples(T)(T[] elems)
+    {
+        bool[T] found;
+        bool[T] multiples;
+        foreach (elem; elems)
+        {
+            if (elem in found)
+            {
+                multiples[elem] = true;
+            }
+            found[elem] = true;
+        }
+        return multiples.keys;
+    }
+
+
+    private auto collectStructs(ASTNode node)
     {
         alias searchStructDef = search!(
             a => typeid(a) == typeid(StructDefNode)
@@ -406,13 +422,13 @@ class RecordBuilder : Visitor
         if (names.length != names.uniq.array.length)
         {
             writeln("Multiple definitions:");
-            writeln("  ", names.collectMultiples);
+            writeln("  ", collectMultiples(names));
         }
         writeln(names);
         return structs;
     }
 
-    auto collectVariants(ASTNode node)
+    private auto collectVariants(ASTNode node)
     {
         alias searchStructDef = search!(
             a => typeid(a) == typeid(VariantDefNode)
@@ -428,7 +444,7 @@ class RecordBuilder : Visitor
         if (names.length != names.uniq.array.length)
         {
             writeln("Multiple definitions:");
-            writeln("  ", names.collectMultiples);
+            writeln("  ", collectMultiples(names));
         }
         writeln(names);
         return structs;
@@ -785,21 +801,6 @@ class RecordBuilder : Visitor
     void visit(ASTTerminal node) {}
 }
 
-auto collectMultiples(T)(T[] elems)
-{
-    bool[T] found;
-    bool[T] multiples;
-    foreach (elem; elems)
-    {
-        if (elem in found)
-        {
-            multiples[elem] = true;
-        }
-        found[elem] = true;
-    }
-    return multiples.keys;
-}
-
 int main(string[] argv)
 {
     string line = "";
@@ -829,6 +830,15 @@ int main(string[] argv)
         foreach (variantDef; vis.variantDefs.values)
         {
             variantDef.print();
+            if (variantDef.templateParams.length > 0)
+            {
+                Type*[string] mapping;
+                auto t = new Type();
+                t.tag = TypeEnum.LONG;
+                mapping["T"] = t;
+                variantDef.instantiate(mapping);
+                variantDef.print();
+            }
         }
     }
     else
