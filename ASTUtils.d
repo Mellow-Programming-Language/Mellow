@@ -6,7 +6,6 @@ import std.range;
 import std.array;
 import parser;
 import visitor;
-import typeInfo;
 
 private struct Found
 {

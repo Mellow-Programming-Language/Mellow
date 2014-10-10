@@ -6,7 +6,6 @@ import std.range;
 import std.array;
 import parser;
 import visitor;
-import typeInfo;
 import SymTab;
 import ASTUtils;
 
@@ -405,7 +404,6 @@ class RecordBuilder : Visitor
         return multiples.keys;
     }
 
-
     private auto collectStructs(ASTNode node)
     {
         alias searchStructDef = search!(
@@ -433,14 +431,14 @@ class RecordBuilder : Visitor
         alias searchStructDef = search!(
             a => typeid(a) == typeid(VariantDefNode)
         );
-        auto getStructName(ASTNonTerminal structDef)
+        auto getVariantName(ASTNonTerminal structDef)
         {
             auto idNode = cast(ASTNonTerminal)structDef.children[0];
             return (cast(ASTTerminal)idNode.children[0]).token;
         }
         auto structs = searchStructDef.findAll(node)
                                       .map!(a => cast(ASTNonTerminal)a).array;
-        auto names = structs.map!getStructName.array;
+        auto names = structs.map!getVariantName.array;
         if (names.length != names.uniq.array.length)
         {
             writeln("Multiple definitions:");
@@ -799,51 +797,4 @@ class RecordBuilder : Visitor
     void visit(ChanTypeNode node) {}
     void visit(TypeTupleNode node) {}
     void visit(ASTTerminal node) {}
-}
-
-int main(string[] argv)
-{
-    string line = "";
-    string source = "";
-    while ((line = stdin.readln) !is null)
-    {
-        source ~= line;
-    }
-    auto parser = new Parser(source);
-    auto topNode = parser.parse();
-    if (topNode !is null)
-    {
-        auto vis = new RecordBuilder(cast(ProgramNode)topNode);
-        foreach (structDef; vis.structDefs.values)
-        {
-            structDef.print();
-            if (structDef.templateParams.length > 0)
-            {
-                Type*[string] mapping;
-                auto t = new Type();
-                t.tag = TypeEnum.LONG;
-                mapping["T"] = t;
-                structDef.instantiate(mapping);
-                structDef.print();
-            }
-        }
-        foreach (variantDef; vis.variantDefs.values)
-        {
-            variantDef.print();
-            if (variantDef.templateParams.length > 0)
-            {
-                Type*[string] mapping;
-                auto t = new Type();
-                t.tag = TypeEnum.LONG;
-                mapping["T"] = t;
-                variantDef.instantiate(mapping);
-                variantDef.print();
-            }
-        }
-    }
-    else
-    {
-        writeln("Failed to parse!");
-    }
-    return 0;
 }
