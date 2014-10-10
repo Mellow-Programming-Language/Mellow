@@ -10,6 +10,13 @@ import typeInfo;
 import SymTab;
 import ASTUtils;
 
+// TODO:
+//   In the UserTypeNode visit function, there is an unaddressed bug.
+//
+//   The myriad print() functions in the Type definitions should be converted
+//   to string format() functions that simply build and return a string for
+//   printing.
+
 enum TypeEnum
 {
     LONG,
@@ -68,10 +75,26 @@ struct SetType
 struct AggregateType
 {
     string typeName;
+    Type*[] templateInstantiations;
 
     void print()
     {
         write(typeName);
+        if (templateInstantiations.length == 1)
+        {
+            write("!");
+            templateInstantiations[0].print();
+        }
+        else if (templateInstantiations.length > 1)
+        {
+            write("!(");
+            foreach (instantiation; templateInstantiations)
+            {
+                instantiation.print();
+                write(", ");
+            }
+            write(")");
+        }
     }
 }
 
@@ -110,6 +133,97 @@ struct Type
     }
 }
 
+// This is mixed into the StructType and VariantType instantiate() definitions,
+// as the code is exactly the same for both, but they each need closure access
+// to the "mappings" argument of the instantiate() function, and passing
+// the "mappings" as an argument to this function is silly since it would never
+// change on each recursion, and there doesn't seem to be a way to pass the
+// argument as a const variable without having to cast the constness off when
+// trying to assign pointer values in the mappings back to the member types,
+// which is gross
+mixin template descend()
+{
+    // Recursively descend the type, looking for aggregate entries that
+    // are in the mapping. An aggregate type is defined simply as a string
+    // referring to its actual type, which means it is either referring to
+    // a struct or variant definition, or is a template placeholder.
+    // Even though the parent is null, the case of the top level type
+    // being an aggregate is handled correctly
+    void descend(ref Type* typeMember, Type* typeParent = null)
+    {
+        // Used to know which of the two sides of a hash type we're dealing
+        // with after a descension
+        static index = 0;
+        switch (typeMember.tag)
+        {
+        // If the type is an aggregate, it is either a template placeholder
+        // or not. If it is, and this is the top level call of descend, then
+        // simply update the type member with its new type. If we're in
+        // a recursion of descend, then update the parent's pointer to this
+        // type with the new type
+        case TypeEnum.AGGREGATE:
+            if (typeMember.aggregate.typeName in mappings)
+            {
+                if (typeParent is null)
+                {
+                    typeMember = mappings[typeMember.aggregate.typeName];
+                }
+                else
+                {
+                    switch(typeParent.tag)
+                    {
+                    case TypeEnum.SET:
+                        typeParent.set.setType =
+                            mappings[typeMember.aggregate.typeName];
+                        break;
+                    case TypeEnum.HASH:
+                        switch (index)
+                        {
+                        case 0:
+                            typeParent.hash.keyType =
+                                mappings[typeMember.aggregate.typeName];
+                            break;
+                        default:
+                            typeParent.hash.valueType =
+                                mappings[typeMember.aggregate.typeName];
+                            break;
+                        }
+                        break;
+                    case TypeEnum.ARRAY:
+                        typeParent.array.arrayType =
+                            mappings[typeMember.aggregate.typeName];
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                foreach (ref inner; typeMember.aggregate.templateInstantiations)
+                {
+                    descend(inner);
+                }
+            }
+            break;
+        case TypeEnum.SET:
+            descend(typeMember.set.setType, typeMember);
+            break;
+        case TypeEnum.HASH:
+            index = 0;
+            descend(typeMember.hash.keyType, typeMember);
+            index = 1;
+            descend(typeMember.hash.valueType, typeMember);
+            break;
+        case TypeEnum.ARRAY:
+            descend(typeMember.array.arrayType, typeMember);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 struct StructMember
 {
     string name;
@@ -126,17 +240,48 @@ struct StructMember
 struct StructType
 {
     string name;
+    string[] templateParams;
     StructMember[] members;
 
     void print()
     {
-        writeln("struct ", name, " {");
+        write("struct ", name);
+        if (templateParams.length > 0)
+        {
+             write("(", templateParams.join(", "), ")");
+        }
+        writeln(" {");
         foreach (member; members)
         {
             write("    ");
             member.print;
         }
         writeln("}");
+    }
+
+    // Attempt to replace the template name placeholders with actual types
+    // using a passed name: string -> concrete-type: Type* map
+    void instantiate(Type*[string] mappings)
+    {
+        mixin descend;
+
+        auto missing = mappings.keys.setSymmetricDifference(templateParams);
+        if (missing.walkLength > 0)
+        {
+            "StructType.instantiate(): The passed mapping does not contain\n"
+            "  keys that correspond exactly with the known template parameter\n"
+            "  names. Not attempting to instantiate.\n"
+            "  The missing mappings are: ".writeln;
+            foreach (name; missing)
+            {
+                writeln("  ", name);
+            }
+        }
+        foreach (ref member; members)
+        {
+            descend(member.type);
+        }
+        templateParams = [];
     }
 }
 
@@ -169,11 +314,17 @@ struct VariantMember
 struct VariantType
 {
     string name;
+    string[] templateParams;
     VariantMember[] members;
 
     void print()
     {
-        writeln("variant ", name, " {");
+        write("variant ", name);
+        if (templateParams.length > 0)
+        {
+             write("(", templateParams.join(", "), ")");
+        }
+        writeln(" {");
         foreach (member; members)
         {
             write("    ");
@@ -181,11 +332,40 @@ struct VariantType
         }
         writeln("}");
     }
+
+    // Attempt to replace the template name placeholders with actual types
+    // using a passed name: string -> concrete-type: Type* map
+    void instantiate(Type*[string] mappings)
+    {
+        mixin descend;
+
+        auto missing = mappings.keys.setSymmetricDifference(templateParams);
+        if (missing.walkLength > 0)
+        {
+            "VariantType.instantiate(): The passed mapping does not contain\n"
+            "  keys that correspond exactly with the known template parameter\n"
+            "  names. Not attempting to instantiate.\n"
+            "  The missing mappings are: ".writeln;
+            foreach (name; missing)
+            {
+                writeln("  ", name);
+            }
+        }
+        foreach (ref member; members)
+        {
+            foreach (ref elemType; member.constructorElems)
+            {
+                descend(elemType);
+            }
+        }
+        templateParams = [];
+    }
 }
 
 class RecordBuilder : Visitor
 {
     string id;
+    string[] templateParams;
     Type*[] builderStack;
     StructMember[] structMemberList;
     VariantMember[] variantMemberList;
@@ -193,6 +373,66 @@ class RecordBuilder : Visitor
     bool[string] definedTypes;
     StructType*[string] structDefs;
     VariantType*[string] variantDefs;
+
+    this (ProgramNode node)
+    {
+        auto structs = collectStructs(node);
+        auto variants = collectVariants(node);
+        auto printVisitor = new PrintVisitor();
+        printVisitor.visit(cast(ProgramNode)node);
+        foreach (structDef; structs)
+        {
+            visit(cast(StructDefNode)structDef);
+        }
+        foreach (variantDef; variants)
+        {
+            visit(cast(VariantDefNode)variantDef);
+        }
+    }
+
+    auto collectStructs(ASTNode node)
+    {
+        alias searchStructDef = search!(
+            a => typeid(a) == typeid(StructDefNode)
+        );
+        auto getStructName(ASTNonTerminal structDef)
+        {
+            auto idNode = cast(ASTNonTerminal)structDef.children[0];
+            return (cast(ASTTerminal)idNode.children[0]).token;
+        }
+        auto structs = searchStructDef.findAll(node)
+                                      .map!(a => cast(ASTNonTerminal)a).array;
+        auto names = structs.map!getStructName.array;
+        if (names.length != names.uniq.array.length)
+        {
+            writeln("Multiple definitions:");
+            writeln("  ", names.collectMultiples);
+        }
+        writeln(names);
+        return structs;
+    }
+
+    auto collectVariants(ASTNode node)
+    {
+        alias searchStructDef = search!(
+            a => typeid(a) == typeid(VariantDefNode)
+        );
+        auto getStructName(ASTNonTerminal structDef)
+        {
+            auto idNode = cast(ASTNonTerminal)structDef.children[0];
+            return (cast(ASTTerminal)idNode.children[0]).token;
+        }
+        auto structs = searchStructDef.findAll(node)
+                                      .map!(a => cast(ASTNonTerminal)a).array;
+        auto names = structs.map!getStructName.array;
+        if (names.length != names.uniq.array.length)
+        {
+            writeln("Multiple definitions:");
+            writeln("  ", names.collectMultiples);
+        }
+        writeln(names);
+        return structs;
+    }
 
     void visit(StructDefNode node)
     {
@@ -202,6 +442,12 @@ class RecordBuilder : Visitor
         node.children[2].accept(this);
         auto structDef = new StructType();
         structDef.name = structName;
+        node.children[1].accept(this);
+        if (templateParams.length > 0)
+        {
+            structDef.templateParams = templateParams;
+            templateParams = [];
+        }
         structDef.members = structMemberList;
         structMemberList = [];
         if (structName in structDefs)
@@ -245,6 +491,12 @@ class RecordBuilder : Visitor
         node.children[2].accept(this);
         auto variantDef = new VariantType();
         variantDef.name = variantName;
+        node.children[1].accept(this);
+        if (templateParams.length > 0)
+        {
+            variantDef.templateParams = templateParams;
+            templateParams = [];
+        }
         variantDef.members = variantMemberList;
         variantMemberList = [];
         if (variantName in variantDefs)
@@ -351,6 +603,25 @@ class RecordBuilder : Visitor
         usedTypes[userTypeName] = true;
         auto aggregate = new AggregateType();
         aggregate.typeName = userTypeName;
+        if (node.children.length > 1)
+        {
+            node.children[1].accept(this);
+            // BROKEN BELOW ****************************************************
+            // This code segment assumes that the builder stack was previously
+            // empty before the line "node.children[1].accept(this);" above was
+            // invoked. That invocation populates the builderStack with types
+            // that come from a template instantiation, but this could be a
+            // recursively defined template instantiation, where we're
+            // instantating a templated type that is itself a type used to
+            // instantiate a larger template, and thus, perhaps due to this or
+            // any other failure condition, the builder stack may not be empty
+            // when that line is invoked, so assigning the entire builderStack
+            // to type.templateInstantiations here, and then clearing it, is
+            // clearly broken
+            aggregate.templateInstantiations = builderStack;
+            builderStack = [];
+            // BROKEN ABOVE ****************************************************
+        }
         auto type = new Type();
         type.tag = TypeEnum.AGGREGATE;
         type.aggregate = aggregate;
@@ -360,6 +631,56 @@ class RecordBuilder : Visitor
     void visit(IdentifierNode node)
     {
         id = (cast(ASTTerminal)node.children[0]).token;
+    }
+
+    void visit(TemplateTypeParamsNode node)
+    {
+        if (node.children.length > 0)
+        {
+            node.children[0].accept(this);
+        }
+    }
+
+    void visit(TemplateTypeParamListNode node)
+    {
+        templateParams = [];
+        foreach (child; node.children)
+        {
+            child.accept(this);
+            templateParams ~= id;
+        }
+    }
+
+    void visit(TemplateInstantiationNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(TemplateParamNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(TemplateParamListNode node)
+    {
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(TemplateAliasNode node)
+    {
+        if (typeid(node.children[0]) == typeid(LambdaNode))
+        {
+            "A lambda expression cannot be an instantiator for a templated\n"
+            "  type; a lambda expression can only be the instantiator for a\n"
+            "  templated function".writeln;
+        }
+        else
+        {
+            node.children[0].accept(this);
+        }
     }
 
     void visit(ProgramNode node) {}
@@ -461,12 +782,6 @@ class RecordBuilder : Visitor
     void visit(IdTupleNode node) {}
     void visit(ChanTypeNode node) {}
     void visit(TypeTupleNode node) {}
-    void visit(TemplateInstantiationNode node) {}
-    void visit(TemplateParamNode node) {}
-    void visit(TemplateParamListNode node) {}
-    void visit(TemplateAliasNode node) {}
-    void visit(TemplateTypeParamsNode node) {}
-    void visit(TemplateTypeParamListNode node) {}
     void visit(ASTTerminal node) {}
 }
 
@@ -485,58 +800,6 @@ auto collectMultiples(T)(T[] elems)
     return multiples.keys;
 }
 
-auto collectStructs(ASTNode node)
-{
-    alias searchStructDef = search!(
-        a => typeid(a) == typeid(StructDefNode)
-    );
-    auto getStructName(ASTNonTerminal structDef)
-    {
-        auto idNode = cast(ASTNonTerminal)structDef.children[0];
-        return (cast(ASTTerminal)idNode.children[0]).token;
-    }
-    auto structs = searchStructDef.findAll(node)
-                                  .map!(a => cast(ASTNonTerminal)a).array;
-    auto names = structs.map!getStructName.array;
-    if (names.length != names.uniq.array.length)
-    {
-        writeln("Multiple definitions:");
-        writeln("  ", names.collectMultiples);
-    }
-    writeln(names);
-    return structs;
-}
-
-auto collectVariants(ASTNode node)
-{
-    alias searchStructDef = search!(
-        a => typeid(a) == typeid(VariantDefNode)
-    );
-    auto getStructName(ASTNonTerminal structDef)
-    {
-        auto idNode = cast(ASTNonTerminal)structDef.children[0];
-        return (cast(ASTTerminal)idNode.children[0]).token;
-    }
-    auto structs = searchStructDef.findAll(node)
-                                  .map!(a => cast(ASTNonTerminal)a).array;
-    auto names = structs.map!getStructName.array;
-    if (names.length != names.uniq.array.length)
-    {
-        writeln("Multiple definitions:");
-        writeln("  ", names.collectMultiples);
-    }
-    writeln(names);
-    return structs;
-}
-
-auto getConcrete(ASTNonTerminal[] structDefs)
-{
-    auto nonTerminals = structDefs.map!(a => cast(ASTNonTerminal)a);
-    return nonTerminals.filter!(
-        a => (cast(ASTNonTerminal)a.children[1]).children.length == 0
-    ).array;
-}
-
 int main(string[] argv)
 {
     string line = "";
@@ -549,25 +812,19 @@ int main(string[] argv)
     auto topNode = parser.parse();
     if (topNode !is null)
     {
-        // Do struct processing
-        auto concreteStructs = topNode.collectStructs.getConcrete;
-        auto concreteVariants = topNode.collectVariants.getConcrete;
-        writeln(concreteStructs);
-        writeln(concreteVariants);
-        auto printVisitor = new PrintVisitor();
-        printVisitor.visit(cast(ProgramNode)topNode);
-        auto vis = new RecordBuilder();
-        foreach (structDef; concreteStructs)
-        {
-            vis.visit(cast(StructDefNode)structDef);
-        }
+        auto vis = new RecordBuilder(cast(ProgramNode)topNode);
         foreach (structDef; vis.structDefs.values)
         {
             structDef.print();
-        }
-        foreach (variantDef; concreteVariants)
-        {
-            vis.visit(cast(VariantDefNode)variantDef);
+            if (structDef.templateParams.length > 0)
+            {
+                Type*[string] mapping;
+                auto t = new Type();
+                t.tag = TypeEnum.LONG;
+                mapping["T"] = t;
+                structDef.instantiate(mapping);
+                structDef.print();
+            }
         }
         foreach (variantDef; vis.variantDefs.values)
         {

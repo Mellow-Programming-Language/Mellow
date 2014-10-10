@@ -1,7 +1,7 @@
 struct Test(T)
 {
     val: T;
-    ptr: Maybe!(T);
+    ptr: Maybe!ItWillActuallyBeA!T;
 }
 
 struct OtherOne
