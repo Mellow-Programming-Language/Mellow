@@ -9,6 +9,7 @@ import std.range;
 
 enum TypeEnum
 {
+    VOID,
     LONG,
     INT,
     SHORT,
@@ -22,6 +23,8 @@ enum TypeEnum
     HASH,
     ARRAY,
     AGGREGATE,
+    TUPLE,
+    FUNCPTR,
     STRUCT,
     VARIANT,
 }
@@ -85,6 +88,56 @@ struct AggregateType
             }
             write(")");
         }
+    }
+}
+
+struct TupleType
+{
+    Type*[] types;
+
+    void print()
+    {
+        write("(");
+        foreach (type; types[0..$-1])
+        {
+            type.print();
+            write(", ");
+        }
+        types[$-1].print();
+        write(")");
+    }
+}
+
+// Type representing the value that is a callable function pointer
+struct FuncPtrType
+{
+    // The types of the arguments to the function, in the order they appeared
+    // in the original argument list
+    Type*[] funcArgs;
+    // Even if the return type is a tuple, it's still really only a single type
+    Type* returnType;
+    //Type*[] returnType;
+    // Indicates whether this function pointer is a fat pointer, meaning it
+    // contains not only the pointer to the function, but an environment
+    // pointer to be passed as an argument to the function as well
+    bool isFatPtr;
+
+    // The syntax for function pointers is not yet decided, so this is temporary
+    void print()
+    {
+        write("funcptr((");
+        if (funcArgs.length > 0)
+        {
+            foreach (type; funcArgs[0..$-1])
+            {
+                type.print();
+                write(", ");
+            }
+            funcArgs[$-1].print();
+            write("): ");
+        }
+        returnType.print();
+        write(")");
     }
 }
 
@@ -234,6 +287,8 @@ struct Type
         HashType* hash;
         SetType* set;
         AggregateType* aggregate;
+        TupleType* tuple;
+        FuncPtrType* funcPtr;
         StructType* structDef;
         VariantType* variantDef;
     };
@@ -242,6 +297,7 @@ struct Type
     {
         final switch (tag)
         {
+        case TypeEnum.VOID      : write("void");      break;
         case TypeEnum.LONG      : write("long");      break;
         case TypeEnum.INT       : write("int");       break;
         case TypeEnum.SHORT     : write("short");     break;
@@ -255,6 +311,8 @@ struct Type
         case TypeEnum.HASH      : hash.print();       break;
         case TypeEnum.ARRAY     : array.print();      break;
         case TypeEnum.AGGREGATE : aggregate.print();  break;
+        case TypeEnum.TUPLE     : tuple.print();      break;
+        case TypeEnum.FUNCPTR   : funcPtr.print();    break;
         case TypeEnum.STRUCT    : structDef.print();  break;
         case TypeEnum.VARIANT   : variantDef.print(); break;
         }

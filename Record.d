@@ -28,6 +28,7 @@ class RecordBuilder : Visitor
 
     this (ProgramNode node)
     {
+        writeln("RecordBuilder: this()");
         auto structs = collectStructs(node);
         auto variants = collectVariants(node);
         auto printVisitor = new PrintVisitor();
