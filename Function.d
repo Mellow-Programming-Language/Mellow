@@ -10,6 +10,15 @@ import SymTab;
 import ASTUtils;
 import typedecl;
 
+// CLosures and struct member functions can be implemented in exactly the same
+// way. The 'this' pointer and the environment pointer for closures are
+// identical, as long as the pointer points to a block of memory where each
+// variable is allocated. That is, a struct reference pointer is simply a
+// pointer to memory where each member is allocated sequentially. If the
+// environment pointer follows the same pattern, then the implementation for
+// each is the same, and perhaps building the datastructures for handling them
+// in the compiler can be the same as well
+
 struct FuncBreakout
 {
     string funcName;
@@ -30,7 +39,7 @@ struct FuncBreakout
 struct FuncSig
 {
     // The actual name of the function; that which can be called
-    string name;
+    string funcName;
     // A possibly zero-length list of variables that are closed over, indicating
     // this is a closure function. If the length is zero, the number of
     // arguments to the actual implementation of the function is the number
@@ -45,22 +54,40 @@ struct FuncSig
     // The types of the arguments to the function, in the order they appeared
     // in the original argument list
     Type*[] funcArgs;
-    // The return type can either be a bare type, or a type tuple. This
-    // representation may be changed later, to a more concrete tuple type within
-    // 'Type'
-    Type*[] returnType;
+    // The return type. Since it's a bare type, it can possibly be a tuple of
+    // types
+    Type* returnType;
+}
+
+struct SymbolScope
+{
+    Type*[string] decls;
 }
 
 class FunctionBuilder : Visitor
 {
     string id;
+    FuncBreakout breakouts;
+    FuncSig[] toplevelFuncs;
+    // First index is the function being catered to, second index is the
+    // types that are part of that function's arguments
+    Type*[][] funcArgs;
+    // The higher the index, the deeper the scope
+    SymbolScope[] symbols;
 
     this (ProgramNode node)
     {
         writeln("FunctionBuilder: this()");
-        auto funcs = collectTopLevelFuncs(node);
-        auto printVisitor = new PrintVisitor();
-        printVisitor.visit(cast(ProgramNode)node);
+        breakouts = collectTopLevelFuncs(node);
+        foreach (breakout; breakouts)
+        {
+            FuncSig sig;
+            sig.funcName = breakout.funcName;
+            sig.closureVars = [];
+            sig.memberOf = "";
+            sig.funcArgs = [];
+            sig.returnType = null;
+        }
     }
 
     private auto collectMultiples(T)(T[] elems)
