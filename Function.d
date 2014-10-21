@@ -68,7 +68,6 @@ class FunctionBuilder : Visitor
     this (ProgramNode node)
     {
         builderStack.length++;
-        symbols.length++;
         // Just do function definitions
         auto funcDefs = node.children
                             .filter!(a => typeid(a) == typeid(FuncDefNode));
@@ -95,12 +94,15 @@ class FunctionBuilder : Visitor
 
     void visit(FuncDefNode node)
     {
+        symbols.length++;
         // Visit FuncSignatureNode
         node.children[0].accept(this);
         // Visit FuncBodyBlocksNode
         node.children[1].accept(this);
 
         // Do final put-together here
+
+        symbols.length--;
     }
 
     void visit(FuncSignatureNode node)
