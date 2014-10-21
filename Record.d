@@ -18,13 +18,14 @@ class RecordBuilder : Visitor
 {
     string id;
     string[] templateParams;
-    Type*[] builderStack;
     StructMember[] structMemberList;
     VariantMember[] variantMemberList;
     bool[string] usedTypes;
     bool[string] definedTypes;
     StructType*[string] structDefs;
     VariantType*[string] variantDefs;
+
+    mixin TypeVisitors;
 
     this (ProgramNode node)
     {
@@ -203,97 +204,6 @@ class RecordBuilder : Visitor
         {
             child.accept(this);
         }
-    }
-
-    void visit(TypeIdNode node)
-    {
-        node.children[0].accept(this);
-    }
-
-    void visit(BasicTypeNode node)
-    {
-        auto basicType = (cast(ASTTerminal)node.children[0]).token;
-        auto builder = new Type();
-        final switch (basicType)
-        {
-        case "long"  : builder.tag = TypeEnum.LONG;   break;
-        case "int"   : builder.tag = TypeEnum.INT;    break;
-        case "short" : builder.tag = TypeEnum.SHORT;  break;
-        case "byte"  : builder.tag = TypeEnum.BYTE;   break;
-        case "float" : builder.tag = TypeEnum.FLOAT;  break;
-        case "double": builder.tag = TypeEnum.DOUBLE; break;
-        case "char"  : builder.tag = TypeEnum.CHAR;   break;
-        case "bool"  : builder.tag = TypeEnum.BOOL;   break;
-        case "string": builder.tag = TypeEnum.STRING; break;
-        }
-        builderStack ~= builder;
-    }
-
-    void visit(ArrayTypeNode node)
-    {
-        node.children[0].accept(this);
-        auto array = new ArrayType();
-        array.arrayType = builderStack[$-1];
-        auto type = new Type();
-        type.tag = TypeEnum.ARRAY;
-        type.array = array;
-        builderStack = builderStack[0..$-1] ~ type;
-    }
-
-    void visit(SetTypeNode node)
-    {
-        node.children[0].accept(this);
-        auto set = new SetType();
-        set.setType = builderStack[$-1];
-        auto type = new Type();
-        type.tag = TypeEnum.SET;
-        type.set = set;
-        builderStack = builderStack[0..$-1] ~ type;
-    }
-
-    void visit(HashTypeNode node)
-    {
-        node.children[0].accept(this);
-        node.children[1].accept(this);
-        auto hash = new HashType();
-        hash.keyType = builderStack[$-2];
-        hash.valueType = builderStack[$-1];
-        auto type = new Type();
-        type.tag = TypeEnum.HASH;
-        type.hash = hash;
-        builderStack = builderStack[0..$-2] ~ type;
-    }
-
-    void visit(UserTypeNode node)
-    {
-        node.children[0].accept(this);
-        string userTypeName = id;
-        usedTypes[userTypeName] = true;
-        auto aggregate = new AggregateType();
-        aggregate.typeName = userTypeName;
-        if (node.children.length > 1)
-        {
-            node.children[1].accept(this);
-            // BROKEN BELOW ****************************************************
-            // This code segment assumes that the builder stack was previously
-            // empty before the line "node.children[1].accept(this);" above was
-            // invoked. That invocation populates the builderStack with types
-            // that come from a template instantiation, but this could be a
-            // recursively defined template instantiation, where we're
-            // instantating a templated type that is itself a type used to
-            // instantiate a larger template, and thus, perhaps due to this or
-            // any other failure condition, the builder stack may not be empty
-            // when that line is invoked, so assigning the entire builderStack
-            // to type.templateInstantiations here, and then clearing it, is
-            // clearly broken
-            aggregate.templateInstantiations = builderStack;
-            builderStack = [];
-            // BROKEN ABOVE ****************************************************
-        }
-        auto type = new Type();
-        type.tag = TypeEnum.AGGREGATE;
-        type.aggregate = aggregate;
-        builderStack ~= type;
     }
 
     void visit(IdentifierNode node)

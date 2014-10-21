@@ -19,18 +19,6 @@ import typedecl;
 // each is the same, and perhaps building the datastructures for handling them
 // in the compiler can be the same as well
 
-struct FuncBreakout
-{
-    string funcName;
-    TemplateTypeParamsNode templateParams;
-    FuncDefArgListNode argList;
-    InBlockNode inBlock;
-    OutBlockNode outBlock;
-    ReturnModBlockNode returnModBlock;
-    BodyBlockNode bodyBlock;
-    BareBlockNode bareBlock;
-}
-
 // The 'header' for a function type. Note that a function can be any of the
 // three of being a closure, a struct member function, or neither. A function
 // cannot both be a closure and a struct member function, so there will only
@@ -67,26 +55,24 @@ struct SymbolScope
 class FunctionBuilder : Visitor
 {
     string id;
-    FuncBreakout breakouts;
     FuncSig[] toplevelFuncs;
     // First index is the function being catered to, second index is the
     // types that are part of that function's arguments
     Type*[][] funcArgs;
+    // First index is the function addressed, second is the list of strings
+    // that template that function
+    string[][] templateParams;
     // The higher the index, the deeper the scope
     SymbolScope[] symbols;
 
     this (ProgramNode node)
     {
-        writeln("FunctionBuilder: this()");
-        breakouts = collectTopLevelFuncs(node);
-        foreach (breakout; breakouts)
+        // Just do function definitions
+        auto funcDefs = node.children
+                            .filter!(a => typeid(a) == typeid(FuncDefNode));
+        foreach (funcDef; funcDefs)
         {
-            FuncSig sig;
-            sig.funcName = breakout.funcName;
-            sig.closureVars = [];
-            sig.memberOf = "";
-            sig.funcArgs = [];
-            sig.returnType = null;
+            funcDef.accept(this);
         }
     }
 
@@ -105,70 +91,92 @@ class FunctionBuilder : Visitor
         return multiples.keys;
     }
 
-    private auto collectTopLevelFuncs(ASTNode node)
+    void visit(FuncDefNode node)
     {
-        auto funcDefs = (cast(ASTNonTerminal)node)
-            .children.filter!(a => typeid(a) == typeid(FuncDefNode))
-            .map!(a => cast(FuncDefNode)a);
-        auto funcSigs =
-            funcDefs.map!(a => cast(FuncSignatureNode)(a.children[0]));
-        auto funcBodies =
-            funcDefs.map!(a => cast(FuncBodyBlocksNode)(a.children[1]));
-        FuncBreakout[] breakouts;
-        foreach (sig, bodies; lockstep(funcSigs, funcBodies))
+        // Visit FuncSignatureNode
+        node.children[0].accept(this);
+        // Visit FuncBodyBlocksNode
+        node.children[1].accept(this);
+
+        // Do final put-together here
+    }
+
+    void visit(FuncSignatureNode node)
+    {
+        // Visit IdentifierNode, populate 'id'
+        node.children[0].accept(this);
+        string funcName = id;
+        // Visit TemplateTypeParamsNode
+        node.children[1].accept(this);
+        // Visit FuncDefArgListNode
+        node.children[2].accept(this);
+        // Visit FuncReturnTypeNode
+        node.children[3].accept(this);
+    }
+
+    void visit(IdentifierNode node)
+    {
+        id = (cast(ASTTerminal)node.children[0]).token;
+    }
+
+    void visit(TemplateTypeParamsNode node)
+    {
+        if (node.children.length > 0)
         {
-            auto idNode = cast(ASTNonTerminal)sig.children[0];
-            auto funcName = (cast(ASTTerminal)idNode.children[0]).token;
-            auto templateParams = cast(TemplateTypeParamsNode)(sig.children[1]);
-            auto argList = cast(FuncDefArgListNode)(sig.children[2]);
-            BareBlockNode bareBlock = null;
-            InBlockNode inBlock = null;
-            OutBlockNode outBlock = null;
-            ReturnModBlockNode returnModBlock = null;
-            BodyBlockNode bodyBlock = null;
-            foreach (block; bodies.children)
+            // Visit TemplateTypeParamListNode
+            node.children[0].accept(this);
+        }
+    }
+
+    void visit(TemplateTypeParamListNode node)
+    {
+        templateParams ~= [];
+        foreach (child; node.children)
+        {
+            // Visit IdentifierNode, populate 'id'
+            child.accept(this);
+            templateParams[$-1] ~= id;
+        }
+    }
+
+    void visit(FuncDefArgListNode node)
+    {
+        foreach (child; node.children)
+        {
+            // Visit FuncSigArgNode
+            child.accept(this);
+        }
+    }
+
+    void visit(FuncSigArgNode node)
+    {
+        // Visit IdentifierNode, populate 'id'
+        node.children[0].accept(this);
+        string argName = id;
+        bool refType = false;
+        bool constType = false;
+        if (node.children.length > 2)
+        {
+            foreach (storageClass; node.children[1..$-2])
             {
-                if (auto b = cast(BareBlockNode)block)
+                if (typeid(storageClass) == typeid(RefClassNode))
                 {
-                    bareBlock = b;
+                    refType = true;
                 }
-                else if (auto b = cast(InBlockNode)block)
+                else if (typeid(storageClass) == typeid(ConstClassNode))
                 {
-                    inBlock = b;
-                }
-                else if (auto b = cast(OutBlockNode)block)
-                {
-                    outBlock = b;
-                }
-                else if (auto b = cast(ReturnModBlockNode)block)
-                {
-                    returnModBlock = b;
-                }
-                else if (auto b = cast(BodyBlockNode)block)
-                {
-                    bodyBlock = b;
+                    constType = true;
                 }
             }
-            FuncBreakout breakout;
-            breakout.funcName = funcName;
-            breakout.templateParams = templateParams;
-            breakout.argList = argList;
-            breakout.inBlock = inBlock;
-            breakout.outBlock = outBlock;
-            breakout.returnModBlock = returnModBlock;
-            breakout.bodyBlock = bodyBlock;
-            breakout.bareBlock = bareBlock;
-            breakouts ~= breakout;
         }
-        auto names = breakouts.map!(a => a.funcName).array;
-        if (names.length != names.uniq.array.length)
-        {
-            writeln("Multiple definitions:");
-            writeln("  ", collectMultiples(names));
-        }
-        writeln(names);
-        return breakouts;
     }
+
+    void visit(FuncBodyBlocksNode node)
+    {
+
+    }
+
+    void visit(BareBlockNode node) {}
 
     void visit(StructDefNode node) {}
     void visit(StructBodyNode node) {}
@@ -184,18 +192,11 @@ class FunctionBuilder : Visitor
     void visit(SetTypeNode node) {}
     void visit(HashTypeNode node) {}
     void visit(UserTypeNode node) {}
-    void visit(IdentifierNode node) {}
-    void visit(TemplateTypeParamsNode node) {}
-    void visit(TemplateTypeParamListNode node) {}
     void visit(TemplateInstantiationNode node) {}
     void visit(TemplateParamNode node) {}
     void visit(TemplateParamListNode node) {}
     void visit(TemplateAliasNode node) {}
     void visit(ProgramNode node) {}
-    void visit(FuncDefNode node) {}
-    void visit(FuncSignatureNode node) {}
-    void visit(FuncBodyBlocksNode node) {}
-    void visit(BareBlockNode node) {}
     void visit(StatementNode node) {}
     void visit(ReturnStmtNode node) {}
     void visit(BoolExprNode node) {}
@@ -231,8 +232,6 @@ class FunctionBuilder : Visitor
     void visit(BooleanLiteralNode node) {}
     void visit(CompOpNode node) {}
     void visit(SumOpNode node) {}
-    void visit(FuncDefArgListNode node) {}
-    void visit(FuncSigArgNode node) {}
     void visit(SpNode node) {}
     void visit(StructFunctionNode node) {}
     void visit(FuncReturnTypeNode node) {}
