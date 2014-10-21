@@ -81,11 +81,12 @@ struct AggregateType
         else if (templateInstantiations.length > 1)
         {
             write("!(");
-            foreach (instantiation; templateInstantiations)
+            foreach (instantiation; templateInstantiations[0..$-1])
             {
                 instantiation.print();
                 write(", ");
             }
+            templateInstantiations[$-1].print();
             write(")");
         }
     }
@@ -412,7 +413,8 @@ mixin template descend()
 
 mixin template TypeVisitors()
 {
-    Type*[] builderStack;
+    string[] templateParams;
+    Type*[][] builderStack;
 
     void visit(TypeIdNode node)
     {
@@ -435,29 +437,29 @@ mixin template TypeVisitors()
         case "bool"  : builder.tag = TypeEnum.BOOL;   break;
         case "string": builder.tag = TypeEnum.STRING; break;
         }
-        builderStack ~= builder;
+        builderStack[$-1] ~= builder;
     }
 
     void visit(ArrayTypeNode node)
     {
         node.children[0].accept(this);
         auto array = new ArrayType();
-        array.arrayType = builderStack[$-1];
+        array.arrayType = builderStack[$-1][$-1];
         auto type = new Type();
         type.tag = TypeEnum.ARRAY;
         type.array = array;
-        builderStack = builderStack[0..$-1] ~ type;
+        builderStack[$-1] = builderStack[$-1][0..$-1] ~ type;
     }
 
     void visit(SetTypeNode node)
     {
         node.children[0].accept(this);
         auto set = new SetType();
-        set.setType = builderStack[$-1];
+        set.setType = builderStack[$-1][$-1];
         auto type = new Type();
         type.tag = TypeEnum.SET;
         type.set = set;
-        builderStack = builderStack[0..$-1] ~ type;
+        builderStack[$-1] = builderStack[$-1][0..$-1] ~ type;
     }
 
     void visit(HashTypeNode node)
@@ -465,12 +467,12 @@ mixin template TypeVisitors()
         node.children[0].accept(this);
         node.children[1].accept(this);
         auto hash = new HashType();
-        hash.keyType = builderStack[$-2];
-        hash.valueType = builderStack[$-1];
+        hash.keyType = builderStack[$-1][$-2];
+        hash.valueType = builderStack[$-1][$-1];
         auto type = new Type();
         type.tag = TypeEnum.HASH;
         type.hash = hash;
-        builderStack = builderStack[0..$-2] ~ type;
+        builderStack[$-1] = builderStack[$-1][0..$-2] ~ type;
     }
 
     void visit(UserTypeNode node)
@@ -482,26 +484,64 @@ mixin template TypeVisitors()
         aggregate.typeName = userTypeName;
         if (node.children.length > 1)
         {
+            builderStack.length++;
             node.children[1].accept(this);
-            // BROKEN BELOW ****************************************************
-            // This code segment assumes that the builder stack was previously
-            // empty before the line "node.children[1].accept(this);" above was
-            // invoked. That invocation populates the builderStack with types
-            // that come from a template instantiation, but this could be a
-            // recursively defined template instantiation, where we're
-            // instantating a templated type that is itself a type used to
-            // instantiate a larger template, and thus, perhaps due to this or
-            // any other failure condition, the builder stack may not be empty
-            // when that line is invoked, so assigning the entire builderStack
-            // to type.templateInstantiations here, and then clearing it, is
-            // clearly broken
-            aggregate.templateInstantiations = builderStack;
-            builderStack = [];
-            // BROKEN ABOVE ****************************************************
+            aggregate.templateInstantiations = builderStack[$-1];
+            builderStack.length--;
         }
         auto type = new Type();
         type.tag = TypeEnum.AGGREGATE;
         type.aggregate = aggregate;
-        builderStack ~= type;
+        builderStack[$-1] ~= type;
+    }
+
+    void visit(TemplateTypeParamsNode node)
+    {
+        if (node.children.length > 0)
+        {
+            node.children[0].accept(this);
+        }
+    }
+
+    void visit(TemplateTypeParamListNode node)
+    {
+        templateParams = [];
+        foreach (child; node.children)
+        {
+            child.accept(this);
+            templateParams ~= id;
+        }
+    }
+
+    void visit(TemplateInstantiationNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(TemplateParamNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(TemplateParamListNode node)
+    {
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(TemplateAliasNode node)
+    {
+        if (typeid(node.children[0]) == typeid(LambdaNode))
+        {
+            "A lambda expression cannot be an instantiator for a templated\n"
+            "  type; a lambda expression can only be the instantiator for a\n"
+            "  templated function".writeln;
+        }
+        else
+        {
+            node.children[0].accept(this);
+        }
     }
 }

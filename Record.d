@@ -17,7 +17,6 @@ import typedecl;
 class RecordBuilder : Visitor
 {
     string id;
-    string[] templateParams;
     StructMember[] structMemberList;
     VariantMember[] variantMemberList;
     bool[string] usedTypes;
@@ -36,11 +35,15 @@ class RecordBuilder : Visitor
         printVisitor.visit(cast(ProgramNode)node);
         foreach (structDef; structs)
         {
+            builderStack.length++;
             visit(cast(StructDefNode)structDef);
+            builderStack.length--;
         }
         foreach (variantDef; variants)
         {
+            builderStack.length++;
             visit(cast(VariantDefNode)variantDef);
+            builderStack.length--;
         }
     }
 
@@ -147,9 +150,9 @@ class RecordBuilder : Visitor
         node.children[1].accept(this);
         auto member = StructMember();
         member.name = memberName;
-        member.type = builderStack[$-1];
+        member.type = builderStack[$-1][$-1];
         structMemberList ~= member;
-        builderStack = [];
+        builderStack[$-1] = [];
     }
 
     void visit(VariantDefNode node)
@@ -193,8 +196,8 @@ class RecordBuilder : Visitor
         }
         auto variantMember = VariantMember();
         variantMember.constructorName = constructorName;
-        variantMember.constructorElems = builderStack;
-        builderStack = [];
+        variantMember.constructorElems = builderStack[$-1];
+        builderStack[$-1] = [];
         variantMemberList ~= variantMember;
     }
 
@@ -209,56 +212,6 @@ class RecordBuilder : Visitor
     void visit(IdentifierNode node)
     {
         id = (cast(ASTTerminal)node.children[0]).token;
-    }
-
-    void visit(TemplateTypeParamsNode node)
-    {
-        if (node.children.length > 0)
-        {
-            node.children[0].accept(this);
-        }
-    }
-
-    void visit(TemplateTypeParamListNode node)
-    {
-        templateParams = [];
-        foreach (child; node.children)
-        {
-            child.accept(this);
-            templateParams ~= id;
-        }
-    }
-
-    void visit(TemplateInstantiationNode node)
-    {
-        node.children[0].accept(this);
-    }
-
-    void visit(TemplateParamNode node)
-    {
-        node.children[0].accept(this);
-    }
-
-    void visit(TemplateParamListNode node)
-    {
-        foreach (child; node.children)
-        {
-            child.accept(this);
-        }
-    }
-
-    void visit(TemplateAliasNode node)
-    {
-        if (typeid(node.children[0]) == typeid(LambdaNode))
-        {
-            "A lambda expression cannot be an instantiator for a templated\n"
-            "  type; a lambda expression can only be the instantiator for a\n"
-            "  templated function".writeln;
-        }
-        else
-        {
-            node.children[0].accept(this);
-        }
     }
 
     void visit(ProgramNode node) {}
