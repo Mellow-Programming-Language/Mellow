@@ -59,14 +59,16 @@ class FunctionBuilder : Visitor
     // First index is the function being catered to, second index is the
     // types that are part of that function's arguments
     Type*[][] funcArgs;
-    // First index is the function addressed, second is the list of strings
-    // that template that function
-    string[][] templateParams;
+    string[] templateParams;
     // The higher the index, the deeper the scope
     SymbolScope[] symbols;
 
+    mixin TypeVisitors;
+
     this (ProgramNode node)
     {
+        builderStack.length++;
+        symbols.length++;
         // Just do function definitions
         auto funcDefs = node.children
                             .filter!(a => typeid(a) == typeid(FuncDefNode));
@@ -106,6 +108,7 @@ class FunctionBuilder : Visitor
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         string funcName = id;
+        writeln("FuncName: ", id);
         // Visit TemplateTypeParamsNode
         node.children[1].accept(this);
         // Visit FuncDefArgListNode
@@ -117,26 +120,6 @@ class FunctionBuilder : Visitor
     void visit(IdentifierNode node)
     {
         id = (cast(ASTTerminal)node.children[0]).token;
-    }
-
-    void visit(TemplateTypeParamsNode node)
-    {
-        if (node.children.length > 0)
-        {
-            // Visit TemplateTypeParamListNode
-            node.children[0].accept(this);
-        }
-    }
-
-    void visit(TemplateTypeParamListNode node)
-    {
-        templateParams ~= [];
-        foreach (child; node.children)
-        {
-            // Visit IdentifierNode, populate 'id'
-            child.accept(this);
-            templateParams[$-1] ~= id;
-        }
     }
 
     void visit(FuncDefArgListNode node)
@@ -153,22 +136,28 @@ class FunctionBuilder : Visitor
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         string argName = id;
-        bool refType = false;
-        bool constType = false;
+        // Visit TypeIdNode. Note going out of order here
+        node.children[$-1].accept(this);
+        auto argType = builderStack[$-1][$-1];
+        argType.refType = false;
+        argType.constType = false;
         if (node.children.length > 2)
         {
+            // Visit StorageClassNode
             foreach (storageClass; node.children[1..$-2])
             {
                 if (typeid(storageClass) == typeid(RefClassNode))
                 {
-                    refType = true;
+                    argType.refType = true;
                 }
                 else if (typeid(storageClass) == typeid(ConstClassNode))
                 {
-                    constType = true;
+                    argType.constType = true;
                 }
             }
         }
+        symbols[$-1].decls[id] = argType;
+        writeln(symbols);
     }
 
     void visit(FuncBodyBlocksNode node)
@@ -186,16 +175,6 @@ class FunctionBuilder : Visitor
     void visit(VariantBodyNode node) {}
     void visit(VariantEntryNode node) {}
     void visit(VariantVarDeclListNode node) {}
-    void visit(TypeIdNode node) {}
-    void visit(BasicTypeNode node) {}
-    void visit(ArrayTypeNode node) {}
-    void visit(SetTypeNode node) {}
-    void visit(HashTypeNode node) {}
-    void visit(UserTypeNode node) {}
-    void visit(TemplateInstantiationNode node) {}
-    void visit(TemplateParamNode node) {}
-    void visit(TemplateParamListNode node) {}
-    void visit(TemplateAliasNode node) {}
     void visit(ProgramNode node) {}
     void visit(StatementNode node) {}
     void visit(ReturnStmtNode node) {}

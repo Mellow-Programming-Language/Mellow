@@ -19,7 +19,6 @@ class RecordBuilder : Visitor
     string id;
     StructMember[] structMemberList;
     VariantMember[] variantMemberList;
-    bool[string] usedTypes;
     bool[string] definedTypes;
     StructType*[string] structDefs;
     VariantType*[string] variantDefs;

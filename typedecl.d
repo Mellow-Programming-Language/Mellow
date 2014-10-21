@@ -283,6 +283,8 @@ struct VariantType
 struct Type
 {
     TypeEnum tag;
+    bool refType;
+    bool constType;
     union {
         ArrayType* array;
         HashType* hash;
@@ -479,7 +481,6 @@ mixin template TypeVisitors()
     {
         node.children[0].accept(this);
         string userTypeName = id;
-        usedTypes[userTypeName] = true;
         auto aggregate = new AggregateType();
         aggregate.typeName = userTypeName;
         if (node.children.length > 1)
@@ -499,6 +500,7 @@ mixin template TypeVisitors()
     {
         if (node.children.length > 0)
         {
+            // Visit TemplateTypeParamListNode
             node.children[0].accept(this);
         }
     }
@@ -533,15 +535,6 @@ mixin template TypeVisitors()
 
     void visit(TemplateAliasNode node)
     {
-        if (typeid(node.children[0]) == typeid(LambdaNode))
-        {
-            "A lambda expression cannot be an instantiator for a templated\n"
-            "  type; a lambda expression can only be the instantiator for a\n"
-            "  templated function".writeln;
-        }
-        else
-        {
-            node.children[0].accept(this);
-        }
+        node.children[0].accept(this);
     }
 }

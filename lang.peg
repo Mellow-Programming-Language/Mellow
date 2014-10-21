@@ -83,7 +83,7 @@ Declaration :: DeclAssignment | DeclTypeInfer | VariableTypePair;
 
 SpawnStmt :: #'spawn' #Sp Identifier FuncCallTrailer;
 
-YieldStmt :: #'yield' #Sp;
+YieldStmt :: #'yield' #Sp?;
 
 ChanWrite :: BoolExpr #"<-=" BoolExpr;
 
