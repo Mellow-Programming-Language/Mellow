@@ -10,10 +10,6 @@ import SymTab;
 import ASTUtils;
 import typedecl;
 
-// TODO:
-//   In the UserTypeNode visit function, there is an unaddressed bug.
-//
-
 class RecordBuilder : Visitor
 {
     string id;

@@ -33,10 +33,16 @@ struct ArrayType
 {
     Type* arrayType;
 
-    void print()
+    ArrayType* copy()
     {
-        write("[]");
-        arrayType.print();
+        auto c = new ArrayType();
+        c.arrayType = this.arrayType.copy;
+        return c;
+    }
+
+    string format()
+    {
+        return "[]" ~ arrayType.format();
     }
 }
 
@@ -45,12 +51,17 @@ struct HashType
     Type* keyType;
     Type* valueType;
 
-    void print()
+    HashType* copy()
     {
-        write("[");
-        keyType.print();
-        write("]");
-        valueType.print();
+        auto c = new HashType();
+        c.keyType = this.keyType.copy;
+        c.valueType = this.valueType.copy;
+        return c;
+    }
+
+    string format()
+    {
+        return "[" ~ keyType.format() ~ "]" ~ valueType.format();
     }
 }
 
@@ -58,10 +69,16 @@ struct SetType
 {
     Type* setType;
 
-    void print()
+    SetType* copy()
     {
-        write("<>");
-        setType.print();
+        auto c = new SetType();
+        c.setType = this.setType.copy;
+        return c;
+    }
+
+    string format()
+    {
+        return "<>" ~ setType.format();
     }
 }
 
@@ -70,25 +87,30 @@ struct AggregateType
     string typeName;
     Type*[] templateInstantiations;
 
-    void print()
+    AggregateType* copy()
     {
-        write(typeName);
+        auto c = new AggregateType();
+        c.typeName = this.typeName;
+        c.templateInstantiations = this.templateInstantiations
+                                       .map!(a => a.copy)
+                                       .array;
+        return c;
+    }
+
+    string format()
+    {
+        string str = typeName;
         if (templateInstantiations.length == 1)
         {
-            write("!");
-            templateInstantiations[0].print();
+            str ~= "!" ~ templateInstantiations[0].format();
         }
         else if (templateInstantiations.length > 1)
         {
-            write("!(");
-            foreach (instantiation; templateInstantiations[0..$-1])
-            {
-                instantiation.print();
-                write(", ");
-            }
-            templateInstantiations[$-1].print();
-            write(")");
+            str ~= "!(" ~ templateInstantiations.map!(a => a.format())
+                                                .join(", ");
+            str ~= ")";
         }
+        return str;
     }
 }
 
@@ -96,16 +118,18 @@ struct TupleType
 {
     Type*[] types;
 
-    void print()
+    TupleType* copy()
     {
-        write("(");
-        foreach (type; types[0..$-1])
-        {
-            type.print();
-            write(", ");
-        }
-        types[$-1].print();
-        write(")");
+        auto c = new TupleType();
+        c.types = this.types
+                      .map!(a => a.copy)
+                      .array;
+        return c;
+    }
+
+    string format()
+    {
+        return "(" ~ types.map!(a => a.format()).join(", ") ~ ")";
     }
 }
 
@@ -123,22 +147,28 @@ struct FuncPtrType
     // pointer to be passed as an argument to the function as well
     bool isFatPtr;
 
-    // The syntax for function pointers is not yet decided, so this is temporary
-    void print()
+    FuncPtrType* copy()
     {
-        write("funcptr((");
+        auto c = new FuncPtrType();
+        c.isFatPtr = this.isFatPtr;
+        c.returnType = this.returnType.copy;
+        c.funcArgs = this.funcArgs
+                         .map!(a => a.copy)
+                         .array;
+        return c;
+    }
+
+    // The syntax for function pointers is not yet decided, so this is temporary
+    string format()
+    {
+        string str = "";
+        str ~= "funcptr((";
         if (funcArgs.length > 0)
         {
-            foreach (type; funcArgs[0..$-1])
-            {
-                type.print();
-                write(", ");
-            }
-            funcArgs[$-1].print();
-            write("): ");
+            str ~= funcArgs.map!(a => a.format()).join(", ") ~ "): ";
         }
-        returnType.print();
-        write(")");
+        str ~= returnType.format() ~ ")";
+        return str;
     }
 }
 
@@ -147,11 +177,17 @@ struct StructMember
     string name;
     Type* type;
 
-    void print()
+    StructMember copy()
     {
-        write(name, " : ");
-        type.print();
-        writeln(";");
+        auto c = StructMember();
+        c.name = this.name;
+        c.type = this.type.copy;
+        return c;
+    }
+
+    string format()
+    {
+        return name ~ " : " ~ type.format() ~ ";";
     }
 }
 
@@ -161,20 +197,32 @@ struct StructType
     string[] templateParams;
     StructMember[] members;
 
-    void print()
+    StructType* copy()
     {
-        write("struct ", name);
+        auto c = new StructType();
+        c.name = this.name;
+        c.templateParams = this.templateParams;
+        c.members = this.members
+                        .map!(a => a.copy)
+                        .array;
+        return c;
+    }
+
+    string format()
+    {
+        string str = "";
+        str ~= "struct " ~ name;
         if (templateParams.length > 0)
         {
-             write("(", templateParams.join(", "), ")");
+             str ~= "(" ~ templateParams.join(", ") ~ ")";
         }
-        writeln(" {");
+        str ~= " {\n";
         foreach (member; members)
         {
-            write("    ");
-            member.print;
+            str ~= "    " ~ member.format() ~ "\n";
         }
-        writeln("}");
+        str ~=  "}";
+        return str;
     }
 
     // Attempt to replace the template name placeholders with actual types
@@ -208,24 +256,33 @@ struct VariantMember
     string constructorName;
     Type*[] constructorElems;
 
-    void print()
+    VariantMember copy()
     {
-        write(constructorName);
+        auto c = VariantMember();
+        c.constructorName = this.constructorName;
+        c.constructorElems = this.constructorElems
+                                 .map!(a => a.copy)
+                                 .array;
+        return c;
+    }
+
+    string format()
+    {
+        string str = "";
+        str ~= constructorName;
         if (constructorElems.length > 0)
         {
-            write(" (");
-            constructorElems[0].print();
+            str ~= " (" ~ constructorElems[0].format();
             if (constructorElems.length > 1)
             {
                 foreach (elem; constructorElems[1..$])
                 {
-                    write(", ");
-                    elem.print();
+                    str ~= ", " ~ elem.format();
                 }
             }
-            write(")");
+            str ~= ")";
         }
-        writeln();
+        return str;
     }
 }
 
@@ -235,20 +292,32 @@ struct VariantType
     string[] templateParams;
     VariantMember[] members;
 
-    void print()
+    VariantType* copy()
     {
-        write("variant ", name);
+        auto c = new VariantType();
+        c.name = this.name;
+        c.templateParams = this.templateParams;
+        c.members = this.members
+                        .map!(a => a.copy)
+                        .array;
+        return c;
+    }
+
+    string format()
+    {
+        string str = "";
+        str ~= "variant " ~ name;
         if (templateParams.length > 0)
         {
-             write("(", templateParams.join(", "), ")");
+            str ~= "(" ~ templateParams.join(", ") ~ ")";
         }
-        writeln(" {");
+        str ~= " {\n";
         foreach (member; members)
         {
-            write("    ");
-            member.print;
+            str ~= "    " ~ member.format() ~ "\n";
         }
-        writeln("}");
+        str ~= "}";
+        return str;
     }
 
     // Attempt to replace the template name placeholders with actual types
@@ -296,28 +365,156 @@ struct Type
         VariantType* variantDef;
     };
 
-    void print()
+    Type* copy()
     {
+        auto c = new Type();
+        c.tag = this.tag;
+        c.refType = this.refType;
+        c.constType = this.constType;
         final switch (tag)
         {
-        case TypeEnum.VOID      : write("void");      break;
-        case TypeEnum.LONG      : write("long");      break;
-        case TypeEnum.INT       : write("int");       break;
-        case TypeEnum.SHORT     : write("short");     break;
-        case TypeEnum.BYTE      : write("byte");      break;
-        case TypeEnum.FLOAT     : write("float");     break;
-        case TypeEnum.DOUBLE    : write("double");    break;
-        case TypeEnum.CHAR      : write("char");      break;
-        case TypeEnum.BOOL      : write("bool");      break;
-        case TypeEnum.STRING    : write("string");    break;
-        case TypeEnum.SET       : set.print();        break;
-        case TypeEnum.HASH      : hash.print();       break;
-        case TypeEnum.ARRAY     : array.print();      break;
-        case TypeEnum.AGGREGATE : aggregate.print();  break;
-        case TypeEnum.TUPLE     : tuple.print();      break;
-        case TypeEnum.FUNCPTR   : funcPtr.print();    break;
-        case TypeEnum.STRUCT    : structDef.print();  break;
-        case TypeEnum.VARIANT   : variantDef.print(); break;
+        case TypeEnum.VOID:
+        case TypeEnum.LONG:
+        case TypeEnum.INT:
+        case TypeEnum.SHORT:
+        case TypeEnum.BYTE:
+        case TypeEnum.FLOAT:
+        case TypeEnum.DOUBLE:
+        case TypeEnum.CHAR:
+        case TypeEnum.BOOL:
+        case TypeEnum.STRING:
+            break;
+        case TypeEnum.SET:
+            c.set = this.set.copy;
+            break;
+        case TypeEnum.HASH:
+            c.hash = this.hash.copy;
+            break;
+        case TypeEnum.ARRAY:
+            c.array = this.array.copy;
+            break;
+        case TypeEnum.TUPLE:
+            c.tuple = this.tuple.copy;
+            break;
+        case TypeEnum.FUNCPTR:
+            c.funcPtr = this.funcPtr.copy;
+            break;
+        case TypeEnum.STRUCT:
+            c.structDef = this.structDef.copy;
+            break;
+        case TypeEnum.VARIANT:
+            c.variantDef = this.variantDef.copy;
+            break;
+        case TypeEnum.AGGREGATE:
+            c.aggregate = this.aggregate.copy;
+            break;
+        }
+        return c;
+    }
+
+    string format()
+    {
+        string str = "";
+        if (constType)
+        {
+            str ~= "const ";
+        }
+        if (refType)
+        {
+            str ~= "ref ";
+        }
+        final switch (tag)
+        {
+        case TypeEnum.VOID      : return str ~ "void";
+        case TypeEnum.LONG      : return str ~ "long";
+        case TypeEnum.INT       : return str ~ "int";
+        case TypeEnum.SHORT     : return str ~ "short";
+        case TypeEnum.BYTE      : return str ~ "byte";
+        case TypeEnum.FLOAT     : return str ~ "float";
+        case TypeEnum.DOUBLE    : return str ~ "double";
+        case TypeEnum.CHAR      : return str ~ "char";
+        case TypeEnum.BOOL      : return str ~ "bool";
+        case TypeEnum.STRING    : return str ~ "string";
+        case TypeEnum.SET       : return str ~ set.format();
+        case TypeEnum.HASH      : return str ~ hash.format();
+        case TypeEnum.ARRAY     : return str ~ array.format();
+        case TypeEnum.AGGREGATE : return str ~ aggregate.format();
+        case TypeEnum.TUPLE     : return str ~ tuple.format();
+        case TypeEnum.FUNCPTR   : return str ~ funcPtr.format();
+        case TypeEnum.STRUCT    : return str ~ structDef.format();
+        case TypeEnum.VARIANT   : return str ~ variantDef.format();
+        }
+    }
+
+    bool opEquals(const Type o) const
+    {
+        if (constType != o.constType
+            || refType != o.refType
+            || tag != o.tag)
+        {
+            return false;
+        }
+        final switch (tag)
+        {
+        case TypeEnum.VOID:
+        case TypeEnum.LONG:
+        case TypeEnum.INT:
+        case TypeEnum.SHORT:
+        case TypeEnum.BYTE:
+        case TypeEnum.FLOAT:
+        case TypeEnum.DOUBLE:
+        case TypeEnum.CHAR:
+        case TypeEnum.BOOL:
+        case TypeEnum.STRING:
+            return true;
+        case TypeEnum.SET:
+            return set.setType == o.set.setType;
+        case TypeEnum.HASH:
+            return hash.keyType == o.hash.keyType
+                && hash.valueType == o.hash.valueType;
+        case TypeEnum.ARRAY:
+            return array.arrayType == o.array.arrayType;
+        case TypeEnum.TUPLE:
+            return tuple.types.length == o.tuple.types.length
+                && zip(tuple.types, o.tuple.types)
+                  .map!(a => a[0] == a[1])
+                  .reduce!((a, b) => true == a && a == b);
+        case TypeEnum.FUNCPTR:
+            return funcPtr.isFatPtr == o.funcPtr.isFatPtr
+                && funcPtr.returnType == o.funcPtr.returnType
+                && funcPtr.funcArgs.length == o.funcPtr.funcArgs.length
+                && zip(funcPtr.funcArgs,
+                       o.funcPtr.funcArgs)
+                  .map!(a => a[0] == a[1])
+                  .reduce!((a, b) => true == a && a == b);
+        case TypeEnum.STRUCT:
+            return structDef.name == o.structDef.name
+                && structDef.members.length == o.structDef.members.length
+                && zip(structDef.members,
+                       o.structDef.members)
+                  .map!(a => a[0].type == a[1].type)
+                  .reduce!((a, b) => true == a && a == b);
+        case TypeEnum.VARIANT:
+            return variantDef.name == o.variantDef.name
+                && zip(variantDef.members,
+                       o.variantDef.members)
+                  .map!(a => a[0].constructorName == a[1].constructorName
+                          && a[0].constructorElems.length
+                             == a[1].constructorElems.length
+                          && zip(a[0].constructorElems, a[1].constructorElems)
+                            .map!(b => b[0] == b[1])
+                            .reduce!((a, b) => true == a && a == b))
+                  .reduce!((a, b) => true == a && a == b);
+        // Aggregate types are simply placeholders for instantiated struct and
+        // variant types. If we are comparing against an aggregate, we failed
+        // to perform an instantiation somewhere
+        case TypeEnum.AGGREGATE:
+            throw new Exception("Aggregate type was not instantiated");
+            //return zip(aggregate.templateInstantiations,
+            //           o.aggregate.templateInstantiations)
+            //      .map!(a => a[0] == a[1])
+            //      .reduce!((a, b) => true == a && a == b)
+            //    && aggregate.typeName == o.aggregate.typeName;
         }
     }
 }
@@ -494,6 +691,26 @@ mixin template TypeVisitors()
         type.tag = TypeEnum.AGGREGATE;
         type.aggregate = aggregate;
         builderStack[$-1] ~= type;
+    }
+
+    void visit(TypeTupleNode node)
+    {
+        auto tuple = new TupleType();
+        foreach (child; node.children)
+        {
+            child.accept(this);
+            tuple.types ~= builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+        }
+        auto type = new Type();
+        type.tag = TypeEnum.TUPLE;
+        type.tuple = tuple;
+        builderStack[$-1] ~= type;
+    }
+
+    void visit(ChanTypeNode node)
+    {
+
     }
 
     void visit(TemplateTypeParamsNode node)

@@ -5,7 +5,7 @@ func main(argv: []string): int
     return 1 + 2 * (3 + 4) / 5;
 }
 
-func ex(x: const int): (int, int, int)
+func ex(x: const int, w: int, q: int): (int, int, int)
 {
     z: []int;
     y: [string]int;
