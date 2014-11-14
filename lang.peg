@@ -35,8 +35,7 @@ ConstClass :: #'const' #Sp;
 
 VariantDef :: #'variant' #Sp Identifier TemplateTypeParams VariantBody;
 VariantBody ::  #"{" VariantEntry+ #"}";
-VariantEntry :: Identifier VariantVarDeclList? #","?;
-VariantVarDeclList :: #"(" TypeId (#"," TypeId)* #")";
+VariantEntry :: Identifier TypeTuple? #","?;
 
 InterfaceDef :: #'interface' #Sp Identifier TemplateTypeParams InterfaceBody;
 InterfaceBody :: #"{" InterfaceEntry+ #"}";

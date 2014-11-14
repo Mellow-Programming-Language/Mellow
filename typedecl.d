@@ -2,11 +2,6 @@ import std.stdio;
 import std.algorithm;
 import std.range;
 
-// TODO:
-//   The myriad print() functions in the Type definitions should be converted
-//   to string format() functions that simply build and return a string for
-//   printing.
-
 enum TypeEnum
 {
     VOID,
@@ -254,15 +249,13 @@ struct StructType
 struct VariantMember
 {
     string constructorName;
-    Type*[] constructorElems;
+    Type* constructorElems;
 
     VariantMember copy()
     {
         auto c = VariantMember();
         c.constructorName = this.constructorName;
-        c.constructorElems = this.constructorElems
-                                 .map!(a => a.copy)
-                                 .array;
+        c.constructorElems = this.constructorElems.copy;
         return c;
     }
 
@@ -270,17 +263,9 @@ struct VariantMember
     {
         string str = "";
         str ~= constructorName;
-        if (constructorElems.length > 0)
+        if (constructorElems.tag != TypeEnum.VOID)
         {
-            str ~= " (" ~ constructorElems[0].format();
-            if (constructorElems.length > 1)
-            {
-                foreach (elem; constructorElems[1..$])
-                {
-                    str ~= ", " ~ elem.format();
-                }
-            }
-            str ~= ")";
+            str ~= constructorElems.format();
         }
         return str;
     }
@@ -340,10 +325,7 @@ struct VariantType
         }
         foreach (ref member; members)
         {
-            foreach (ref elemType; member.constructorElems)
-            {
-                descend(elemType);
-            }
+            descend(member.constructorElems);
         }
         templateParams = [];
     }
@@ -446,7 +428,7 @@ struct Type
         }
     }
 
-    bool opEquals(const Type o) const
+    bool cmp(const Type* o) const
     {
         if (constType != o.constType
             || refType != o.refType
@@ -499,23 +481,103 @@ struct Type
                 && zip(variantDef.members,
                        o.variantDef.members)
                   .map!(a => a[0].constructorName == a[1].constructorName
-                          && a[0].constructorElems.length
-                             == a[1].constructorElems.length
-                          && zip(a[0].constructorElems, a[1].constructorElems)
-                            .map!(b => b[0] == b[1])
-                            .reduce!((a, b) => true == a && a == b))
+                          && a[0].constructorElems == a[1].constructorElems)
                   .reduce!((a, b) => true == a && a == b);
         // Aggregate types are simply placeholders for instantiated struct and
         // variant types. If we are comparing against an aggregate, we failed
         // to perform an instantiation somewhere
         case TypeEnum.AGGREGATE:
             throw new Exception("Aggregate type was not instantiated");
-            //return zip(aggregate.templateInstantiations,
-            //           o.aggregate.templateInstantiations)
-            //      .map!(a => a[0] == a[1])
-            //      .reduce!((a, b) => true == a && a == b)
-            //    && aggregate.typeName == o.aggregate.typeName;
         }
+    }
+}
+
+bool isIntegral(Type* type)
+{
+    switch (type.tag)
+    {
+    case TypeEnum.LONG:
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool isFloat(Type* type)
+{
+    switch (type.tag)
+    {
+    case TypeEnum.FLOAT:
+    case TypeEnum.DOUBLE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool isNumeric(Type* type)
+{
+    switch (type.tag)
+    {
+    case TypeEnum.LONG:
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+    case TypeEnum.FLOAT:
+    case TypeEnum.DOUBLE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Return as a result the larger of the two numeric types
+Type* promoteNumeric(Type* left, Type* right)
+{
+    if (!left.isNumeric || !right.isNumeric)
+    {
+        throw new Exception("Cannot promote non-numeric type.");
+    }
+    auto promote = new Type;
+    switch (left.tag)
+    {
+    case TypeEnum.BYTE     : promote.tag = right.tag; return promote;
+    case TypeEnum.SHORT    :
+        switch (right.tag)
+        {
+        case TypeEnum.BYTE : promote.tag = left.tag;  return promote;
+        default            : promote.tag = right.tag; return promote;
+        }
+    case TypeEnum.INT      :
+        switch (right.tag)
+        {
+        case TypeEnum.BYTE : promote.tag = left.tag;  return promote;
+        case TypeEnum.SHORT: promote.tag = left.tag;  return promote;
+        default            : promote.tag = right.tag; return promote;
+        }
+    case TypeEnum.LONG     :
+        switch (right.tag)
+        {
+        case TypeEnum.BYTE : promote.tag = left.tag;  return promote;
+        case TypeEnum.SHORT: promote.tag = left.tag;  return promote;
+        case TypeEnum.INT  : promote.tag = left.tag;  return promote;
+        default            : promote.tag = right.tag; return promote;
+        }
+    case TypeEnum.FLOAT    :
+        switch (right.tag)
+        {
+        case TypeEnum.BYTE : promote.tag = left.tag;  return promote;
+        case TypeEnum.SHORT: promote.tag = left.tag;  return promote;
+        case TypeEnum.INT  : promote.tag = left.tag;  return promote;
+        case TypeEnum.LONG : promote.tag = left.tag;  return promote;
+        default            : promote.tag = right.tag; return promote;
+        }
+    case TypeEnum.DOUBLE   : promote.tag = left.tag;  return promote;
+    default:
+        assert(false, "Unreachable in promoteNumeric.");
     }
 }
 
@@ -672,25 +734,6 @@ mixin template TypeVisitors()
         type.tag = TypeEnum.HASH;
         type.hash = hash;
         builderStack[$-1] = builderStack[$-1][0..$-2] ~ type;
-    }
-
-    void visit(UserTypeNode node)
-    {
-        node.children[0].accept(this);
-        string userTypeName = id;
-        auto aggregate = new AggregateType();
-        aggregate.typeName = userTypeName;
-        if (node.children.length > 1)
-        {
-            builderStack.length++;
-            node.children[1].accept(this);
-            aggregate.templateInstantiations = builderStack[$-1];
-            builderStack.length--;
-        }
-        auto type = new Type();
-        type.tag = TypeEnum.AGGREGATE;
-        type.aggregate = aggregate;
-        builderStack[$-1] ~= type;
     }
 
     void visit(TypeTupleNode node)

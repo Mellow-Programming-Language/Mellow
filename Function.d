@@ -92,12 +92,14 @@ struct ScopeLookupResult
     ulong funcIndex;
     ulong symIndex;
     bool nonlocal;
+    bool success;
 
-    this (ulong funcIndex, ulong symIndex, bool nonlocal)
+    this (ulong funcIndex, ulong symIndex, bool nonlocal, bool success)
     {
         this.funcIndex = funcIndex;
         this.symIndex = symIndex;
         this.nonlocal = nonlocal;
+        this.success = success;
     }
 }
 
@@ -114,17 +116,17 @@ auto scopeLookup(FunctionScope[] funcScopes, string id)
                 {
                     nonlocal = true;
                 }
-                return new ScopeLookupResult(i, j, nonlocal);
+                return new ScopeLookupResult(i, j, nonlocal, true);
             }
         }
     }
-    return null;
+    return new ScopeLookupResult(0, 0, false, false);
 }
 
 void updateIfClosedOver(FunctionScope[] funcScopes, string id)
 {
     auto lookup = funcScopes.scopeLookup(id);
-    if (lookup.nonlocal)
+    if (lookup.success && lookup.nonlocal)
     {
         funcScopes[lookup.funcIndex].syms[lookup.symIndex]
                                     .decls[id]
@@ -153,7 +155,7 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
         }
         structDef.instantiate(mappings);
         auto type = new Type();
-        type.tag = TypeEnum.AGGREGATE;
+        type.tag = TypeEnum.STRUCT;
         type.structDef = structDef;
         return type;
     }
@@ -176,13 +178,22 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
         }
         variantDef.instantiate(mappings);
         auto type = new Type();
-        type.tag = TypeEnum.AGGREGATE;
+        type.tag = TypeEnum.VARIANT;
         type.variantDef = variantDef;
         return type;
     }
     else
     {
         throw new Exception("Instantiation of non-existent type.");
+    }
+}
+
+debug (TYPECHECK)
+void dumpDecls(VarTypePair*[] decls)
+{
+    foreach (decl; decls)
+    {
+        decl.format.writeln;
     }
 }
 
@@ -423,27 +434,133 @@ class FunctionBuilder : Visitor
 
     void visit(SumExprNode node)
     {
-        foreach (child; node.children.stride(2))
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            auto op = (cast(ASTTerminal)node.children[i-1]).token;
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            final switch (op)
+            {
+            case "+":
+            case "-":
+                resultType = promoteNumeric(resultType, nextType);
+                break;
+            case "<|>":
+            case "<&>":
+            case "<^>":
+            case "<->":
+                if (!resultType.cmp(nextType)
+                    || resultType.tag != TypeEnum.SET
+                    || nextType.tag != TypeEnum.SET)
+                {
+                    throw new Exception("Type mismatch in set operation.");
+                }
+                break;
+            case "~":
+                throw new Exception("UNIMPLEMENTED SumExprNode");
+            }
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(ProductExprNode node)
     {
-        foreach (child; node.children.stride(2))
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            auto op = (cast(ASTTerminal)node.children[i-1]).token;
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!resultType.isNumeric || !nextType.isNumeric)
+            {
+                throw new Exception("Cannot perform " ~ op ~ " on non-arith.");
+            }
+            if (op == "%" && (resultType.isFloat || nextType.isFloat))
+            {
+                throw new Exception("% (modulus) undefined for float types.");
+            }
+            resultType = promoteNumeric(resultType, nextType);
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(ValueNode node)
     {
-        foreach (child; node.children)
+        if (typeid(node.children[0]) == typeid(IdentifierNode))
         {
-            child.accept(this);
+            node.children[0].accept(this);
+            auto varName = id;
+            auto lookup = funcScopes.scopeLookup(varName);
+            if (!lookup.success)
+            {
+                throw new Exception("No variable [" ~ varName ~ "].");
+            }
+            auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
+                                                       .decls[varName]
+                                                       .type;
+            builderStack[$-1] ~= varType;
+        }
+        else
+        {
+            foreach (child; node.children)
+            {
+                child.accept(this);
+            }
         }
     }
+
+    void visit(ParenExprNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(NumberNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(IntNumNode node)
+    {
+        auto valType = new Type();
+        valType.tag = TypeEnum.INT;
+        builderStack[$-1] ~= valType;
+    }
+
+    void visit(FloatNumNode node)
+    {
+        auto valType = new Type();
+        valType.tag = TypeEnum.FLOAT;
+        builderStack[$-1] ~= valType;
+    }
+
+    void visit(CharLitNode node)
+    {
+        auto valType = new Type();
+        valType.tag = TypeEnum.CHAR;
+        builderStack[$-1] ~= valType;
+    }
+
+    void visit(StringLitNode node)
+    {
+        auto valType = new Type();
+        valType.tag = TypeEnum.STRING;
+        builderStack[$-1] ~= valType;
+    }
+
+    void visit(BooleanLiteralNode node)
+    {
+        auto valType = new Type();
+        valType.tag = TypeEnum.BOOL;
+        builderStack[$-1] ~= valType;
+    }
+
 
     void visit(VariableTypePairNode node)
     {
@@ -472,6 +589,7 @@ class FunctionBuilder : Visitor
     void visit(DeclarationNode node)
     {
         node.children[0].accept(this);
+        debug (TYPECHECK) decls.dumpDecls;
         decls = [];
     }
 
@@ -490,7 +608,7 @@ class FunctionBuilder : Visitor
             }
             foreach (decl, varType; lockstep(decls, tupleTypes))
             {
-                if (decl.type != varType)
+                if (!decl.type.cmp(varType))
                 {
                     throw new Exception("Type mismatch in tuple unpack.");
                 }
@@ -498,8 +616,11 @@ class FunctionBuilder : Visitor
         }
         else
         {
-            if (decls[$-1].type != varType)
+            if (!decls[$-1].type.cmp(varType))
             {
+                writeln(decls[$-1].type.format);
+                writeln("vs.");
+                writeln(varType.format);
                 throw new Exception("Type mismatch in decl assignment.");
             }
         }
@@ -509,7 +630,15 @@ class FunctionBuilder : Visitor
     {
         lvalue = null;
         node.children[0].accept(this);
+        auto left = lvalue;
+        lvalue = null;
         node.children[2].accept(this);
+        auto varType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (!left.cmp(varType))
+        {
+            throw new Exception("Type mismatch in assign-existing.");
+        }
     }
 
     void visit(DeclTypeInferNode node)
@@ -549,6 +678,7 @@ class FunctionBuilder : Visitor
             pair.type = varType;
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
         }
+        writeln(format(funcScopes[$-1].syms));
     }
 
     void visit(AssignmentNode node)
@@ -572,9 +702,14 @@ class FunctionBuilder : Visitor
         {
             funcScopes.updateIfClosedOver(varName);
             auto lookup = funcScopes.scopeLookup(varName);
+            if (!lookup.success)
+            {
+                throw new Exception("Cannot assign to undeclared variable.");
+            }
             auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
                                                        .decls[varName]
                                                        .type;
+            lvalue = varType.copy;
         }
         // This means the varName is a member of whatever the current lvalue
         // type is
@@ -583,7 +718,24 @@ class FunctionBuilder : Visitor
             switch (lvalue.tag)
             {
             case TypeEnum.STRUCT:
-                //foreach (memberName; lvalue.structDef)
+                foreach (member; lvalue.structDef.members)
+                {
+                    if (member.name == varName)
+                    {
+                        lvalue = member.type.copy;
+                        break;
+                    }
+                }
+                break;
+            case TypeEnum.VARIANT:
+                foreach (constructor; lvalue.variantDef.members)
+                {
+                    if (constructor.constructorName == varName)
+                    {
+                        lvalue = constructor.constructorElems.copy;
+                        break;
+                    }
+                }
                 break;
             default:
                 throw new Exception("No member of non-struct type.");
@@ -595,9 +747,158 @@ class FunctionBuilder : Visitor
         }
     }
 
-    void visit(LorRTrailerNode node) {}
-    void visit(LorRMemberAccessNode node) {}
-    void visit(ParenExprNode node) {}
+    void visit(LorRTrailerNode node)
+    {
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(LorRMemberAccessNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(SlicingNode node)
+    {
+        // We're working on an lvalue
+        if (lvalue !is null)
+        {
+            if (lvalue.tag != TypeEnum.ARRAY)
+            {
+                throw new Exception("Cannot slice non-array type.");
+            }
+            node.children[0].accept(this);
+            auto sliceType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            // Single index, so not a slice. Else, we maintain the array
+            // type, since we're just slicing, so leave lvalue as is
+            if (sliceType.tag != TypeEnum.TUPLE)
+            {
+                lvalue = lvalue.array.arrayType;
+            }
+        }
+        // We're working on an rvalue
+        else
+        {
+            auto arrayType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (arrayType.tag != TypeEnum.ARRAY)
+            {
+                throw new Exception("Cannot slice non-array type.");
+            }
+            node.children[0].accept(this);
+            auto sliceType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            // If it's not a range, then it's a single index, meaning a single
+            // instance of what the array type contains
+            if (sliceType.tag != TypeEnum.TUPLE)
+            {
+                builderStack[$-1] ~= arrayType.array.arrayType;
+            }
+            // Otherwise, it's a range, meaning the outgoing type is just the
+            // array type again
+            else
+            {
+                builderStack[$-1] ~= arrayType;
+            }
+        }
+    }
+
+    void visit(SingleIndexNode node)
+    {
+        node.children[0].accept(this);
+        auto indexType = builderStack[$-1][$-1];
+        if (!indexType.isIntegral)
+        {
+            throw new Exception("Index type must be integral.");
+        }
+    }
+
+    void visit(IndexRangeNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(StartToIndexRangeNode node)
+    {
+        node.children[0].accept(this);
+        auto indexType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (!indexType.isIntegral)
+        {
+            throw new Exception("Index type must be integral.");
+        }
+        auto indexEnd = new Type();
+        indexEnd.tag = TypeEnum.LONG;
+        auto range = new TupleType();
+        range.types = [indexType] ~ [indexEnd];
+        auto wrap = new Type();
+        wrap.tag = TypeEnum.TUPLE;
+        wrap.tuple = range;
+        builderStack[$-1] ~= wrap;
+    }
+
+    void visit(IndexToEndRangeNode node)
+    {
+        node.children[0].accept(this);
+        auto indexType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (!indexType.isIntegral)
+        {
+            throw new Exception("Index type must be integral.");
+        }
+        auto indexEnd = new Type();
+        indexEnd.tag = TypeEnum.LONG;
+        auto range = new TupleType();
+        range.types = [indexType] ~ [indexEnd];
+        auto wrap = new Type();
+        wrap.tag = TypeEnum.TUPLE;
+        wrap.tuple = range;
+        builderStack[$-1] ~= wrap;
+    }
+
+    void visit(IndexToIndexRangeNode node)
+    {
+        node.children[0].accept(this);
+        auto indexStart = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (!indexStart.isIntegral)
+        {
+            throw new Exception("Index type must be integral.");
+        }
+        node.children[1].accept(this);
+        auto indexEnd = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (!indexEnd.isIntegral)
+        {
+            throw new Exception("Index type must be integral.");
+        }
+        auto range = new TupleType();
+        range.types = [indexStart] ~ [indexEnd];
+        auto wrap = new Type();
+        wrap.tag = TypeEnum.TUPLE;
+        wrap.tuple = range;
+        builderStack[$-1] ~= wrap;
+    }
+
+    void visit(UserTypeNode node)
+    {
+        node.children[0].accept(this);
+        string userTypeName = id;
+        auto aggregate = new AggregateType();
+        aggregate.typeName = userTypeName;
+        if (node.children.length > 1)
+        {
+            builderStack.length++;
+            node.children[1].accept(this);
+            aggregate.templateInstantiations = builderStack[$-1];
+            builderStack.length--;
+        }
+        builderStack[$-1] ~= instantiateAggregate(records, aggregate);
+    }
+
     void visit(ArrayLiteralNode node) {}
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
@@ -636,12 +937,6 @@ class FunctionBuilder : Visitor
     void visit(DynArrAccessNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
     void visit(FuncCallTrailerNode node) {}
-    void visit(SlicingNode node) {}
-    void visit(SingleIndexNode node) {}
-    void visit(IndexRangeNode node) {}
-    void visit(StartToIndexRangeNode node) {}
-    void visit(IndexToEndRangeNode node) {}
-    void visit(IndexToIndexRangeNode node) {}
     void visit(FuncCallArgListNode node) {}
     void visit(DotAccessNode node) {}
     void visit(MatchStmtNode node) {}
@@ -658,17 +953,10 @@ class FunctionBuilder : Visitor
     void visit(VariantDefNode node) {}
     void visit(VariantBodyNode node) {}
     void visit(VariantEntryNode node) {}
-    void visit(VariantVarDeclListNode node) {}
-    void visit(NumberNode node) {}
-    void visit(IntNumNode node) {}
-    void visit(FloatNumNode node) {}
-    void visit(CharLitNode node) {}
-    void visit(StringLitNode node) {}
-    void visit(ProgramNode node) {}
     void visit(CharRangeNode node) {}
     void visit(IntRangeNode node) {}
-    void visit(BooleanLiteralNode node) {}
     void visit(CompOpNode node) {}
     void visit(SumOpNode node) {}
     void visit(SpNode node) {}
+    void visit(ProgramNode node) {}
 }

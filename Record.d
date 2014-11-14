@@ -183,30 +183,54 @@ class RecordBuilder : Visitor
 
     void visit(VariantEntryNode node)
     {
+        auto hasElems = false;
         node.children[0].accept(this);
         string constructorName = id;
         if (node.children.length > 1)
         {
+            hasElems = true;
             node.children[1].accept(this);
         }
         auto variantMember = VariantMember();
         variantMember.constructorName = constructorName;
-        variantMember.constructorElems = builderStack[$-1];
-        builderStack[$-1] = [];
-        variantMemberList ~= variantMember;
-    }
-
-    void visit(VariantVarDeclListNode node)
-    {
-        foreach (child; node.children)
+        if (hasElems)
         {
-            child.accept(this);
+            // The topmost type on the builderStack must be a wrapped tuple, as
+            // children[1] must be a TypeTupleNode
+            variantMember.constructorElems = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
         }
+        else
+        {
+            auto voidType = new Type();
+            voidType.tag = TypeEnum.VOID;
+            variantMember.constructorElems = voidType;
+        }
+        variantMemberList ~= variantMember;
     }
 
     void visit(IdentifierNode node)
     {
         id = (cast(ASTTerminal)node.children[0]).token;
+    }
+
+    void visit(UserTypeNode node)
+    {
+        node.children[0].accept(this);
+        string userTypeName = id;
+        auto aggregate = new AggregateType();
+        aggregate.typeName = userTypeName;
+        if (node.children.length > 1)
+        {
+            builderStack.length++;
+            node.children[1].accept(this);
+            aggregate.templateInstantiations = builderStack[$-1];
+            builderStack.length--;
+        }
+        auto type = new Type();
+        type.tag = TypeEnum.AGGREGATE;
+        type.aggregate = aggregate;
+        builderStack[$-1] ~= type;
     }
 
     void visit(ProgramNode node) {}
@@ -306,7 +330,5 @@ class RecordBuilder : Visitor
     void visit(MatchDefaultNode node) {}
     void visit(VariableTypePairTupleNode node) {}
     void visit(IdTupleNode node) {}
-    void visit(ChanTypeNode node) {}
-    void visit(TypeTupleNode node) {}
     void visit(ASTTerminal node) {}
 }

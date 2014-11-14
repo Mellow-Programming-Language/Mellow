@@ -1,13 +1,19 @@
-
-
-func main(argv: []string): int
+struct Test(T)
 {
-    return 1 + 2 * (3 + 4) / 5;
+    val: T;
+    ptr: Maybe!T;
 }
 
 func ex(x: const int, w: int, q: int): (int, int, int)
 {
     z: []int;
     y: [string]int;
-    w: chan!(string, [int]string);
+    a: int = 1 + 2;
+    v: Test!int;
+}
+
+func main(argv: []string): int
+{
+    a := 1 + 2 * (3 + 4) / 5;
+    return a;
 }
