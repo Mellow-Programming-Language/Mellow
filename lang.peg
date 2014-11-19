@@ -121,7 +121,7 @@ BoolExpr :: OrTest;
 OrTest :: AndTest (#"||" AndTest)*;
 AndTest :: NotTest (#"&&" NotTest)*;
 NotTest :: (#"!" NotTest) | Comparison;
-Comparison :: Expr (^CompOp Expr)*;
+Comparison :: Expr (^CompOp Expr)?;
 CompOp :: "<="
         | ">="
         | ('<' #Sp)
@@ -161,8 +161,8 @@ Value :: (BooleanLiteral DotAccess?)
        | SliceLengthSentinel
        ;
 
-BooleanLiteral :: ("true" #Sp)
-                | ("false" #Sp)
+BooleanLiteral :: ("true")
+                | ("false")
                 ;
 
 Lambda :: #"func" LambdaArgs #"=>" (BareBlock | BoolExpr);

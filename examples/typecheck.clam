@@ -15,5 +15,6 @@ func ex(x: const int, w: int, q: int): (int, int, int)
 func main(argv: []string): int
 {
     a := 1 + 2 * (3 + 4) / 5;
+    b := a == 1 * 2 + 3;
     return a;
 }

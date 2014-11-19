@@ -279,6 +279,16 @@ class FunctionBuilder : Visitor
         id = (cast(ASTTerminal)node.children[0]).token;
     }
 
+    void visit(IdTupleNode node)
+    {
+        idTuple = [];
+        foreach (child; node.children)
+        {
+            child.accept(this);
+            idTuple ~= id;
+        }
+    }
+
     void visit(FuncDefArgListNode node)
     {
         foreach (child; node.children)
@@ -368,31 +378,110 @@ class FunctionBuilder : Visitor
 
     void visit(OrTestNode node)
     {
-        foreach (child; node.children)
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!resultType.tag != TypeEnum.BOOL
+                || !nextType.tag != TypeEnum.BOOL)
+            {
+                throw new Exception("Non-bool type in LOGIC-OR.");
+            }
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(AndTestNode node)
     {
-        foreach (child; node.children)
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!resultType.tag != TypeEnum.BOOL
+                || !nextType.tag != TypeEnum.BOOL)
+            {
+                throw new Exception("Non-bool type in LOGIC-AND.");
+            }
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(NotTestNode node)
     {
         node.children[0].accept(this);
+        if (typeid(node.children[0]) == typeid(NotTestNode))
+        {
+            if (builderStack[$-1][$-1].tag != TypeEnum.BOOL)
+            {
+                throw new Exception("Cannot negate non-bool type.");
+            }
+        }
     }
 
     void visit(ComparisonNode node)
     {
-        foreach (child; node.children.stride(2))
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        Type* chainCompare = null;
+        if (node.children.length > 1)
         {
-            child.accept(this);
+            auto op = (cast(ASTTerminal)node.children[1]).token;
+            node.children[2].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            final switch (op)
+            {
+            case "<=":
+            case ">=":
+            case "<":
+            case ">":
+                if (!resultType.isNumeric || !nextType.isNumeric)
+                {
+                    throw new Exception("Cannot compare non-integral types.");
+                }
+                break;
+            case "==":
+            case "!=":
+                if (resultType.isNumeric && nextType.isNumeric) {}
+                else if (resultType.cmp(nextType) &&
+                      (resultType.tag == TypeEnum.CHAR
+                    || resultType.tag == TypeEnum.BOOL
+                    || resultType.tag == TypeEnum.STRING)) {}
+                else
+                {
+                    throw new Exception("Mismatched types for equality cmp.");
+                }
+                break;
+            case "<in>":
+                if (resultType.tag != TypeEnum.SET
+                    || nextType.tag != TypeEnum.SET
+                    || !resultType.set.setType.cmp(nextType.set.setType))
+                {
+                    throw new Exception("Mismatched types in <in> op.");
+                }
+                break;
+            case "in":
+                if (nextType.tag != TypeEnum.SET
+                    || !nextType.set.setType.cmp(resultType))
+                {
+                    throw new Exception("Mismatched types in in op.");
+                }
+                break;
+            }
+            auto boolType = new Type();
+            boolType.tag = TypeEnum.BOOL;
+            resultType = boolType;
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(ExprNode node)
@@ -402,34 +491,74 @@ class FunctionBuilder : Visitor
 
     void visit(OrExprNode node)
     {
-        foreach (child; node.children)
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!resultType.isIntegral || !nextType.isIntegral)
+            {
+                throw new Exception("Non-integral type in BIT-OR operation.");
+            }
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(XorExprNode node)
     {
-        foreach (child; node.children)
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!resultType.isIntegral || !nextType.isIntegral)
+            {
+                throw new Exception("Non-integral type in BIT-XOR operation.");
+            }
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(AndExprNode node)
     {
-        foreach (child; node.children)
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!resultType.isIntegral || !nextType.isIntegral)
+            {
+                throw new Exception("Non-integral type in BIT-AND operation.");
+            }
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(ShiftExprNode node)
     {
-        foreach (child; node.children.stride(2))
+        node.children[0].accept(this);
+        auto resultType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        for (auto i = 2; i < node.children.length; i += 2)
         {
-            child.accept(this);
+            node.children[i].accept(this);
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!resultType.isIntegral || !nextType.isIntegral)
+            {
+                throw new Exception("Non-integral type in shift operation.");
+            }
         }
+        builderStack[$-1] ~= resultType;
     }
 
     void visit(SumExprNode node)
@@ -561,6 +690,27 @@ class FunctionBuilder : Visitor
         builderStack[$-1] ~= valType;
     }
 
+    void visit(ArrayLiteralNode node)
+    {
+        node.children[0].accept(this);
+        auto valType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        foreach (child; node.children[1..$])
+        {
+            auto nextType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!valType.cmp(nextType))
+            {
+                throw new Exception("Non-uniform type in array literal");
+            }
+        }
+        auto arrayType = new ArrayType();
+        arrayType.arrayType = valType;
+        auto type = new Type();
+        type.tag = TypeEnum.ARRAY;
+        type.array = arrayType;
+        builderStack[$-1] ~= type;
+    }
 
     void visit(VariableTypePairNode node)
     {
@@ -899,7 +1049,6 @@ class FunctionBuilder : Visitor
         builderStack[$-1] ~= instantiateAggregate(records, aggregate);
     }
 
-    void visit(ArrayLiteralNode node) {}
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
     void visit(StructFunctionNode node) {}
@@ -944,7 +1093,6 @@ class FunctionBuilder : Visitor
     void visit(MatchWhenNode node) {}
     void visit(MatchWhenExprNode node) {}
     void visit(MatchDefaultNode node) {}
-    void visit(IdTupleNode node) {}
 
     void visit(ASTTerminal node) {}
     void visit(StructDefNode node) {}
