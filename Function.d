@@ -10,6 +10,8 @@ import SymTab;
 import ASTUtils;
 import typedecl;
 import Record;
+import utils;
+import FunctionSig;
 
 // CLosures and struct member functions can be implemented in exactly the same
 // way. The 'this' pointer and the environment pointer for closures are
@@ -32,34 +34,6 @@ struct VarTypePair
     }
 }
 
-// The 'header' for a function type. Note that a function can be any of the
-// three of being a closure, a struct member function, or neither. A function
-// cannot both be a closure and a struct member function, so there will only
-// ever be, at most, a single 'implicit' leading argument, whether it be
-// an environment-pointer or a 'this' pointer
-struct FuncSig
-{
-    // The actual name of the function; that which can be called
-    string funcName;
-    // A possibly zero-length list of variables that are closed over, indicating
-    // this is a closure function. If the length is zero, the number of
-    // arguments to the actual implementation of the function is the number
-    // of arguments in 'funcArgs', otherwise there is an additional
-    // environment-pointer argument
-    VarTypePair*[] closureVars;
-    // A possibly-empty string indicating the struct that this function is a
-    // member of. If this string is empty, then the number of arguments to the
-    // actual implementation of this function is the number of arguments in
-    // 'funcArgs', otherwise there is an additional 'this' pointer
-    string memberOf;
-    // The types of the arguments to the function, in the order they appeared
-    // in the original argument list
-    VarTypePair*[] funcArgs;
-    // The return type. Since it's a bare type, it can possibly be a tuple of
-    // types
-    Type* returnType;
-}
-
 struct SymbolScope
 {
     VarTypePair*[string] decls;
@@ -74,10 +48,14 @@ auto format(SymbolScope[] symbols)
 {
     string str = "";
     string indent = "";
-    foreach (symbolScope; symbols)
+    foreach (symbolScope; symbols[0..$-1])
     {
         str ~= indent ~ symbolScope.format ~ "\n";
         indent ~= "  ";
+    }
+    if (symbols.length > 0)
+    {
+        str ~= indent ~ symbols[$-1].format;
     }
     return str;
 }
@@ -134,60 +112,6 @@ void updateIfClosedOver(FunctionScope[] funcScopes, string id)
     }
 }
 
-Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
-{
-    if (aggregate.typeName in records.structDefs)
-    {
-        auto structDef = records.structDefs[aggregate.typeName].copy;
-        Type*[string] mappings;
-        if (aggregate.templateInstantiations.length
-            != structDef.templateParams.length)
-        {
-            throw new Exception("Template instantiation count mismatch.");
-        }
-        else
-        {
-            foreach (var, type; lockstep(structDef.templateParams,
-                                    aggregate.templateInstantiations))
-            {
-                mappings[var] = type.copy;
-            }
-        }
-        structDef.instantiate(mappings);
-        auto type = new Type();
-        type.tag = TypeEnum.STRUCT;
-        type.structDef = structDef;
-        return type;
-    }
-    else if (aggregate.typeName in records.variantDefs)
-    {
-        auto variantDef = records.variantDefs[aggregate.typeName].copy;
-        Type*[string] mappings;
-        if (aggregate.templateInstantiations.length
-            != variantDef.templateParams.length)
-        {
-            throw new Exception("Template instantiation count mismatch.");
-        }
-        else
-        {
-            foreach (var, type; lockstep(variantDef.templateParams,
-                                    aggregate.templateInstantiations))
-            {
-                mappings[var] = type.copy;
-            }
-        }
-        variantDef.instantiate(mappings);
-        auto type = new Type();
-        type.tag = TypeEnum.VARIANT;
-        type.variantDef = variantDef;
-        return type;
-    }
-    else
-    {
-        throw new Exception("Instantiation of non-existent type.");
-    }
-}
-
 debug (TYPECHECK)
 void dumpDecls(VarTypePair*[] decls)
 {
@@ -199,24 +123,23 @@ void dumpDecls(VarTypePair*[] decls)
 
 class FunctionBuilder : Visitor
 {
-    RecordBuilder records;
-    string id;
-    string[] idTuple;
-    string funcName;
-    string[] templateParams;
-    VarTypePair*[] funcArgs;
-    FuncSig[] toplevelFuncs;
-    Type* returnType;
+    private RecordBuilder records;
+    private string id;
+    private string[] idTuple;
+    private string[] templateParams;
+    private VarTypePair*[] funcArgs;
+    private FunctionSigBuilder toplevelFuncs;
     // The higher the index, the deeper the scope
-    FunctionScope[] funcScopes;
-    VarTypePair*[] decls;
-    Type* lvalue;
+    private FunctionScope[] funcScopes;
+    private VarTypePair*[] decls;
+    private Type* lvalue;
 
     mixin TypeVisitors;
 
-    this (ProgramNode node, RecordBuilder records)
+    this (ProgramNode node, RecordBuilder records, FunctionSigBuilder sigs)
     {
         this.records = records;
+        this.toplevelFuncs = sigs;
         builderStack.length++;
         // Just do function definitions
         auto funcDefs = node.children
@@ -227,36 +150,14 @@ class FunctionBuilder : Visitor
         }
     }
 
-    private auto collectMultiples(T)(T[] elems)
-    {
-        bool[T] found;
-        bool[T] multiples;
-        foreach (elem; elems)
-        {
-            if (elem in found)
-            {
-                multiples[elem] = true;
-            }
-            found[elem] = true;
-        }
-        return multiples.keys;
-    }
-
     void visit(FuncDefNode node)
     {
         funcScopes.length++;
         funcScopes[$-1].syms.length++;
         // Visit FuncSignatureNode
         node.children[0].accept(this);
-        FuncSig funcSig;
-        funcSig.funcName = funcName;
-        funcSig.funcArgs = funcArgs;
-        funcSig.returnType = returnType;
         // Visit FuncBodyBlocksNode
         node.children[1].accept(this);
-
-        // Do final put-together here
-
         funcScopes.length--;
     }
 
@@ -264,14 +165,8 @@ class FunctionBuilder : Visitor
     {
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
-        funcName = id;
+        auto funcName = id;
         writeln("FuncName: ", id);
-        // Visit TemplateTypeParamsNode
-        node.children[1].accept(this);
-        // Visit FuncDefArgListNode
-        node.children[2].accept(this);
-        // Visit FuncReturnTypeNode
-        node.children[3].accept(this);
     }
 
     void visit(IdentifierNode node)
@@ -289,59 +184,6 @@ class FunctionBuilder : Visitor
         }
     }
 
-    void visit(FuncDefArgListNode node)
-    {
-        foreach (child; node.children)
-        {
-            // Visit FuncSigArgNode
-            child.accept(this);
-        }
-    }
-
-    void visit(FuncSigArgNode node)
-    {
-        // Visit IdentifierNode, populate 'id'
-        node.children[0].accept(this);
-        string argName = id;
-        // Visit TypeIdNode. Note going out of order here
-        node.children[$-1].accept(this);
-        auto argType = builderStack[$-1][$-1];
-        builderStack[$-1] = builderStack[$-1][0..$-1];
-        argType.refType = false;
-        argType.constType = false;
-        if (node.children.length > 2)
-        {
-            // Visit StorageClassNode
-            foreach (storageClass; node.children[1..$-1])
-            {
-                if (typeid(storageClass) == typeid(RefClassNode))
-                {
-                    argType.refType = true;
-                }
-                else if (typeid(storageClass) == typeid(ConstClassNode))
-                {
-                    argType.constType = true;
-                }
-            }
-        }
-        auto pair = new VarTypePair();
-        pair.varName = argName;
-        pair.type = argType;
-        funcArgs ~= pair;
-        funcScopes[$-1].syms[$-1].decls[argName] = pair;
-        writeln(format(funcScopes[$-1].syms));
-    }
-
-    void visit(FuncReturnTypeNode node)
-    {
-        if (node.children.length > 0)
-        {
-            node.children[0].accept(this);
-            returnType = builderStack[$-1][$-1];
-            builderStack[$-1] = builderStack[$-1][0..$-1];
-        }
-    }
-
     void visit(FuncBodyBlocksNode node)
     {
         foreach (child; node.children)
@@ -352,10 +194,12 @@ class FunctionBuilder : Visitor
 
     void visit(BareBlockNode node)
     {
+        funcScopes[$-1].syms.length++;
         foreach (child; node.children)
         {
             child.accept(this);
         }
+        funcScopes[$-1].syms.length--;
     }
 
     void visit(StatementNode node)
@@ -739,7 +583,7 @@ class FunctionBuilder : Visitor
     void visit(DeclarationNode node)
     {
         node.children[0].accept(this);
-        debug (TYPECHECK) decls.dumpDecls;
+        writeln(format(funcScopes[$-1].syms));
         decls = [];
     }
 
@@ -828,7 +672,6 @@ class FunctionBuilder : Visitor
             pair.type = varType;
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
         }
-        writeln(format(funcScopes[$-1].syms));
     }
 
     void visit(AssignmentNode node)
@@ -1095,6 +938,9 @@ class FunctionBuilder : Visitor
     void visit(MatchDefaultNode node) {}
 
     void visit(ASTTerminal node) {}
+    void visit(FuncDefArgListNode node) {}
+    void visit(FuncSigArgNode node) {}
+    void visit(FuncReturnTypeNode node) {}
     void visit(StructDefNode node) {}
     void visit(StructBodyNode node) {}
     void visit(StructEntryNode node) {}

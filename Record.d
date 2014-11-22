@@ -12,10 +12,10 @@ import typedecl;
 
 class RecordBuilder : Visitor
 {
-    string id;
-    StructMember[] structMemberList;
-    VariantMember[] variantMemberList;
-    bool[string] definedTypes;
+    private string id;
+    private StructMember[] structMemberList;
+    private VariantMember[] variantMemberList;
+    private bool[string] definedTypes;
     StructType*[string] structDefs;
     VariantType*[string] variantDefs;
 

@@ -191,6 +191,8 @@ struct StructType
     string name;
     string[] templateParams;
     StructMember[] members;
+    private bool instantiated;
+    private Type*[string] mappings;
 
     StructType* copy()
     {
@@ -203,13 +205,22 @@ struct StructType
         return c;
     }
 
-    string format()
+    string formatFull()
     {
         string str = "";
         str ~= "struct " ~ name;
         if (templateParams.length > 0)
         {
-             str ~= "(" ~ templateParams.join(", ") ~ ")";
+            if (instantiated)
+            {
+                str ~= "!(";
+                str ~= templateParams.map!(a => mappings[a].format).join(", ");
+                str ~= ")";
+            }
+            else
+            {
+                str ~= "(" ~ templateParams.join(", ") ~ ")";
+            }
         }
         str ~= " {\n";
         foreach (member; members)
@@ -217,6 +228,26 @@ struct StructType
             str ~= "    " ~ member.format() ~ "\n";
         }
         str ~=  "}";
+        return str;
+    }
+
+    string format()
+    {
+        string str = "";
+        str ~= name;
+        if (templateParams.length > 0)
+        {
+            if (instantiated)
+            {
+                str ~= "!(";
+                str ~= templateParams.map!(a => mappings[a].format).join(", ");
+                str ~= ")";
+            }
+            else
+            {
+                str ~= "(" ~ templateParams.join(", ") ~ ")";
+            }
+        }
         return str;
     }
 
@@ -242,7 +273,8 @@ struct StructType
         {
             descend(member.type);
         }
-        templateParams = [];
+        instantiated = true;
+        this.mappings = mappings;
     }
 }
 
@@ -489,6 +521,64 @@ struct Type
         case TypeEnum.AGGREGATE:
             throw new Exception("Aggregate type was not instantiated");
         }
+    }
+}
+
+struct VarTypePair
+{
+    string varName;
+    Type* type;
+    bool closedOver;
+
+    auto format()
+    {
+        return varName ~ ": " ~ type.format();
+    }
+}
+
+// The 'header' for a function type. Note that a function can be any of the
+// three of being a closure, a struct member function, or neither. A function
+// cannot both be a closure and a struct member function, so there will only
+// ever be, at most, a single 'implicit' leading argument, whether it be
+// an environment-pointer or a 'this' pointer
+struct FuncSig
+{
+    // The actual name of the function; that which can be called
+    string funcName;
+    // Template args
+    string[] templateParams;
+    // A possibly zero-length list of variables that are closed over, indicating
+    // this is a closure function. If the length is zero, the number of
+    // arguments to the actual implementation of the function is the number
+    // of arguments in 'funcArgs', otherwise there is an additional
+    // environment-pointer argument
+    VarTypePair*[] closureVars;
+    // A possibly-empty string indicating the struct that this function is a
+    // member of. If this string is empty, then the number of arguments to the
+    // actual implementation of this function is the number of arguments in
+    // 'funcArgs', otherwise there is an additional 'this' pointer
+    string memberOf;
+    // The types of the arguments to the function, in the order they appeared
+    // in the original argument list
+    VarTypePair*[] funcArgs;
+    // The return type. Since it's a bare type, it can possibly be a tuple of
+    // types
+    Type* returnType;
+
+    auto format()
+    {
+        string str = "";
+        str ~= "func " ~ funcName;
+        if (templateParams.length > 0)
+        {
+            str ~= "(" ~ templateParams.join(", ") ~ ")";
+        }
+        str ~= "(" ~ funcArgs.map!(a => a.format).join(", ") ~ ")";
+        if (returnType !is null)
+        {
+            str ~= ": " ~ returnType.format;
+        }
+        return str;
     }
 }
 
