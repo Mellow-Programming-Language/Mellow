@@ -2,6 +2,8 @@ import std.stdio;
 import std.algorithm;
 import std.range;
 
+const PTR_SIZE = 8;
+
 enum TypeEnum
 {
     VOID,
@@ -184,6 +186,11 @@ struct StructMember
     {
         return name ~ " : " ~ type.format() ~ ";";
     }
+
+    auto size()
+    {
+        return type.size();
+    }
 }
 
 struct StructType
@@ -276,11 +283,21 @@ struct StructType
         instantiated = true;
         this.mappings = mappings;
     }
+
+    // The size of the struct on the heap is the total aligned size of all the
+    // members
+    auto size()
+    {
+        return members.map!(a => a.size)
+                      .array
+                      .getAlignedSize;
+    }
 }
 
 struct VariantMember
 {
     string constructorName;
+    // Intended to be a tuple
     Type* constructorElems;
 
     VariantMember copy()
@@ -300,6 +317,11 @@ struct VariantMember
             str ~= constructorElems.format();
         }
         return str;
+    }
+
+    auto size()
+    {
+        return constructorElems.size();
     }
 }
 
@@ -360,6 +382,14 @@ struct VariantType
             descend(member.constructorElems);
         }
         templateParams = [];
+    }
+
+    // The total size of a variant value on the heap is the size of the largest
+    // constructor
+    auto size()
+    {
+        return members.map!(a => a.size)
+                      .reduce!(max);
     }
 }
 
@@ -522,6 +552,79 @@ struct Type
             throw new Exception("Aggregate type was not instantiated");
         }
     }
+
+    auto size()
+    {
+        final switch (tag)
+        {
+        case TypeEnum.VOID      : return 0;
+        case TypeEnum.LONG      : return 8;
+        case TypeEnum.INT       : return 4;
+        case TypeEnum.SHORT     : return 2;
+        case TypeEnum.BYTE      : return 1;
+        case TypeEnum.FLOAT     : return 4;
+        case TypeEnum.DOUBLE    : return 8;
+        case TypeEnum.CHAR      : return 1;
+        case TypeEnum.BOOL      : return 1;
+        case TypeEnum.STRING    : return PTR_SIZE;
+        case TypeEnum.SET       : return PTR_SIZE;
+        case TypeEnum.HASH      : return PTR_SIZE;
+        case TypeEnum.ARRAY     : return PTR_SIZE;
+        case TypeEnum.FUNCPTR   : return PTR_SIZE;
+        case TypeEnum.STRUCT    : return PTR_SIZE;
+        case TypeEnum.VARIANT   : return PTR_SIZE;
+        // Tuples are allocated on the stack, to make tuple-return cheap
+        case TypeEnum.TUPLE     : return tuple.types
+                                              .map!(a => a.size)
+                                              .array
+                                              .getAlignedSize;
+        // Aggregate types are simply placeholders for instantiated struct and
+        // variant types. If we are comparing against an aggregate, we failed
+        // to perform an instantiation somewhere
+        case TypeEnum.AGGREGATE :
+            throw new Exception("Aggregate type was not instantiated");
+        }
+    }
+}
+
+// Given whatever the current allocated size is, and given the size of the
+// next thing to allocate for, determine how much padding is necessary for the
+// next size
+auto getPadding(int curSize, int nextSize)
+{
+    auto mod = 0;
+    if ((mod = curSize % nextSize) != 0)
+    {
+        return nextSize - mod;
+    }
+    return 0;
+}
+
+// The byte number returned is the first byte of the data being indexed to.
+// Note that if index >= entries.length, the value returned is the total
+// aligned size
+auto getAlignedIndexOffset(int[] entries, ulong index)
+{
+    auto size = 0;
+    if (entries.length == 0 || index == 0)
+    {
+        return 0;
+    }
+    size += entries[0];
+    foreach (i, e; entries[1..$])
+    {
+        if (index == i + 1)
+        {
+            return size + getPadding(size, e);
+        }
+        size += getPadding(size, e) + e;
+    }
+    return size;
+}
+
+auto getAlignedSize(int[] entries)
+{
+    return getAlignedIndexOffset(entries, entries.length);
 }
 
 struct VarTypePair
