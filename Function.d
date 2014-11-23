@@ -479,6 +479,10 @@ class FunctionBuilder : Visitor
                                                        .decls[varName]
                                                        .type;
             builderStack[$-1] ~= varType;
+            if (node.children.length > 1)
+            {
+                node.children[1].accept(this);
+            }
         }
         else
         {
@@ -876,6 +880,20 @@ class FunctionBuilder : Visitor
         builderStack[$-1] ~= wrap;
     }
 
+    void visit(TrailerNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(DynArrAccessNode node)
+    {
+        node.children[0].accept(this);
+        if (node.children.length > 1)
+        {
+            node.children[1].accept(this);
+        }
+    }
+
     void visit(UserTypeNode node)
     {
         node.children[0].accept(this);
@@ -925,8 +943,6 @@ class FunctionBuilder : Visitor
     void visit(CondAssignNode node) {}
     void visit(SliceLengthSentinelNode node) {}
     void visit(ChanReadNode node) {}
-    void visit(TrailerNode node) {}
-    void visit(DynArrAccessNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
     void visit(FuncCallTrailerNode node) {}
     void visit(FuncCallArgListNode node) {}
