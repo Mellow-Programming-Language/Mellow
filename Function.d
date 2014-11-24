@@ -22,18 +22,6 @@ import FunctionSig;
 // each is the same, and perhaps building the datastructures for handling them
 // in the compiler can be the same as well
 
-struct VarTypePair
-{
-    string varName;
-    Type* type;
-    bool closedOver;
-
-    auto format()
-    {
-        return varName ~ ": " ~ type.format();
-    }
-}
-
 struct SymbolScope
 {
     VarTypePair*[string] decls;
@@ -196,6 +184,11 @@ class FunctionBuilder : Visitor
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         auto funcName = id;
+        auto lookup = funcSigLookup(toplevelFuncs, funcName);
+        foreach (arg; lookup.sig.funcArgs)
+        {
+            funcScopes[$-1].syms[$-1].decls[arg.varName] = arg;
+        }
         writeln("FuncName: ", id);
     }
 
