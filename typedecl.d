@@ -1,6 +1,7 @@
 import std.stdio;
 import std.algorithm;
 import std.range;
+import parser;
 
 const PTR_SIZE = 8;
 
@@ -667,6 +668,8 @@ struct FuncSig
     // The return type. Since it's a bare type, it can possibly be a tuple of
     // types
     Type* returnType;
+    // Body blocks node, for expanding templates
+    FuncBodyBlocksNode funcBodyBlocks;
 
     auto format()
     {

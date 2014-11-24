@@ -18,11 +18,10 @@ class FunctionSigBuilder : Visitor
     private string id;
     private string[] idTuple;
     private string funcName;
-    private string[] templateParams;
     private VarTypePair*[] funcArgs;
     private Type* returnType;
     private VarTypePair*[] decls;
-    FuncSig[] toplevelFuncs;
+    FuncSig*[] toplevelFuncs;
 
     mixin TypeVisitors;
 
@@ -58,11 +57,12 @@ class FunctionSigBuilder : Visitor
     {
         // Visit FuncSignatureNode
         node.children[0].accept(this);
-        FuncSig funcSig;
+        auto funcSig = new FuncSig();
         funcSig.funcName = funcName;
         funcSig.funcArgs = funcArgs;
         funcSig.returnType = returnType;
         funcSig.templateParams = templateParams;
+        funcSig.funcBodyBlocks = cast(FuncBodyBlocksNode)node.children[1];
         toplevelFuncs ~= funcSig;
         funcName = "";
         funcArgs = [];

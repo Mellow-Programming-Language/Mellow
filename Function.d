@@ -101,6 +101,36 @@ auto scopeLookup(FunctionScope[] funcScopes, string id)
     return new ScopeLookupResult(0, 0, false, false);
 }
 
+struct FuncSigLookupResult
+{
+    FuncSig* sig;
+    bool success;
+
+    this (bool success = false)
+    {
+        this.success = success;
+    }
+
+    this (FuncSig* sig)
+    {
+        this.sig = sig;
+        this.success = true;
+    }
+}
+
+auto funcSigLookup(FuncSig*[] sigs, string name)
+{
+    writeln("funcSigLookup[", name, "]");
+    foreach (sig; sigs)
+    {
+        if (name == sig.funcName)
+        {
+            return FuncSigLookupResult(sig);
+        }
+    }
+    return FuncSigLookupResult();
+}
+
 void updateIfClosedOver(FunctionScope[] funcScopes, string id)
 {
     auto lookup = funcScopes.scopeLookup(id);
@@ -125,10 +155,10 @@ class FunctionBuilder : Visitor
 {
     private RecordBuilder records;
     private string id;
+    private FuncSig* curFuncSig;
     private string[] idTuple;
-    private string[] templateParams;
     private VarTypePair*[] funcArgs;
-    private FunctionSigBuilder toplevelFuncs;
+    private FuncSig*[] toplevelFuncs;
     // The higher the index, the deeper the scope
     private FunctionScope[] funcScopes;
     private VarTypePair*[] decls;
@@ -139,7 +169,7 @@ class FunctionBuilder : Visitor
     this (ProgramNode node, RecordBuilder records, FunctionSigBuilder sigs)
     {
         this.records = records;
-        this.toplevelFuncs = sigs;
+        this.toplevelFuncs = sigs.toplevelFuncs;
         builderStack.length++;
         // Just do function definitions
         auto funcDefs = node.children
@@ -469,16 +499,25 @@ class FunctionBuilder : Visitor
         if (typeid(node.children[0]) == typeid(IdentifierNode))
         {
             node.children[0].accept(this);
-            auto varName = id;
-            auto lookup = funcScopes.scopeLookup(varName);
-            if (!lookup.success)
+            auto name = id;
+            auto varLookup = funcScopes.scopeLookup(name);
+            auto funcLookup = funcSigLookup(toplevelFuncs, name);
+            if (!varLookup.success && !funcLookup.success)
             {
-                throw new Exception("No variable [" ~ varName ~ "].");
+                throw new Exception("No variable or function[" ~ name ~ "].");
             }
-            auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
-                                                       .decls[varName]
-                                                       .type;
-            builderStack[$-1] ~= varType;
+            else if (varLookup.success)
+            {
+                auto varType = funcScopes[varLookup.funcIndex]
+                                    .syms[varLookup.symIndex]
+                                    .decls[name]
+                                    .type;
+                builderStack[$-1] ~= varType;
+            }
+            else if (funcLookup.success)
+            {
+                curFuncSig = funcLookup.sig;
+            }
             if (node.children.length > 1)
             {
                 node.children[1].accept(this);
@@ -910,6 +949,64 @@ class FunctionBuilder : Visitor
         builderStack[$-1] ~= instantiateAggregate(records, aggregate);
     }
 
+    void visit(FuncCallTrailerNode node)
+    {
+        node.children[0].accept(this);
+        if (node.children.length > 1)
+        {
+            node.children[1].accept(this);
+        }
+    }
+
+    void visit(FuncCallArgListNode node)
+    {
+        // If we get here, then either curFuncSig is valid, or the top type in
+        // the builder stack is using UFCS.
+        if (curFuncSig !is null)
+        {
+            auto funcSig = curFuncSig;
+            curFuncSig = null;
+            auto funcArgs = funcSig.funcArgs;
+            if (funcArgs.length != node.children.length)
+            {
+                throw new Exception("Incorrect number of arguments passed");
+            }
+            foreach (child, argExpected; lockstep(node.children, funcArgs))
+            {
+                child.accept(this);
+                auto argPassed = builderStack[$-1][$-1];
+                builderStack[$-1] = builderStack[$-1][0..$-1];
+                if (!argPassed.cmp(argExpected.type))
+                {
+                    throw new Exception(
+                        "Mismatch between expected and passed arg type");
+                }
+            }
+            builderStack[$-1] ~= funcSig.returnType;
+        }
+    }
+
+    void visit(FuncCallNode node)
+    {
+        node.children[0].accept(this);
+        auto name = id;
+        auto funcLookup = funcSigLookup(toplevelFuncs, name);
+        if (!funcLookup.success)
+        {
+            throw new Exception("No variable or function[" ~ name ~ "].");
+        }
+        else if (funcLookup.success)
+        {
+            curFuncSig = funcLookup.sig;
+            node.children[1].accept(this);
+        }
+    }
+
+    void visit(DotAccessNode node)
+    {
+
+    }
+
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
     void visit(StructFunctionNode node) {}
@@ -937,16 +1034,12 @@ class FunctionBuilder : Visitor
     void visit(SpawnStmtNode node) {}
     void visit(YieldStmtNode node) {}
     void visit(ChanWriteNode node) {}
-    void visit(FuncCallNode node) {}
     void visit(AssignExistingOpNode node) {}
     void visit(CondAssignmentsNode node) {}
     void visit(CondAssignNode node) {}
     void visit(SliceLengthSentinelNode node) {}
     void visit(ChanReadNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
-    void visit(FuncCallTrailerNode node) {}
-    void visit(FuncCallArgListNode node) {}
-    void visit(DotAccessNode node) {}
     void visit(MatchStmtNode node) {}
     void visit(MatchExprNode node) {}
     void visit(MatchWhenNode node) {}
