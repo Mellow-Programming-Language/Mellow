@@ -108,7 +108,6 @@ struct FuncSigLookupResult
 
 auto funcSigLookup(FuncSig*[] sigs, string name)
 {
-    writeln("funcSigLookup[", name, "]");
     foreach (sig; sigs)
     {
         if (name == sig.funcName)
@@ -189,7 +188,6 @@ class FunctionBuilder : Visitor
         {
             funcScopes[$-1].syms[$-1].decls[arg.varName] = arg;
         }
-        writeln("FuncName: ", id);
     }
 
     void visit(IdentifierNode node)
@@ -457,7 +455,52 @@ class FunctionBuilder : Visitor
                 }
                 break;
             case "~":
-                throw new Exception("UNIMPLEMENTED SumExprNode");
+                if (resultType.cmp(nextType))
+                {
+                    if (resultType.tag == TypeEnum.ARRAY)
+                    {
+                        // Result type remains the same, we're appending to like
+                        // arrays together
+                    }
+                    else
+                    {
+                        // Result type is the type of appending two non-array
+                        // types together, to create a two-element array
+                        auto arrayType = new ArrayType();
+                        arrayType.arrayType = resultType;
+                        auto type = new Type();
+                        type.tag = TypeEnum.ARRAY;
+                        type.array = arrayType;
+                        resultType = type;
+                    }
+                }
+                // If the types are not the same, then one of them must be the
+                // array wrapper of the other type
+                else
+                {
+                    if (resultType.tag == TypeEnum.ARRAY)
+                    {
+                        if (!resultType.array.arrayType.cmp(nextType))
+                        {
+                            throw new Exception(
+                                "Cannot append base type to unlike array type");
+                        }
+                    }
+                    else if (nextType.tag == TypeEnum.ARRAY)
+                    {
+                        if (!nextType.array.arrayType.cmp(resultType))
+                        {
+                            throw new Exception(
+                                "Cannot append base type to unlike array type");
+                        }
+                        resultType = nextType;
+                    }
+                    else
+                    {
+                        throw new Exception(
+                            "Cannot append two unlike, non-array types.");
+                    }
+                }
             }
         }
         builderStack[$-1] ~= resultType;
@@ -577,6 +620,7 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         foreach (child; node.children[1..$])
         {
+            child.accept(this);
             auto nextType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!valType.cmp(nextType))
@@ -986,7 +1030,7 @@ class FunctionBuilder : Visitor
         auto funcLookup = funcSigLookup(toplevelFuncs, name);
         if (!funcLookup.success)
         {
-            throw new Exception("No variable or function[" ~ name ~ "].");
+            throw new Exception("No function[" ~ name ~ "].");
         }
         else if (funcLookup.success)
         {
@@ -997,22 +1041,36 @@ class FunctionBuilder : Visitor
 
     void visit(DotAccessNode node)
     {
-
+        // Need to cover three cases:
+        // First is handling the case of simply accessing a member value of the
+        // type we're dot-accessing into.
+        // Second, need to handle the case of accessing a member method of the
+        // type.
+        // Third, need to handle UFCS
+        node.children[0].accept(this);
+        auto name = id;
+        auto curType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        // If the dot-access is with a struct, then we need to check if this is
+        // any of all three of member method, member value, or UFCS (if the
+        // function isn't a member function, but still takes the struct type
+        // as it's first argument)
+        if (curType.tag == TypeEnum.STRUCT)
+        {}
+        // It's some other type, meaning this must be UFCS
+        else
+        {
+            auto funcLookup = funcSigLookup(toplevelFuncs, name);
+            if (!funcLookup.success)
+            {
+                throw new Exception("No function[" ~ name ~ "].");
+            }
+            curFuncSig = funcLookup.sig;
+            node.children[1].accept(this);
+            // Finish this. Gotta actually determine whether the UFCS call works
+        }
     }
 
-    void visit(LambdaNode node) {}
-    void visit(LambdaArgsNode node) {}
-    void visit(StructFunctionNode node) {}
-    void visit(InBlockNode node) {}
-    void visit(OutBlockNode node) {}
-    void visit(ReturnModBlockNode node) {}
-    void visit(BodyBlockNode node) {}
-    void visit(StorageClassNode node) {}
-    void visit(RefClassNode node) {}
-    void visit(ConstClassNode node) {}
-    void visit(InterfaceDefNode node) {}
-    void visit(InterfaceBodyNode node) {}
-    void visit(InterfaceEntryNode node) {}
     void visit(IfStmtNode node) {}
     void visit(ElseIfsNode node) {}
     void visit(ElseIfStmtNode node) {}
@@ -1026,6 +1084,16 @@ class FunctionBuilder : Visitor
     void visit(ForeachArgsNode node) {}
     void visit(SpawnStmtNode node) {}
     void visit(YieldStmtNode node) {}
+    void visit(LambdaNode node) {}
+    void visit(LambdaArgsNode node) {}
+    void visit(StructFunctionNode node) {}
+    void visit(InBlockNode node) {}
+    void visit(OutBlockNode node) {}
+    void visit(ReturnModBlockNode node) {}
+    void visit(BodyBlockNode node) {}
+    void visit(InterfaceDefNode node) {}
+    void visit(InterfaceBodyNode node) {}
+    void visit(InterfaceEntryNode node) {}
     void visit(ChanWriteNode node) {}
     void visit(AssignExistingOpNode node) {}
     void visit(CondAssignmentsNode node) {}
@@ -1040,6 +1108,9 @@ class FunctionBuilder : Visitor
     void visit(MatchDefaultNode node) {}
 
     void visit(ASTTerminal node) {}
+    void visit(StorageClassNode node) {}
+    void visit(RefClassNode node) {}
+    void visit(ConstClassNode node) {}
     void visit(FuncDefArgListNode node) {}
     void visit(FuncSigArgNode node) {}
     void visit(FuncReturnTypeNode node) {}

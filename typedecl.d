@@ -513,38 +513,38 @@ struct Type
         case TypeEnum.STRING:
             return true;
         case TypeEnum.SET:
-            return set.setType == o.set.setType;
+            return set.setType.cmp(o.set.setType);
         case TypeEnum.HASH:
-            return hash.keyType == o.hash.keyType
-                && hash.valueType == o.hash.valueType;
+            return hash.keyType.cmp(o.hash.keyType)
+                && hash.valueType.cmp(o.hash.valueType);
         case TypeEnum.ARRAY:
-            return array.arrayType == o.array.arrayType;
+            return array.arrayType.cmp(o.array.arrayType);
         case TypeEnum.TUPLE:
             return tuple.types.length == o.tuple.types.length
                 && zip(tuple.types, o.tuple.types)
-                  .map!(a => a[0] == a[1])
+                  .map!(a => a[0].cmp(a[1]))
                   .reduce!((a, b) => true == a && a == b);
         case TypeEnum.FUNCPTR:
             return funcPtr.isFatPtr == o.funcPtr.isFatPtr
-                && funcPtr.returnType == o.funcPtr.returnType
+                && funcPtr.returnType.cmp(o.funcPtr.returnType)
                 && funcPtr.funcArgs.length == o.funcPtr.funcArgs.length
                 && zip(funcPtr.funcArgs,
                        o.funcPtr.funcArgs)
-                  .map!(a => a[0] == a[1])
+                  .map!(a => a[0].cmp(a[1]))
                   .reduce!((a, b) => true == a && a == b);
         case TypeEnum.STRUCT:
             return structDef.name == o.structDef.name
                 && structDef.members.length == o.structDef.members.length
                 && zip(structDef.members,
                        o.structDef.members)
-                  .map!(a => a[0].type == a[1].type)
+                  .map!(a => a[0].type.cmp(a[1].type))
                   .reduce!((a, b) => true == a && a == b);
         case TypeEnum.VARIANT:
             return variantDef.name == o.variantDef.name
                 && zip(variantDef.members,
                        o.variantDef.members)
                   .map!(a => a[0].constructorName == a[1].constructorName
-                          && a[0].constructorElems == a[1].constructorElems)
+                          && a[0].constructorElems.cmp(a[1].constructorElems))
                   .reduce!((a, b) => true == a && a == b);
         // Aggregate types are simply placeholders for instantiated struct and
         // variant types. If we are comparing against an aggregate, we failed
