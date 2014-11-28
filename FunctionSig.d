@@ -282,8 +282,6 @@ class FunctionSigBuilder : Visitor
     void visit(VariantDefNode node) {}
     void visit(VariantBodyNode node) {}
     void visit(VariantEntryNode node) {}
-    void visit(CharRangeNode node) {}
-    void visit(IntRangeNode node) {}
     void visit(CompOpNode node) {}
     void visit(SumOpNode node) {}
     void visit(SpNode node) {}

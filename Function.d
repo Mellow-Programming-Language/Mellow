@@ -151,6 +151,7 @@ class FunctionBuilder : Visitor
     private FunctionScope[] funcScopes;
     private VarTypePair*[] decls;
     private Type* lvalue;
+    private uint insideSlice;
 
     mixin TypeVisitors;
 
@@ -166,6 +167,7 @@ class FunctionBuilder : Visitor
         {
             funcDef.accept(this);
         }
+        insideSlice = 0;
     }
 
     void visit(FuncDefNode node)
@@ -882,6 +884,7 @@ class FunctionBuilder : Visitor
 
     void visit(SlicingNode node)
     {
+        insideSlice++;
         // We're working on an lvalue
         if (lvalue !is null)
         {
@@ -924,6 +927,7 @@ class FunctionBuilder : Visitor
                 builderStack[$-1] ~= arrayType;
             }
         }
+        insideSlice--;
     }
 
     void visit(SingleIndexNode node)
@@ -1015,6 +1019,17 @@ class FunctionBuilder : Visitor
         {
             node.children[1].accept(this);
         }
+    }
+
+    void visit(SliceLengthSentinelNode node)
+    {
+        if (insideSlice < 1)
+        {
+            throw new Exception("$ operator only valid inside slice");
+        }
+        auto valType = new Type();
+        valType.tag = TypeEnum.INT;
+        builderStack[$-1] ~= valType;
     }
 
     void visit(UserTypeNode node)
@@ -1204,7 +1219,6 @@ class FunctionBuilder : Visitor
     void visit(ChanWriteNode node) {}
     void visit(CondAssignmentsNode node) {}
     void visit(CondAssignNode node) {}
-    void visit(SliceLengthSentinelNode node) {}
     void visit(ChanReadNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
     void visit(MatchStmtNode node) {}
@@ -1212,8 +1226,6 @@ class FunctionBuilder : Visitor
     void visit(MatchWhenNode node) {}
     void visit(MatchWhenExprNode node) {}
     void visit(MatchDefaultNode node) {}
-    void visit(CharRangeNode node) {}
-    void visit(IntRangeNode node) {}
 
     void visit(ASTTerminal node) {}
     void visit(AssignExistingOpNode node) {}

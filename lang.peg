@@ -148,10 +148,8 @@ SumOp :: "+"
 ProductExpr :: Value (("*" | "/" | "%") Value)*;
 Value :: (BooleanLiteral DotAccess?)
        | Lambda
-       | (CharRange DotAccess?)
        | (CharLit DotAccess?)
        | (StringLit DotAccess?)
-       | (IntRange DotAccess?)
        | (ValueTuple DotAccess?)
        | (ParenExpr DotAccess?)
        | (ArrayLiteral DotAccess?)
@@ -167,9 +165,6 @@ BooleanLiteral :: ("true")
 
 Lambda :: #"func" LambdaArgs #"=>" (BareBlock | BoolExpr);
 LambdaArgs :: #"(" (VariableTypePair (#"," VariableTypePair)*)? #")";
-
-CharRange :: CharLit #".." CharLit;
-IntRange :: IntNum #".." IntNum;
 
 ValueTuple :: #"(" BoolExpr (#"," BoolExpr)+ #")";
 

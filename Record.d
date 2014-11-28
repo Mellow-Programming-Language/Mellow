@@ -260,8 +260,6 @@ class RecordBuilder : Visitor
     void visit(StringLitNode node) {}
     void visit(DeclarationNode node) {}
     void visit(DeclTypeInferNode node) {}
-    void visit(CharRangeNode node) {}
-    void visit(IntRangeNode node) {}
     void visit(ValueTupleNode node) {}
     void visit(LorRValueNode node) {}
     void visit(LorRTrailerNode node) {}
