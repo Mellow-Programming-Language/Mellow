@@ -1071,10 +1071,53 @@ class FunctionBuilder : Visitor
         }
     }
 
-    void visit(IfStmtNode node) {}
-    void visit(ElseIfsNode node) {}
-    void visit(ElseIfStmtNode node) {}
-    void visit(ElseStmtNode node) {}
+    void visit(IfStmtNode node)
+    {
+        funcScopes[$-1].syms.length++;
+        // CondAssignmentsNode
+        node.children[0].accept(this);
+        // BoolExprNode
+        node.children[1].accept(this);
+        auto boolType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (boolType.tag != TypeEnum.BOOL)
+        {
+            throw new Exception("Non-bool expr in if statement expr.");
+        }
+        // BareBlockNode
+        node.children[2].accept(this);
+        // ElseIfsNode
+        node.children[3].accept(this);
+        // ElseStmtNode
+        node.children[4].accept(this);
+        funcScopes[$-1].syms.length--;
+    }
+
+    void visit(ElseIfsNode node)
+    {
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(ElseIfStmtNode node)
+    {
+        node.children[0].accept(this);
+        auto boolType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (boolType.tag != TypeEnum.BOOL)
+        {
+            throw new Exception("Non-bool expr in else if statement expr.");
+        }
+        node.children[1].accept(this);
+    }
+
+    void visit(ElseStmtNode node)
+    {
+        node.children[0].accept(this);
+    }
+
     void visit(WhileStmtNode node) {}
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
