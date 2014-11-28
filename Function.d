@@ -142,7 +142,8 @@ class FunctionBuilder : Visitor
 {
     private RecordBuilder records;
     private string id;
-    private FuncSig* curFuncSig;
+    private FuncSig* funcSig;
+    private FuncSig* curFuncCallSig;
     private string[] idTuple;
     private VarTypePair*[] funcArgs;
     private FuncSig*[] toplevelFuncs;
@@ -184,6 +185,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto funcName = id;
         auto lookup = funcSigLookup(toplevelFuncs, funcName);
+        funcSig = lookup.sig;
         foreach (arg; lookup.sig.funcArgs)
         {
             funcScopes[$-1].syms[$-1].decls[arg.varName] = arg;
@@ -233,6 +235,12 @@ class FunctionBuilder : Visitor
         if (node.children.length > 0)
         {
             node.children[0].accept(this);
+            auto returnType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!returnType.cmp(funcSig.returnType))
+            {
+                throw new Exception("Wrong type for return.");
+            }
         }
     }
 
@@ -552,7 +560,7 @@ class FunctionBuilder : Visitor
             }
             else if (funcLookup.success)
             {
-                curFuncSig = funcLookup.sig;
+                curFuncCallSig = funcLookup.sig;
             }
             if (node.children.length > 1)
             {
@@ -706,12 +714,51 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto left = lvalue;
         lvalue = null;
+        auto op = (cast(ASTTerminal)node.children[1]).token;
         node.children[2].accept(this);
         auto varType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        if (!left.cmp(varType))
+        final switch (op)
         {
-            throw new Exception("Type mismatch in assign-existing.");
+        case "=":
+            if (!left.cmp(varType))
+            {
+                throw new Exception("Type mismatch in assign-existing.");
+            }
+            break;
+        case "+=":
+        case "-=":
+        case "/=":
+        case "*=":
+            if (!left.isNumeric || !varType.isNumeric)
+            {
+                throw new Exception("Non-numeric type in arithmetic assign-eq");
+            }
+            break;
+        case "%=":
+            if (!left.isIntegral || !varType.isIntegral)
+            {
+                throw new Exception("Non-integral type in mod-assign-eq");
+            }
+            break;
+        case "~=":
+            if (left.tag != TypeEnum.ARRAY)
+            {
+                throw new Exception("Cannot append-equal to non-array type");
+            }
+            else if (varType.tag == TypeEnum.ARRAY)
+            {
+                if (left.cmp(varType))
+                {
+                    break;
+                }
+                throw new Exception("Cannot append unlike array types");
+            }
+            else if (!left.array.arrayType.cmp(varType))
+            {
+                throw new Exception("Cannot append type to unlike array type");
+            }
+            break;
         }
     }
 
@@ -997,12 +1044,12 @@ class FunctionBuilder : Visitor
 
     void visit(FuncCallArgListNode node)
     {
-        // If we get here, then either curFuncSig is valid, or the top type in
-        // the builder stack is using UFCS.
-        if (curFuncSig !is null)
+        // If we get here, then either curFuncCallSig is valid, or the top type
+        // in the builder stack is using UFCS.
+        if (curFuncCallSig !is null)
         {
-            auto funcSig = curFuncSig;
-            curFuncSig = null;
+            auto funcSig = curFuncCallSig;
+            curFuncCallSig = null;
             auto funcArgs = funcSig.funcArgs;
             if (funcArgs.length != node.children.length)
             {
@@ -1034,7 +1081,7 @@ class FunctionBuilder : Visitor
         }
         else if (funcLookup.success)
         {
-            curFuncSig = funcLookup.sig;
+            curFuncCallSig = funcLookup.sig;
             node.children[1].accept(this);
         }
     }
@@ -1065,7 +1112,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception("No function[" ~ name ~ "].");
             }
-            curFuncSig = funcLookup.sig;
+            curFuncCallSig = funcLookup.sig;
             node.children[1].accept(this);
             // Finish this. Gotta actually determine whether the UFCS call works
         }
@@ -1118,7 +1165,24 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
     }
 
-    void visit(WhileStmtNode node) {}
+    void visit(WhileStmtNode node)
+    {
+        funcScopes[$-1].syms.length++;
+        // CondAssignmentsNode
+        node.children[0].accept(this);
+        // BoolExprNode
+        node.children[1].accept(this);
+        auto boolType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (boolType.tag != TypeEnum.BOOL)
+        {
+            throw new Exception("Non-bool expr in while statement expr.");
+        }
+        // BareBlockNode
+        node.children[2].accept(this);
+        funcScopes[$-1].syms.length--;
+    }
+
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
     void visit(ForConditionalNode node) {}
@@ -1138,7 +1202,6 @@ class FunctionBuilder : Visitor
     void visit(InterfaceBodyNode node) {}
     void visit(InterfaceEntryNode node) {}
     void visit(ChanWriteNode node) {}
-    void visit(AssignExistingOpNode node) {}
     void visit(CondAssignmentsNode node) {}
     void visit(CondAssignNode node) {}
     void visit(SliceLengthSentinelNode node) {}
@@ -1149,8 +1212,11 @@ class FunctionBuilder : Visitor
     void visit(MatchWhenNode node) {}
     void visit(MatchWhenExprNode node) {}
     void visit(MatchDefaultNode node) {}
+    void visit(CharRangeNode node) {}
+    void visit(IntRangeNode node) {}
 
     void visit(ASTTerminal node) {}
+    void visit(AssignExistingOpNode node) {}
     void visit(StorageClassNode node) {}
     void visit(RefClassNode node) {}
     void visit(ConstClassNode node) {}
@@ -1163,8 +1229,6 @@ class FunctionBuilder : Visitor
     void visit(VariantDefNode node) {}
     void visit(VariantBodyNode node) {}
     void visit(VariantEntryNode node) {}
-    void visit(CharRangeNode node) {}
-    void visit(IntRangeNode node) {}
     void visit(CompOpNode node) {}
     void visit(SumOpNode node) {}
     void visit(SpNode node) {}
