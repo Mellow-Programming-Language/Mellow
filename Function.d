@@ -152,6 +152,7 @@ class FunctionBuilder : Visitor
     private VarTypePair*[] decls;
     private Type* lvalue;
     private uint insideSlice;
+    private string[] foreachArgs;
 
     mixin TypeVisitors;
 
@@ -810,10 +811,19 @@ class FunctionBuilder : Visitor
 
     void visit(ValueTupleNode node)
     {
+        Type*[] types;
         foreach (child; node.children)
         {
             child.accept(this);
+            types ~= builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
         }
+        auto tuple = new TupleType();
+        tuple.types = types;
+        auto type = new Type;
+        type.tag = TypeEnum.TUPLE;
+        type.tuple = tuple;
+        builderStack[$-1] ~= type;
     }
 
     void visit(LorRValueNode node)
@@ -1177,7 +1187,10 @@ class FunctionBuilder : Visitor
 
     void visit(ElseStmtNode node)
     {
-        node.children[0].accept(this);
+        if (node.children.length > 0)
+        {
+            node.children[0].accept(this);
+        }
     }
 
     void visit(WhileStmtNode node)
@@ -1198,12 +1211,81 @@ class FunctionBuilder : Visitor
         funcScopes[$-1].syms.length--;
     }
 
+    void visit(CondAssignmentsNode node)
+    {
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(CondAssignNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(ForeachStmtNode node)
+    {
+        // ForeachArgsNode
+        node.children[0].accept(this);
+        // BoolExprNode
+        node.children[1].accept(this);
+        auto loopType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        Type*[] loopTypes;
+        if (loopType.tag == TypeEnum.ARRAY)
+        {
+            loopTypes ~= loopType;
+        }
+        else if (loopType.tag == TypeEnum.TUPLE)
+        {
+            foreach (type; loopType.tuple.types)
+            {
+                if (type.tag != TypeEnum.ARRAY)
+                {
+                    throw new Exception(
+                        "Cannot loop over non-array types in loop tuple");
+                }
+                loopTypes ~= type;
+            }
+        }
+        else
+        {
+            throw new Exception("Cannot loop over non-array types");
+        }
+        if (foreachArgs.length != loopTypes.length)
+        {
+            throw new Exception("Foreach args must match loop types in number");
+        }
+        // Add the loop variables to the scope
+        funcScopes[$-1].syms.length++;
+        foreach (varName, type; lockstep(foreachArgs, loopTypes))
+        {
+            auto pair = new VarTypePair();
+            pair.varName = varName;
+            pair.type = type.array.arrayType;
+            funcScopes[$-1].syms[$-1].decls[varName] = pair;
+        }
+        writeln(format(funcScopes[$-1].syms));
+        // BareBlockNode
+        node.children[2].accept(this);
+        funcScopes[$-1].syms.length--;
+    }
+
+    void visit(ForeachArgsNode node)
+    {
+        foreachArgs = [];
+        foreach (child; node.children)
+        {
+            child.accept(this);
+            foreachArgs ~= id;
+        }
+    }
+
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
     void visit(ForConditionalNode node) {}
     void visit(ForPostExpressionNode node) {}
-    void visit(ForeachStmtNode node) {}
-    void visit(ForeachArgsNode node) {}
     void visit(SpawnStmtNode node) {}
     void visit(YieldStmtNode node) {}
     void visit(LambdaNode node) {}
@@ -1217,8 +1299,6 @@ class FunctionBuilder : Visitor
     void visit(InterfaceBodyNode node) {}
     void visit(InterfaceEntryNode node) {}
     void visit(ChanWriteNode node) {}
-    void visit(CondAssignmentsNode node) {}
-    void visit(CondAssignNode node) {}
     void visit(ChanReadNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
     void visit(MatchStmtNode node) {}

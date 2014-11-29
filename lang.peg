@@ -62,19 +62,19 @@ ReturnStmt :: #'return' (#Sp BoolExpr)?;
 IfStmt :: #"if" #"(" CondAssignments BoolExpr #")" BareBlock ElseIfs ElseStmt;
 ElseIfs :: ElseIfStmt*;
 ElseIfStmt :: #'else' #Sp #"if" #"(" BoolExpr #")" BareBlock;
-ElseStmt :: #"else" BareBlock;
+ElseStmt :: (#"else" BareBlock)?;
 
 WhileStmt :: #"while" #"(" CondAssignments BoolExpr #")" BareBlock;
 
 ForStmt :: #"for" #"(" ForInit ForConditional ForPostExpression #")"
-           #"{" Statement* #"}"
+           BareBlock
            ;
 ForInit :: Assignment? #";";
 ForConditional :: BoolExpr? #";";
 ForPostExpression :: BoolExpr?;
 
 ForeachStmt :: #"foreach" #"(" ForeachArgs #";" BoolExpr #")"
-               #"{" Statement* #"}"
+               BareBlock
                ;
 ForeachArgs :: Identifier (#"," Identifier)*;
 
