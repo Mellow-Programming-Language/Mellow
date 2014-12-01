@@ -1302,10 +1302,20 @@ class FunctionBuilder : Visitor
     void visit(ChanReadNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
     void visit(MatchStmtNode node) {}
-    void visit(MatchExprNode node) {}
     void visit(MatchWhenNode node) {}
-    void visit(MatchWhenExprNode node) {}
-    void visit(MatchDefaultNode node) {}
+    void visit(PatternNode node) {}
+    void visit(DestructVariantPatternNode node) {}
+    void visit(StructPatternNode node) {}
+    void visit(BoolPatternNode node) {}
+    void visit(StringPatternNode node) {}
+    void visit(CharPatternNode node) {}
+    void visit(IntPatternNode node) {}
+    void visit(FloatPatternNode node) {}
+    void visit(TuplePatternNode node) {}
+    void visit(ArrayPatternNode node) {}
+    void visit(ArrayTailPatternNode node) {}
+    void visit(WildcardPatternNode node) {}
+    void visit(VarOrBareVariantPatternNode node) {}
 
     void visit(ASTTerminal node) {}
     void visit(AssignExistingOpNode node) {}

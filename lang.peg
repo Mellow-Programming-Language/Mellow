@@ -213,11 +213,36 @@ DotAccess :: #"." Identifier Trailer?;
 
 
 
-MatchStmt :: #"match" #"(" CondAssignments MatchExpr #")" #"{" MatchWhen+ #"}";
-MatchExpr :: BoolExpr (#'as' #Sp Identifier)?;
-MatchWhen :: MatchWhenExpr | MatchDefault;
-MatchWhenExpr :: #'when' #Sp BoolExpr #"::" Statement*;
-MatchDefault :: #"default" #"::" Statement*;
+MatchStmt :: #"match" #"(" CondAssignments BoolExpr #")" #"{" MatchWhen+ #"}";
+MatchWhen :: #'when' #Sp Pattern #"::" Statement*;
+Pattern :: DestructVariantPattern
+         | StructPattern
+         | BoolPattern
+         | StringPattern
+         | CharPattern
+         | FloatPattern
+         | IntPattern
+         | TuplePattern
+         | ArrayPattern
+         | ArrayTailPattern
+         | WildcardPattern
+         | VarOrBareVariantPattern
+         ;
+DestructVariantPattern  :: Identifier #"(" Pattern (#"," Pattern)* #")";
+StructPattern           :: #"{" Identifier #"=" Pattern
+                          (#"," Identifier #"=" Pattern)* #"}";
+BoolPattern             :: "true" | "false";
+StringPattern           :: StringLit;
+CharPattern             :: CharLit (#".." CharLit)?;
+IntPattern              :: IntNum (#".." IntNum)?;
+FloatPattern            :: FloatNum (#".." FloatNum)?;
+TuplePattern            :: #"(" Pattern (#"," Pattern)+ #")";
+ArrayPattern            :: #"[" Pattern (#"," Pattern)*
+                         ( #"," #".." (#'as' #Sp Identifier)? )? #"]";
+ArrayTailPattern        :: #"[" #".." (#'as' #Sp Identifier)? #","
+                           Pattern (#"," Pattern)* #"]";
+WildcardPattern         :: #"_";
+VarOrBareVariantPattern :: Identifier;
 
 VariableTypePair :: Identifier #":" TypeId;
 VariableTypePairTuple :: #"(" VariableTypePair (#"," VariableTypePair)* #")";
