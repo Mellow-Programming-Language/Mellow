@@ -138,11 +138,36 @@ void dumpDecls(VarTypePair*[] decls)
     }
 }
 
+auto format(TypeEnum tag)
+{
+    final switch (tag)
+    {
+    case TypeEnum.VOID:         return "VOID";
+    case TypeEnum.LONG:         return "LONG";
+    case TypeEnum.INT:          return "INT";
+    case TypeEnum.SHORT:        return "SHORT";
+    case TypeEnum.BYTE:         return "BYTE";
+    case TypeEnum.FLOAT:        return "FLOAT";
+    case TypeEnum.DOUBLE:       return "DOUBLE";
+    case TypeEnum.CHAR:         return "CHAR";
+    case TypeEnum.BOOL:         return "BOOL";
+    case TypeEnum.STRING:       return "STRING";
+    case TypeEnum.SET:          return "SET";
+    case TypeEnum.HASH:         return "HASH";
+    case TypeEnum.ARRAY:        return "ARRAY";
+    case TypeEnum.AGGREGATE:    return "AGGREGATE";
+    case TypeEnum.TUPLE:        return "TUPLE";
+    case TypeEnum.FUNCPTR:      return "FUNCPTR";
+    case TypeEnum.STRUCT:       return "STRUCT";
+    case TypeEnum.VARIANT:      return "VARIANT";
+    }
+}
+
 class FunctionBuilder : Visitor
 {
     private RecordBuilder records;
     private string id;
-    private FuncSig* funcSig;
+    private FuncSig*[] funcSigs;
     private FuncSig* curFuncCallSig;
     private string[] idTuple;
     private VarTypePair*[] funcArgs;
@@ -151,6 +176,7 @@ class FunctionBuilder : Visitor
     private FunctionScope[] funcScopes;
     private VarTypePair*[] decls;
     private Type* lvalue;
+    private Type* matchType;
     private uint insideSlice;
     private string[] foreachArgs;
 
@@ -179,6 +205,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         // Visit FuncBodyBlocksNode
         node.children[1].accept(this);
+        funcSigs.length--;
         funcScopes.length--;
     }
 
@@ -188,10 +215,18 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto funcName = id;
         auto lookup = funcSigLookup(toplevelFuncs, funcName);
-        funcSig = lookup.sig;
-        foreach (arg; lookup.sig.funcArgs)
+        if (lookup.success)
         {
-            funcScopes[$-1].syms[$-1].decls[arg.varName] = arg;
+            funcSigs ~= lookup.sig;
+            foreach (arg; lookup.sig.funcArgs)
+            {
+                funcScopes[$-1].syms[$-1].decls[arg.varName] = arg;
+            }
+        }
+        // It must be an inner function definition
+        else
+        {
+
         }
     }
 
@@ -240,7 +275,7 @@ class FunctionBuilder : Visitor
             node.children[0].accept(this);
             auto returnType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (!returnType.cmp(funcSig.returnType))
+            if (!returnType.cmp(funcSigs[$-1].returnType))
             {
                 throw new Exception("Wrong type for return.");
             }
@@ -555,6 +590,7 @@ class FunctionBuilder : Visitor
             }
             else if (varLookup.success)
             {
+                funcScopes.updateIfClosedOver(name);
                 auto varType = funcScopes[varLookup.funcIndex]
                                     .syms[varLookup.symIndex]
                                     .decls[name]
@@ -1282,6 +1318,166 @@ class FunctionBuilder : Visitor
         }
     }
 
+    void visit(MatchStmtNode node)
+    {
+        funcScopes[$-1].syms.length++;
+        // CondAssignmentsNode
+        node.children[0].accept(this);
+        // BoolExprNode
+        node.children[1].accept(this);
+        auto matchTypeSave = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        // MatchWhenNode+
+        foreach (child; node.children[2..$])
+        {
+            matchType = matchTypeSave;
+            child.accept(this);
+        }
+        funcScopes[$-1].syms.length--;
+    }
+
+    void visit(MatchWhenNode node)
+    {
+        // PatternNode
+        node.children[0].accept(this);
+        // StatementNode*
+        foreach (child; node.children[1..$])
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(PatternNode node)
+    {
+        node.children[0].accept(this);
+    }
+
+    void visit(DestructVariantPatternNode node)
+    {
+        if (matchType.tag != TypeEnum.VARIANT)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not variant type.");
+        }
+        // IdentifierNode
+        node.children[0].accept(this);
+        auto constructorName = id;
+        // Try to grab the constructor with the same name. We'll get an array
+        // with either that one member element, or it will be empty
+        auto members = matchType.variantDef
+                                .members
+                                .filter!(a => a.constructorName
+                                             == constructorName)
+                                .array;
+        if (members.length == 0)
+        {
+            throw new Exception("Variant constructor does not exist");
+        }
+        auto member = members[0];
+        if (member.constructorElems.tuple.types.length
+            != node.children[1..$].length)
+        {
+            throw new Exception("Pattern sub-element quantity mismatch");
+        }
+        foreach (child, subtype; lockstep(node.children[1..$],
+                                        member.constructorElems.tuple.types))
+        {
+            matchType = subtype;
+            child.accept(this);
+        }
+    }
+
+    void visit(StructPatternNode node)
+    {
+        if (matchType.tag != TypeEnum.STRUCT)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not struct type.");
+        }
+    }
+
+    void visit(BoolPatternNode node)
+    {
+        if (matchType.tag != TypeEnum.BOOL)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not bool type.");
+        }
+    }
+
+    void visit(StringPatternNode node)
+    {
+        if (matchType.tag != TypeEnum.STRING)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not string type.");
+        }
+    }
+
+    void visit(CharPatternNode node)
+    {
+        if (matchType.tag != TypeEnum.CHAR)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not char type.");
+        }
+    }
+
+    void visit(IntPatternNode node)
+    {
+        if (!isIntegral(matchType))
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not integer type.");
+        }
+    }
+
+    void visit(FloatPatternNode node)
+    {
+        if (!isFloat(matchType))
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not floating type.");
+        }
+    }
+
+    void visit(TuplePatternNode node)
+    {
+        if (matchType.tag != TypeEnum.TUPLE)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not tuple type.");
+        }
+    }
+
+    void visit(ArrayPatternNode node)
+    {
+        if (matchType.tag != TypeEnum.ARRAY)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not array type.");
+        }
+    }
+
+    void visit(ArrayTailPatternNode node)
+    {
+        if (matchType.tag != TypeEnum.ARRAY)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not array type.");
+        }
+    }
+
+    void visit(WildcardPatternNode node)
+    {
+
+    }
+
+    void visit(VarOrBareVariantPatternNode node)
+    {
+
+    }
+
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
     void visit(ForConditionalNode node) {}
@@ -1301,21 +1497,6 @@ class FunctionBuilder : Visitor
     void visit(ChanWriteNode node) {}
     void visit(ChanReadNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
-    void visit(MatchStmtNode node) {}
-    void visit(MatchWhenNode node) {}
-    void visit(PatternNode node) {}
-    void visit(DestructVariantPatternNode node) {}
-    void visit(StructPatternNode node) {}
-    void visit(BoolPatternNode node) {}
-    void visit(StringPatternNode node) {}
-    void visit(CharPatternNode node) {}
-    void visit(IntPatternNode node) {}
-    void visit(FloatPatternNode node) {}
-    void visit(TuplePatternNode node) {}
-    void visit(ArrayPatternNode node) {}
-    void visit(ArrayTailPatternNode node) {}
-    void visit(WildcardPatternNode node) {}
-    void visit(VarOrBareVariantPatternNode node) {}
 
     void visit(ASTTerminal node) {}
     void visit(AssignExistingOpNode node) {}
