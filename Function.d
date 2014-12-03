@@ -6,8 +6,6 @@ import std.range;
 import std.array;
 import parser;
 import visitor;
-import SymTab;
-import ASTUtils;
 import typedecl;
 import Record;
 import utils;
@@ -1359,6 +1357,7 @@ class FunctionBuilder : Visitor
             throw new Exception("Must match on " ~ matchType.tag.format
                 ~ ", not variant type.");
         }
+        matchType = normalizeVariantDefs(records, matchType.variantDef);
         // IdentifierNode
         node.children[0].accept(this);
         auto constructorName = id;

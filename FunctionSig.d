@@ -6,8 +6,6 @@ import std.range;
 import std.array;
 import parser;
 import visitor;
-import SymTab;
-import ASTUtils;
 import typedecl;
 import Record;
 import utils;

@@ -185,7 +185,7 @@ struct StructMember
 
     string format()
     {
-        return name ~ " : " ~ type.format() ~ ";";
+        return name ~ ": " ~ type.format() ~ ";";
     }
 
     auto size()
@@ -331,6 +331,8 @@ struct VariantType
     string name;
     string[] templateParams;
     VariantMember[] members;
+    private bool instantiated;
+    private Type*[string] mappings;
 
     VariantType* copy()
     {
@@ -343,7 +345,7 @@ struct VariantType
         return c;
     }
 
-    string format()
+    string formatFull()
     {
         string str = "";
         str ~= "variant " ~ name;
@@ -357,6 +359,26 @@ struct VariantType
             str ~= "    " ~ member.format() ~ "\n";
         }
         str ~= "}";
+        return str;
+    }
+
+    string format()
+    {
+        string str = "";
+        str ~= name;
+        if (templateParams.length > 0)
+        {
+            if (instantiated)
+            {
+                str ~= "!(";
+                str ~= templateParams.map!(a => mappings[a].format).join(", ");
+                str ~= ")";
+            }
+            else
+            {
+                str ~= "(" ~ templateParams.join(", ") ~ ")";
+            }
+        }
         return str;
     }
 
@@ -382,7 +404,9 @@ struct VariantType
         {
             descend(member.constructorElems);
         }
+        instantiated = true;
         templateParams = [];
+        this.mappings = mappings;
     }
 
     // The total size of a variant value on the heap is the size of the largest
