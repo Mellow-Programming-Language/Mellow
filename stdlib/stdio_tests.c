@@ -7,15 +7,15 @@
 
 void printClamStringInfo(void* clamStr)
 {
-    printf("Ref-count: %d\n", ((uint32_t*)clamStr-1)[0]);
-    printf("Length   : %d\n", ((uint32_t*)clamStr)[0]);
+    printf("Ref-count: %d\n", ((uint32_t*)clamStr)[0]);
+    printf("Length   : %d\n", ((uint32_t*)clamStr)[1]);
 }
 
 int main(int argc, char** argv)
 {
-    void* testString = allocClamString("Hello, world!", 13);
+    void* testString = clam_allocString("Hello, world!", 13);
     printClamStringInfo(testString);
-    writeln(testString);
-    freeClamString(testString);
+    clam_writeln(testString);
+    clam_freeString(testString);
     return 0;
 }
