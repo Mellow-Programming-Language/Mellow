@@ -21,24 +21,12 @@ void* clam_fopen(void* str, struct FopenMode* mode)
     FILE* file;
     switch (mode->mode)
     {
-    case 0:
-        file = fopen(str + STR_START_OFFSET, "r");
-        break;
-    case 1:
-        file = fopen(str + STR_START_OFFSET, "w");
-        break;
-    case 2:
-        file = fopen(str + STR_START_OFFSET, "a");
-        break;
-    case 3:
-        file = fopen(str + STR_START_OFFSET, "r+");
-        break;
-    case 4:
-        file = fopen(str + STR_START_OFFSET, "w+");
-        break;
-    case 5:
-        file = fopen(str + STR_START_OFFSET, "a+");
-        break;
+    case 0: file = fopen(str + STR_START_OFFSET, "r");  break;
+    case 1: file = fopen(str + STR_START_OFFSET, "w");  break;
+    case 2: file = fopen(str + STR_START_OFFSET, "a");  break;
+    case 3: file = fopen(str + STR_START_OFFSET, "r+"); break;
+    case 4: file = fopen(str + STR_START_OFFSET, "w+"); break;
+    case 5: file = fopen(str + STR_START_OFFSET, "a+"); break;
     default:
         // It is a programming error to get here, as we are switching on the
         // possible variant tags
@@ -62,8 +50,10 @@ void* clam_fopen(void* str, struct FopenMode* mode)
     }
     else
     {
-        // Set tag to None
+        // Set ref-count to 1
         ((uint32_t*)maybeRes)[0] = 1;
+        // Set tag to None
+        ((uint32_t*)maybeRes)[1] = 1;
     }
     return maybeRes;
 }
