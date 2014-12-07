@@ -29,7 +29,9 @@ class FunctionSigBuilder : Visitor
         builderStack.length++;
         // Just do function definitions
         auto funcDefs = node.children
-                            .filter!(a => typeid(a) == typeid(FuncDefNode));
+                            .filter!(a =>
+                                    typeid(a) == typeid(FuncDefNode)
+                                 || typeid(a) == typeid(ExternFuncDeclNode));
         foreach (funcDef; funcDefs)
         {
             funcDef.accept(this);
@@ -49,6 +51,26 @@ class FunctionSigBuilder : Visitor
             found[elem] = true;
         }
         return multiples.keys;
+    }
+
+    void visit(ExternFuncDeclNode node)
+    {
+        // Visit IdentifierNode, populate 'id'
+        node.children[0].accept(this);
+        funcName = id;
+        writeln("FuncName: ", id);
+        // Visit FuncDefArgListNode
+        node.children[1].accept(this);
+        // Visit FuncReturnTypeNode
+        node.children[2].accept(this);
+        auto funcSig = new FuncSig();
+        funcSig.funcName = funcName;
+        funcSig.funcArgs = funcArgs;
+        funcSig.returnType = returnType;
+        toplevelFuncs ~= funcSig;
+        funcName = "";
+        funcArgs = [];
+        returnType = null;
     }
 
     void visit(FuncDefNode node)
@@ -115,18 +137,13 @@ class FunctionSigBuilder : Visitor
         node.children[$-1].accept(this);
         auto argType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        argType.refType = false;
         argType.constType = false;
         if (node.children.length > 2)
         {
             // Visit StorageClassNode
             foreach (storageClass; node.children[1..$-1])
             {
-                if (typeid(storageClass) == typeid(RefClassNode))
-                {
-                    argType.refType = true;
-                }
-                else if (typeid(storageClass) == typeid(ConstClassNode))
+                if (typeid(storageClass) == typeid(ConstClassNode))
                 {
                     argType.constType = true;
                 }
@@ -236,7 +253,6 @@ class FunctionSigBuilder : Visitor
     void visit(ReturnModBlockNode node) {}
     void visit(BodyBlockNode node) {}
     void visit(StorageClassNode node) {}
-    void visit(RefClassNode node) {}
     void visit(ConstClassNode node) {}
     void visit(InterfaceDefNode node) {}
     void visit(InterfaceBodyNode node) {}
@@ -284,6 +300,7 @@ class FunctionSigBuilder : Visitor
     void visit(VarOrBareVariantPatternNode node) {}
 
     void visit(ASTTerminal node) {}
+    void visit(ExternStructDeclNode node) {}
     void visit(StructDefNode node) {}
     void visit(StructBodyNode node) {}
     void visit(StructEntryNode node) {}

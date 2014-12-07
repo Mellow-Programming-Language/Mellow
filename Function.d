@@ -1500,8 +1500,9 @@ class FunctionBuilder : Visitor
     void visit(ASTTerminal node) {}
     void visit(AssignExistingOpNode node) {}
     void visit(StorageClassNode node) {}
-    void visit(RefClassNode node) {}
     void visit(ConstClassNode node) {}
+    void visit(ExternStructDeclNode node) {}
+    void visit(ExternFuncDeclNode node) {}
     void visit(FuncDefArgListNode node) {}
     void visit(FuncSigArgNode node) {}
     void visit(FuncReturnTypeNode node) {}

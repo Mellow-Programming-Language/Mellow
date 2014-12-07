@@ -1,11 +1,17 @@
 Program :: ( VariantDef
            | StructDef
            | FuncDef
+           | ExternStructDecl
+           | ExternFuncDecl
            | InterfaceDef
            )+
            ;
 
 Sp :: /\s+/;
+
+ExternStructDecl :: #'extern' #Sp #'struct' #Sp Identifier #";";
+ExternFuncDecl   :: #'extern' #Sp #'func'   #Sp Identifier
+                    FuncDefArgList FuncReturnType #";";
 
 StructDef :: #'struct' #Sp Identifier TemplateTypeParams StructBody;
 StructBody :: #"{" (StructEntry | StructFunction)+ #"}";
@@ -27,10 +33,7 @@ BodyBlock :: #"body" BareBlock;
 
 BareBlock :: #"{" Statement* #"}";
 
-StorageClass :: RefClass
-              | ConstClass
-              ;
-RefClass :: #'ref' #Sp;
+StorageClass :: ConstClass;
 ConstClass :: #'const' #Sp;
 
 VariantDef :: #'variant' #Sp Identifier TemplateTypeParams VariantBody;
