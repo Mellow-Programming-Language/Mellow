@@ -23,8 +23,9 @@ class RecordBuilder : Visitor
     this (ProgramNode node)
     {
         writeln("RecordBuilder: this()");
-        auto structs = collectStructs(node);
-        auto variants = collectVariants(node);
+        auto structs = collectNodes!StructDefNode(node);
+        auto externStructs = collectNodes!ExternStructDeclNode(node);
+        auto variants = collectNodes!VariantDefNode(node);
         auto printVisitor = new PrintVisitor();
         printVisitor.visit(cast(ProgramNode)node);
         foreach (structDef; structs)
@@ -32,6 +33,10 @@ class RecordBuilder : Visitor
             builderStack.length++;
             visit(cast(StructDefNode)structDef);
             builderStack.length--;
+        }
+        foreach (structDecl; externStructs)
+        {
+            visit(cast(ExternStructDeclNode)structDecl);
         }
         foreach (variantDef; variants)
         {
@@ -41,63 +46,38 @@ class RecordBuilder : Visitor
         }
     }
 
-    private auto collectMultiples(T)(T[] elems)
+    private auto collectNodes(T)(ASTNode node)
     {
-        bool[T] found;
-        bool[T] multiples;
-        foreach (elem; elems)
-        {
-            if (elem in found)
-            {
-                multiples[elem] = true;
-            }
-            found[elem] = true;
-        }
-        return multiples.keys;
-    }
-
-    private auto collectStructs(ASTNode node)
-    {
-        alias searchStructDef = search!(
-            a => typeid(a) == typeid(StructDefNode)
+        alias searchDef = search!(
+            a => typeid(a) == typeid(T)
         );
-        auto getStructName(ASTNonTerminal structDef)
+        auto getName(ASTNonTerminal def)
         {
-            auto idNode = cast(ASTNonTerminal)structDef.children[0];
+            auto idNode = cast(ASTNonTerminal)def.children[0];
             return (cast(ASTTerminal)idNode.children[0]).token;
         }
-        auto structs = searchStructDef.findAll(node)
-                                      .map!(a => cast(ASTNonTerminal)a).array;
-        auto names = structs.map!getStructName.array;
-        if (names.length != names.uniq.array.length)
-        {
-            writeln("Multiple definitions:");
-            writeln("  ", collectMultiples(names));
-        }
+        auto results = searchDef.findAll(node)
+                                .map!(a => cast(ASTNonTerminal)a)
+                                .array;
+        auto names = results.map!getName.array;
         writeln(names);
-        return structs;
+        return results;
     }
 
-    private auto collectVariants(ASTNode node)
+    void visit(ExternStructDeclNode node)
     {
-        alias searchStructDef = search!(
-            a => typeid(a) == typeid(VariantDefNode)
-        );
-        auto getVariantName(ASTNonTerminal structDef)
+        node.children[0].accept(this);
+        string structName = id;
+        definedTypes[structName] = true;
+        auto structDecl = new StructType();
+        structDecl.name = structName;
+        structDecl.isExtern = true;
+        if (structName in structDefs)
         {
-            auto idNode = cast(ASTNonTerminal)structDef.children[0];
-            return (cast(ASTTerminal)idNode.children[0]).token;
+            writeln("Multiple definitions for ", structName);
+            throw new Exception("Multiple declarations for ", structName);
         }
-        auto structs = searchStructDef.findAll(node)
-                                      .map!(a => cast(ASTNonTerminal)a).array;
-        auto names = structs.map!getVariantName.array;
-        if (names.length != names.uniq.array.length)
-        {
-            writeln("Multiple definitions:");
-            writeln("  ", collectMultiples(names));
-        }
-        writeln(names);
-        return structs;
+        structDefs[structName] = structDecl;
     }
 
     void visit(StructDefNode node)
@@ -108,6 +88,7 @@ class RecordBuilder : Visitor
         node.children[2].accept(this);
         auto structDef = new StructType();
         structDef.name = structName;
+        structDef.isExtern = false;
         node.children[1].accept(this);
         if (templateParams.length > 0)
         {
@@ -118,7 +99,7 @@ class RecordBuilder : Visitor
         structMemberList = [];
         if (structName in structDefs)
         {
-            writeln("Multiple definitions for ", structName);
+            throw new Exception("Multiple declarations for ", structName);
         }
         structDefs[structName] = structDef;
     }
@@ -167,7 +148,7 @@ class RecordBuilder : Visitor
         variantMemberList = [];
         if (variantName in variantDefs)
         {
-            writeln("Multiple definitions for ", variantName);
+            throw new Exception("Multiple declarations for ", variantName);
         }
         variantDefs[variantName] = variantDef;
     }
@@ -233,6 +214,7 @@ class RecordBuilder : Visitor
     }
 
     void visit(ProgramNode node) {}
+    void visit(ExternFuncDeclNode node) {}
     void visit(FuncDefNode node) {}
     void visit(FuncSignatureNode node) {}
     void visit(FuncBodyBlocksNode node) {}
@@ -280,7 +262,6 @@ class RecordBuilder : Visitor
     void visit(ReturnModBlockNode node) {}
     void visit(BodyBlockNode node) {}
     void visit(StorageClassNode node) {}
-    void visit(RefClassNode node) {}
     void visit(ConstClassNode node) {}
     void visit(InterfaceDefNode node) {}
     void visit(InterfaceBodyNode node) {}

@@ -139,7 +139,6 @@ struct FuncPtrType
     Type*[] funcArgs;
     // Even if the return type is a tuple, it's still really only a single type
     Type* returnType;
-    //Type*[] returnType;
     // Indicates whether this function pointer is a fat pointer, meaning it
     // contains not only the pointer to the function, but an environment
     // pointer to be passed as an argument to the function as well
@@ -199,6 +198,7 @@ struct StructType
     string name;
     string[] templateParams;
     StructMember[] members;
+    bool isExtern;
     private bool instantiated;
     private Type*[string] mappings;
 
@@ -216,6 +216,10 @@ struct StructType
     string formatFull()
     {
         string str = "";
+        if (isExtern)
+        {
+            str ~= "extern ";
+        }
         str ~= "struct " ~ name;
         if (templateParams.length > 0)
         {
@@ -230,12 +234,19 @@ struct StructType
                 str ~= "(" ~ templateParams.join(", ") ~ ")";
             }
         }
-        str ~= " {\n";
-        foreach (member; members)
+        if (isExtern)
         {
-            str ~= "    " ~ member.format() ~ "\n";
+            str ~= ";";
         }
-        str ~=  "}";
+        else
+        {
+            str ~= " {\n";
+            foreach (member; members)
+            {
+                str ~= "    " ~ member.format() ~ "\n";
+            }
+            str ~=  "}";
+        }
         return str;
     }
 
@@ -421,7 +432,6 @@ struct VariantType
 struct Type
 {
     TypeEnum tag;
-    bool refType;
     bool constType;
     union {
         ArrayType* array;
@@ -438,7 +448,6 @@ struct Type
     {
         auto c = new Type();
         c.tag = this.tag;
-        c.refType = this.refType;
         c.constType = this.constType;
         final switch (tag)
         {
@@ -488,10 +497,6 @@ struct Type
         {
             str ~= "const ";
         }
-        if (refType)
-        {
-            str ~= "ref ";
-        }
         final switch (tag)
         {
         case TypeEnum.VOID      : return str ~ "void";
@@ -517,9 +522,7 @@ struct Type
 
     bool cmp(const Type* o) const
     {
-        if (constType != o.constType
-            || refType != o.refType
-            || tag != o.tag)
+        if (constType != o.constType || tag != o.tag)
         {
             return false;
         }
