@@ -24,6 +24,7 @@ struct ClamFile
     uint32_t refCount;
     uint32_t openMode;
     FILE* ptr;
+    unsigned char isOpen;
 };
 
 // Write a clam-string out to STDOUT
@@ -31,5 +32,9 @@ void clam_writeln(void* str);
 
 // Return a Maybe!File for use with file operations
 void* clam_fopen(void* str, struct FopenMode* mode);
+
+// Given a File ref, close the file
+// TODO: Must actually do something about the case of failure to close the file
+void clam_fclose(struct ClamFile* file);
 
 #endif

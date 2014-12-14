@@ -11,7 +11,6 @@ void clam_writeln(void* clamStr)
     printf("%s\n", (char*)(clamStr + STR_START_OFFSET));
 }
 
-// Return a File reference for use with file operations
 void* clam_fopen(void* str, struct FopenMode* mode)
 {
     // Allocate space for a Maybe!File, which needs space for the ref-count, the
@@ -39,6 +38,7 @@ void* clam_fopen(void* str, struct FopenMode* mode)
         fileRef->refCount = 1;
         fileRef->openMode = mode->mode;
         fileRef->ptr = file;
+        fileRef->isOpen = 1;
         // Set ref-count to 1
         ((uint32_t*)maybeRes)[0] = 1;
         // Set tag to Some
@@ -56,4 +56,13 @@ void* clam_fopen(void* str, struct FopenMode* mode)
         ((uint32_t*)maybeRes)[1] = 1;
     }
     return maybeRes;
+}
+
+void clam_fclose(struct ClamFile* file)
+{
+    if (file->isOpen)
+    {
+        fclose(file->ptr);
+        file->isOpen = 0;
+    }
 }
