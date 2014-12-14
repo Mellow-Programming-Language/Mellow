@@ -169,7 +169,7 @@ BooleanLiteral :: ("true")
                 | ("false")
                 ;
 
-Lambda :: #"func" LambdaArgs #"=>" (BareBlock | BoolExpr);
+Lambda :: #"fn" LambdaArgs #"=>" BoolExpr;
 LambdaArgs :: #"(" (VariableTypePair (#"," VariableTypePair)*)? #")";
 
 ValueTuple :: #"(" BoolExpr (#"," BoolExpr)+ #")";
@@ -269,7 +269,7 @@ ChanType :: #"chan" TemplateInstantiation;
 ArrayType :: #"[" #"]" TypeId;
 SetType :: #"<" #">" BasicType;
 HashType :: #"[" BasicType #"]" TypeId;
-TypeTuple :: #"(" TypeId (#"," TypeId)* #")";
+TypeTuple :: #"(" TypeId (#"," TypeId)+ #")";
 UserType :: Identifier TemplateInstantiation?;
 BasicType :: "void"
            | "long"
