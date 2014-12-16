@@ -1477,6 +1477,16 @@ class FunctionBuilder : Visitor
 
     }
 
+    void visit(IsExprNode node)
+    {
+
+    }
+
+    void visit(VariantValueNode node)
+    {
+
+    }
+
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
     void visit(ForConditionalNode node) {}

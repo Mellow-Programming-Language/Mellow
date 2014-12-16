@@ -131,7 +131,9 @@ struct TupleType
     }
 }
 
-// Type representing the value that is a callable function pointer
+// Type representing the value that is a callable function pointer. Note that
+// all function pointers are fat pointers, though they may not necessarily be
+// actual closures
 struct FuncPtrType
 {
     // The types of the arguments to the function, in the order they appeared
@@ -139,15 +141,10 @@ struct FuncPtrType
     Type*[] funcArgs;
     // Even if the return type is a tuple, it's still really only a single type
     Type* returnType;
-    // Indicates whether this function pointer is a fat pointer, meaning it
-    // contains not only the pointer to the function, but an environment
-    // pointer to be passed as an argument to the function as well
-    bool isFatPtr;
 
     FuncPtrType* copy()
     {
         auto c = new FuncPtrType();
-        c.isFatPtr = this.isFatPtr;
         c.returnType = this.returnType.copy;
         c.funcArgs = this.funcArgs
                          .map!(a => a.copy)
@@ -159,12 +156,16 @@ struct FuncPtrType
     string format()
     {
         string str = "";
-        str ~= "funcptr((";
+        str ~= "fn (";
         if (funcArgs.length > 0)
         {
-            str ~= funcArgs.map!(a => a.format()).join(", ") ~ "): ";
+            str ~= funcArgs.map!(a => a.format()).join(", ");
         }
-        str ~= returnType.format() ~ ")";
+        str ~= ")";
+        if (returnType.tag != TypeEnum.VOID)
+        {
+            str ~= " => " ~ returnType.format();
+        }
         return str;
     }
 }
@@ -552,8 +553,7 @@ struct Type
                   .map!(a => a[0].cmp(a[1]))
                   .reduce!((a, b) => true == a && a == b);
         case TypeEnum.FUNCPTR:
-            return funcPtr.isFatPtr == o.funcPtr.isFatPtr
-                && funcPtr.returnType.cmp(o.funcPtr.returnType)
+            return funcPtr.returnType.cmp(o.funcPtr.returnType)
                 && funcPtr.funcArgs.length == o.funcPtr.funcArgs.length
                 && zip(funcPtr.funcArgs,
                        o.funcPtr.funcArgs)
@@ -978,6 +978,38 @@ mixin template TypeVisitors()
     {
 
     }
+
+    void visit(FuncRefTypeNode node)
+    {
+        auto funcRefType = new FuncPtrType();
+        Type*[] funcArgs;
+        foreach (child; node.children[0..$-1])
+        {
+            child.accept(this);
+            funcArgs ~= builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+        }
+        funcRefType.funcArgs = funcArgs;
+        auto retTypeNode = cast(FuncRefRetTypeNode)node.children[$-1];
+        if (retTypeNode.children.length == 0)
+        {
+            auto voidRetType = new Type();
+            voidRetType.tag = TypeEnum.VOID;
+            funcRefType.returnType = voidRetType;
+        }
+        else
+        {
+            retTypeNode.children[0].accept(this);
+            funcRefType.returnType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+        }
+        auto wrap = new Type();
+        wrap.tag = TypeEnum.FUNCPTR;
+        wrap.funcPtr = funcRefType;
+        builderStack[$-1] ~= wrap;
+    }
+
+    void visit(FuncRefRetTypeNode node) {}
 
     void visit(TemplateTypeParamsNode node)
     {

@@ -318,5 +318,7 @@ class RecordBuilder : Visitor
     void visit(VarOrBareVariantPatternNode node) {}
     void visit(VariableTypePairTupleNode node) {}
     void visit(IdTupleNode node) {}
+    void visit(IsExprNode node) {}
+    void visit(VariantValueNode node) {}
     void visit(ASTTerminal node) {}
 }

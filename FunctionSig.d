@@ -204,6 +204,8 @@ class FunctionSigBuilder : Visitor
         builderStack[$-1] ~= instantiateAggregate(records, aggregate);
     }
 
+    void visit(IsExprNode node) {}
+    void visit(VariantValueNode node) {}
     void visit(FuncBodyBlocksNode node) {}
     void visit(BareBlockNode node) {}
     void visit(StatementNode node) {}
