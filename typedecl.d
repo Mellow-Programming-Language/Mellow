@@ -38,7 +38,7 @@ struct ArrayType
         return c;
     }
 
-    string format()
+    string format() const
     {
         return "[]" ~ arrayType.format();
     }
@@ -57,7 +57,7 @@ struct HashType
         return c;
     }
 
-    string format()
+    string format() const
     {
         return "[" ~ keyType.format() ~ "]" ~ valueType.format();
     }
@@ -74,7 +74,7 @@ struct SetType
         return c;
     }
 
-    string format()
+    string format() const
     {
         return "<>" ~ setType.format();
     }
@@ -95,7 +95,7 @@ struct AggregateType
         return c;
     }
 
-    string format()
+    string format() const
     {
         string str = typeName;
         if (templateInstantiations.length == 1)
@@ -125,7 +125,7 @@ struct TupleType
         return c;
     }
 
-    string format()
+    string format() const
     {
         return "(" ~ types.map!(a => a.format()).join(", ") ~ ")";
     }
@@ -153,7 +153,7 @@ struct FuncPtrType
     }
 
     // The syntax for function pointers is not yet decided, so this is temporary
-    string format()
+    string format() const
     {
         string str = "";
         str ~= "fn (";
@@ -183,7 +183,7 @@ struct StructMember
         return c;
     }
 
-    string format()
+    string format() const
     {
         return name ~ ": " ~ type.format() ~ ";";
     }
@@ -214,7 +214,7 @@ struct StructType
         return c;
     }
 
-    string formatFull()
+    string formatFull() const
     {
         string str = "";
         if (isExtern)
@@ -251,7 +251,7 @@ struct StructType
         return str;
     }
 
-    string format()
+    string format() const
     {
         string str = "";
         str ~= name;
@@ -321,7 +321,7 @@ struct VariantMember
         return c;
     }
 
-    string format()
+    string format() const
     {
         string str = "";
         str ~= constructorName;
@@ -357,7 +357,7 @@ struct VariantType
         return c;
     }
 
-    string formatFull()
+    string formatFull() const
     {
         string str = "";
         str ~= "variant " ~ name;
@@ -374,7 +374,7 @@ struct VariantType
         return str;
     }
 
-    string format()
+    string format() const
     {
         string str = "";
         str ~= name;
@@ -491,7 +491,7 @@ struct Type
         return c;
     }
 
-    string format()
+    string format() const
     {
         string str = "";
         if (constType)
