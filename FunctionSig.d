@@ -205,7 +205,8 @@ class FunctionSigBuilder : Visitor
     }
 
     void visit(IsExprNode node) {}
-    void visit(VariantValueNode node) {}
+    void visit(VariantIsMatchNode node) {}
+    void visit(IdOrWildcardNode node) {}
     void visit(FuncBodyBlocksNode node) {}
     void visit(BareBlockNode node) {}
     void visit(StatementNode node) {}

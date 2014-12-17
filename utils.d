@@ -128,3 +128,19 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
     type.variantDef = variantCopy;
     return type;
 }
+
+VariantType* variantFromConstructor(RecordBuilder records, string constructor)
+{
+    auto variantDefs = records.variantDefs;
+    foreach (def; variantDefs)
+    {
+        foreach (member; def.members)
+        {
+            if (member.constructorName == constructor)
+            {
+                return def;//normalizeVariantDefs(records, def).variantDef;
+            }
+        }
+    }
+    return null;
+}

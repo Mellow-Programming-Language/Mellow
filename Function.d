@@ -1182,7 +1182,7 @@ class FunctionBuilder : Visitor
         funcScopes[$-1].syms.length++;
         // CondAssignmentsNode
         node.children[0].accept(this);
-        // BoolExprNode
+        // BoolExprNode or IsExprNode
         node.children[1].accept(this);
         auto boolType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1192,11 +1192,11 @@ class FunctionBuilder : Visitor
         }
         // BareBlockNode
         node.children[2].accept(this);
+        funcScopes[$-1].syms.length--;
         // ElseIfsNode
         node.children[3].accept(this);
         // ElseStmtNode
         node.children[4].accept(this);
-        funcScopes[$-1].syms.length--;
     }
 
     void visit(ElseIfsNode node)
@@ -1209,14 +1209,20 @@ class FunctionBuilder : Visitor
 
     void visit(ElseIfStmtNode node)
     {
+        funcScopes[$-1].syms.length++;
+        // CondAssignmentsNode
         node.children[0].accept(this);
+        // BoolExprNode or IsExprNode
+        node.children[1].accept(this);
         auto boolType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (boolType.tag != TypeEnum.BOOL)
         {
-            throw new Exception("Non-bool expr in else if statement expr.");
+            throw new Exception("Non-bool expr in if statement expr.");
         }
-        node.children[1].accept(this);
+        // BareBlockNode
+        node.children[2].accept(this);
+        funcScopes[$-1].syms.length--;
     }
 
     void visit(ElseStmtNode node)
@@ -1479,13 +1485,55 @@ class FunctionBuilder : Visitor
 
     void visit(IsExprNode node)
     {
-
+        // BoolExprNode
+        node.children[0].accept(this);
+        // IdentifierNode
+        node.children[1].accept(this);
+        auto constructorName = id;
+        auto variantDef = variantFromConstructor(records, constructorName);
+        if (variantDef !is null)
+        {
+            auto members = variantDef.members
+                                     .filter!(a => a.constructorName
+                                                  == constructorName)
+                                     .array;
+            auto member = members[0];
+            if (member.constructorElems.tag != TypeEnum.VOID)
+            {
+                if (member.constructorElems.tuple.types.length
+                    != node.children[2..$].length)
+                {
+                    throw new Exception(
+                        "Pattern sub-element quantity mismatch"
+                    );
+                }
+                foreach (child, subtype;
+                         lockstep(node.children[2..$],
+                                  member.constructorElems.tuple.types))
+                {
+                    // Foreach type in the binding expression that is not a
+                    // wildcard, bind the variable for use in the if statement
+                    if (cast(IdentifierNode)child)
+                    {
+                        child.accept(this);
+                        auto varBind = id;
+                        auto pair = new VarTypePair();
+                        pair.varName = varBind;
+                        pair.type = subtype.copy;
+                        funcScopes[$-1].syms[$-1].decls[varBind] = pair;
+                    }
+                }
+            }
+            auto boolType = new Type();
+            boolType.tag = TypeEnum.BOOL;
+            builderStack[$-1] ~= boolType;
+        }
+        else
+        {
+            throw new Exception("Variant constructor does not exist");
+        }
     }
 
-    void visit(VariantValueNode node)
-    {
-
-    }
 
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
@@ -1508,6 +1556,8 @@ class FunctionBuilder : Visitor
     void visit(TemplateInstanceMaybeTrailerNode node) {}
 
     void visit(ASTTerminal node) {}
+    void visit(VariantIsMatchNode node) {}
+    void visit(IdOrWildcardNode node) {}
     void visit(AssignExistingOpNode node) {}
     void visit(StorageClassNode node) {}
     void visit(ConstClassNode node) {}

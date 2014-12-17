@@ -163,22 +163,23 @@ class RecordBuilder : Visitor
 
     void visit(VariantEntryNode node)
     {
-        auto hasElems = false;
         node.children[0].accept(this);
         string constructorName = id;
-        if (node.children.length > 1)
-        {
-            hasElems = true;
-            node.children[1].accept(this);
-        }
         auto variantMember = VariantMember();
         variantMember.constructorName = constructorName;
-        if (hasElems)
+        if (node.children.length > 1)
         {
-            // The topmost type on the builderStack must be a wrapped tuple, as
-            // children[1] must be a TypeTupleNode
-            variantMember.constructorElems = builderStack[$-1][$-1];
-            builderStack[$-1] = builderStack[$-1][0..$-1];
+            auto constructorTypeElems = new TupleType();
+            foreach (child; node.children[1..$])
+            {
+                child.accept(this);
+                constructorTypeElems.types ~= builderStack[$-1][$-1];
+                builderStack[$-1] = builderStack[$-1][0..$-1];
+            }
+            auto wrap = new Type();
+            wrap.tag = TypeEnum.TUPLE;
+            wrap.tuple = constructorTypeElems;
+            variantMember.constructorElems = wrap;
         }
         else
         {
@@ -319,6 +320,7 @@ class RecordBuilder : Visitor
     void visit(VariableTypePairTupleNode node) {}
     void visit(IdTupleNode node) {}
     void visit(IsExprNode node) {}
-    void visit(VariantValueNode node) {}
+    void visit(VariantIsMatchNode node) {}
+    void visit(IdOrWildcardNode node) {}
     void visit(ASTTerminal node) {}
 }
