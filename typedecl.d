@@ -573,11 +573,15 @@ struct Type
                   .map!(a => a[0].constructorName == a[1].constructorName
                           && a[0].constructorElems.cmp(a[1].constructorElems))
                   .reduce!((a, b) => true == a && a == b);
-        // Aggregate types are simply placeholders for instantiated struct and
-        // variant types. If we are comparing against an aggregate, we failed
-        // to perform an instantiation somewhere
         case TypeEnum.AGGREGATE:
-            throw new Exception("Aggregate type was not instantiated");
+            return aggregate.typeName == o.aggregate.typeName
+                && aggregate.templateInstantiations.length ==
+                 o.aggregate.templateInstantiations.length
+                && reduce!((a, b) => true == a && a == b)(
+                        true,
+                        zip(aggregate.templateInstantiations,
+                          o.aggregate.templateInstantiations)
+                        .map!(a => a[0].cmp(a[1])));
         }
     }
 

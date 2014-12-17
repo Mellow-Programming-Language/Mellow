@@ -98,6 +98,10 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
     type.tag = TypeEnum.VARIANT;
     foreach (ref member; variantCopy.members)
     {
+        if (member.constructorElems.tag != TypeEnum.TUPLE)
+        {
+            continue;
+        }
         foreach (ref elemType; member.constructorElems.tuple.types)
         {
             if (elemType.tag == TypeEnum.AGGREGATE)

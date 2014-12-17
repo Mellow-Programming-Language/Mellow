@@ -1334,8 +1334,10 @@ class FunctionBuilder : Visitor
         // MatchWhenNode+
         foreach (child; node.children[2..$])
         {
+            funcScopes[$-1].syms.length++;
             matchType = matchTypeSave;
             child.accept(this);
+            funcScopes[$-1].syms.length--;
         }
         funcScopes[$-1].syms.length--;
     }
@@ -1480,7 +1482,28 @@ class FunctionBuilder : Visitor
 
     void visit(VarOrBareVariantPatternNode node)
     {
-
+        // IdentifierNode
+        node.children[0].accept(this);
+        auto var = id;
+        auto maybeVariantDef = variantFromConstructor(records, var);
+        if (maybeVariantDef !is null)
+        {
+            auto wrap = new Type();
+            wrap.tag = TypeEnum.VARIANT;
+            wrap.variantDef = maybeVariantDef;
+            if (!wrap.cmp(matchType))
+            {
+                throw new Exception("Constructor for wrong variant definition");
+            }
+        }
+        // Is a variable binding
+        else
+        {
+            auto pair = new VarTypePair();
+            pair.varName = var;
+            pair.type = matchType.copy;
+            funcScopes[$-1].syms[$-1].decls[var] = pair;
+        }
     }
 
     void visit(IsExprNode node)
