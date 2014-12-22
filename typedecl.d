@@ -4,6 +4,7 @@ import std.range;
 import parser;
 
 const PTR_SIZE = 8;
+const FAT_PTR_SIZE = 16;
 
 enum TypeEnum
 {
@@ -602,7 +603,7 @@ struct Type
         case TypeEnum.SET       : return PTR_SIZE;
         case TypeEnum.HASH      : return PTR_SIZE;
         case TypeEnum.ARRAY     : return PTR_SIZE;
-        case TypeEnum.FUNCPTR   : return PTR_SIZE;
+        case TypeEnum.FUNCPTR   : return FAT_PTR_SIZE;
         case TypeEnum.STRUCT    : return PTR_SIZE;
         case TypeEnum.VARIANT   : return PTR_SIZE;
         // Tuples are allocated on the stack, to make tuple-return cheap
