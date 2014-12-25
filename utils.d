@@ -3,6 +3,7 @@ import parser;
 import Record;
 import typedecl;
 import std.range;
+import FunctionSig;
 
 Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
 {
@@ -147,4 +148,33 @@ VariantType* variantFromConstructor(RecordBuilder records, string constructor)
         }
     }
     return null;
+}
+
+struct FuncSigLookupResult
+{
+    FuncSig* sig;
+    bool success;
+
+    this (bool success = false)
+    {
+        this.success = success;
+    }
+
+    this (FuncSig* sig)
+    {
+        this.sig = sig;
+        this.success = true;
+    }
+}
+
+auto funcSigLookup(FuncSig*[] sigs, string name)
+{
+    foreach (sig; sigs)
+    {
+        if (name == sig.funcName)
+        {
+            return FuncSigLookupResult(sig);
+        }
+    }
+    return FuncSigLookupResult();
 }

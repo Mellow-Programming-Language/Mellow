@@ -87,35 +87,6 @@ auto scopeLookup(FunctionScope[] funcScopes, string id)
     return new ScopeLookupResult(0, 0, false, false);
 }
 
-struct FuncSigLookupResult
-{
-    FuncSig* sig;
-    bool success;
-
-    this (bool success = false)
-    {
-        this.success = success;
-    }
-
-    this (FuncSig* sig)
-    {
-        this.sig = sig;
-        this.success = true;
-    }
-}
-
-auto funcSigLookup(FuncSig*[] sigs, string name)
-{
-    foreach (sig; sigs)
-    {
-        if (name == sig.funcName)
-        {
-            return FuncSigLookupResult(sig);
-        }
-    }
-    return FuncSigLookupResult();
-}
-
 void updateIfClosedOver(FunctionScope[] funcScopes, string id)
 {
     auto lookup = funcScopes.scopeLookup(id);
