@@ -7,6 +7,7 @@ import std.conv;
 import std.algorithm;
 import std.array;
 import std.range;
+import ExprCodeGenerator;
 
 // Since functions can return tuples, the function ABI is to place the return
 // value into an assumed-allocated location just past where the arguments were
@@ -70,6 +71,12 @@ struct FuncVars
     VarTypePair*[] stackVars;
     Type* retType;
     ulong[] tempBytes;
+    private uint uniqLabelCounter;
+
+    auto getUniqLabel()
+    {
+        return ".L" ~ (uniqLabelCounter++).to!string;
+    }
 
     auto getStackPtrOffset()
     {
@@ -383,11 +390,6 @@ string compileChanWrite(ChanWriteNode node, FuncVars* vars)
 }
 
 string compileFuncCall(FuncCallNode node, FuncVars* vars)
-{
-    return "";
-}
-
-string compileExpr(BoolExprNode node, FuncVars* vars)
 {
     return "";
 }
