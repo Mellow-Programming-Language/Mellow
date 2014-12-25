@@ -78,6 +78,11 @@ struct FuncVars
         return ".L" ~ (uniqLabelCounter++).to!string;
     }
 
+    auto getUniqLabelSuffix()
+    {
+        return (uniqLabelCounter++).to!string;
+    }
+
     auto getStackPtrOffset()
     {
         return tempBytes.reduce!((a, b) => a + b)
@@ -301,7 +306,9 @@ string compileReturn(ReturnStmtNode node, FuncVars* vars)
 {
     if (node.children.length == 0)
     {
-        return "    ret";
+       return "mov    rsp, rbp    ; takedown stack frame\n"
+              "pop    rbp\n"
+              "ret\n";
     }
     const environOffset = (vars.closureVars.length > 0)
                         ? ENVIRON_PTR_SIZE
@@ -333,9 +340,9 @@ string compileReturn(ReturnStmtNode node, FuncVars* vars)
     {
 
     }
-    // Remove the allocation made by the bool expr
-    vars.deallocateTempSpace();
-    str ~= "    ret";
+    str ~= "mov    rsp, rbp    ; takedown stack frame\n"
+           "pop    rbp\n"
+           "ret\n";
     return str;
 }
 
