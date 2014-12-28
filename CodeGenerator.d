@@ -31,6 +31,27 @@ const RETURN_ADDRESS_SIZE = 8;
 const STACK_PROLOGUE_SIZE = RBP_SIZE + RETURN_ADDRESS_SIZE;
 const ENVIRON_PTR_SIZE = 8;
 
+debug (COMPILE_TRACE)
+{
+    string traceIndent;
+    enum tracer =
+        `
+        string funcName = __FUNCTION__;
+        writeln(traceIndent, "Entered: ", funcName);
+        traceIndent ~= "  ";
+        scope(success)
+        {
+            traceIndent = traceIndent[0..$-2];
+            writeln(traceIndent, "Exiting: ", funcName);
+        }
+        `;
+}
+
+auto getIdentifier(IdentifierNode node)
+{
+    return (cast(ASTTerminal)node.children[0]).token;
+}
+
 auto getOffset(VarTypePair*[] vars, ulong index)
 {
     return getAlignedIndexOffset(vars.map!(a => a.type.size).array, index);
@@ -45,11 +66,11 @@ auto getWordSize(Type* type)
 {
     final switch (type.size)
     {
-    case 1:  return "BYTE";
-    case 2:  return "WORD";
-    case 4:  return "DWORD";
-    case 8:  return "QWORD";
-    case 16: return "OWORD";
+    case 1:  return "byte";
+    case 2:  return "word";
+    case 4:  return "dword";
+    case 8:  return "qword";
+    case 16: return "oword";
     }
 }
 
@@ -122,14 +143,14 @@ struct FuncVars
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov     r8, " ~ getWordSize(var.type) ~ " [rbp+"
+                    return "    mov    r8, " ~ getWordSize(var.type) ~ " [rbp+"
                         ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                            getOffset(funcArgs, i)).to!string ~ "]\n";
                 }
-                return "    mov     r8, QWORD [rbp+"
+                return "    mov    r8, QWORD [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i)).to!string ~ "]\n"
-                    ~ "    mov     r9, QWORD [rbp+"
+                    ~ "    mov    r9, QWORD [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i) + 8).to!string ~ "]\n";
             }
@@ -138,16 +159,16 @@ struct FuncVars
         {
             if (varName == var.varName)
             {
-                auto str = "    mov     r10, [rbp+" ~ 8.to!string ~ "]\n";
+                auto str = "    mov    r10, [rbp+" ~ 8.to!string ~ "]\n";
                 if (var.type.size <= 8)
                 {
-                    str ~= "    mov     r8, " ~ getWordSize(var.type) ~ " [r10+"
+                    str ~= "    mov    r8, " ~ getWordSize(var.type) ~ " [r10+"
                         ~ getOffset(closureVars, i).to!string ~ "]\n";
                     return str;
                 }
-                str ~= "    mov     r8, QWORD [r10+"
+                str ~= "    mov    r8, QWORD [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "]\n"
-                    ~ "    mov     r9, QWORD [r10+"
+                    ~ "    mov    r9, QWORD [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "]\n";
                 return str;
             }
@@ -158,12 +179,12 @@ struct FuncVars
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov     r8, " ~ getWordSize(var.type) ~ " [rbp-"
+                    return "    mov    r8, " ~ getWordSize(var.type) ~ " [rbp-"
                         ~ (getStackOffset(stackVars, i)).to!string ~ "]\n";
                 }
-                return "    mov     r8, QWORD [rbp-"
+                return "    mov    r8, QWORD [rbp-"
                     ~ (getStackOffset(stackVars, i)).to!string ~ "]\n"
-                    ~ "    mov     r9, QWORD [rbp-"
+                    ~ "    mov    r9, QWORD [rbp-"
                     ~ (getStackOffset(stackVars, i) + 8).to!string ~ "]\n";
             }
         }
@@ -176,24 +197,28 @@ struct FuncVars
     // pointer. We then store the value back into its allocated memory location
     string compileVarSet(string varName)
     {
+        "enter".writeln;
+        scope (success) "leave".writeln;
         const environOffset = (closureVars.length > 0)
                            ? ENVIRON_PTR_SIZE
                            : 0;
+        "ret type check?".writeln;
         const retValOffset = retType.size;
+        "yup".writeln;
         foreach (i, var; funcArgs)
         {
             if (varName == var.varName)
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov     " ~ getWordSize(var.type) ~ " [rbp+"
+                    return "    mov    " ~ getWordSize(var.type) ~ " [rbp+"
                         ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                            getOffset(funcArgs, i)).to!string ~ "], r8\n";
                 }
-                return "    mov     QWORD [rbp+"
+                return "    mov    QWORD [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i)).to!string ~ "], r8\n"
-                    ~ "    mov     QWORD [rbp+"
+                    ~ "    mov    QWORD [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i) + 8).to!string ~ "], r9\n";
             }
@@ -202,16 +227,16 @@ struct FuncVars
         {
             if (varName == var.varName)
             {
-                auto str = "    mov     r10, [rbp+" ~ 8.to!string ~ "]\n";
+                auto str = "    mov    r10, [rbp+" ~ 8.to!string ~ "]\n";
                 if (var.type.size <= 8)
                 {
-                    str ~= "    mov     " ~ getWordSize(var.type) ~ " [r10+"
+                    str ~= "    mov    " ~ getWordSize(var.type) ~ " [r10+"
                         ~ getOffset(closureVars, i).to!string ~ "], r8\n";
                     return str;
                 }
-                str ~= "    mov     QWORD [r10+"
+                str ~= "    mov    QWORD [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "], r8\n"
-                    ~ "    mov     QWORD [r10+"
+                    ~ "    mov    QWORD [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "], r9\n";
                 return str;
             }
@@ -220,14 +245,15 @@ struct FuncVars
         {
             if (varName == var.varName)
             {
+                "just before size check".writeln;
                 if (var.type.size <= 8)
                 {
-                    return "    mov     " ~ getWordSize(var.type) ~ " [rbp-"
+                    return "    mov    " ~ getWordSize(var.type) ~ " [rbp-"
                         ~ (getStackOffset(stackVars, i)).to!string ~ "], r8\n";
                 }
-                return "    mov     QWORD [rbp-"
+                return "    mov    QWORD [rbp-"
                     ~ (getStackOffset(stackVars, i)).to!string ~ "], r8\n"
-                    ~ "    mov     QWORD [rbp-"
+                    ~ "    mov    QWORD [rbp-"
                     ~ (getStackOffset(stackVars, i) + 8).to!string ~ "], r9\n";
             }
         }
@@ -238,6 +264,7 @@ struct FuncVars
 
 string compileFunction(FuncSig* sig)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     auto vars = new FuncVars();
     vars.closureVars = sig.closureVars;
     vars.funcArgs = sig.funcArgs;
@@ -248,6 +275,7 @@ string compileFunction(FuncSig* sig)
     push   rbp         ; set up stack frame
     mov    rbp, rsp
 EOS";
+    sig.funcBodyBlocks.writeln;
     func ~= compileBlock(
         cast(BareBlockNode)sig.funcBodyBlocks.children[0], vars
     );
@@ -261,6 +289,7 @@ EOS";
 
 string compileBlock(BareBlockNode block, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     auto code = "";
     foreach (statement; block.children)
     {
@@ -271,6 +300,7 @@ string compileBlock(BareBlockNode block, FuncVars* vars)
 
 string compileStatement(StatementNode statement, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     auto child = statement.children[0];
     if (cast(BareBlockNode)child)
         return compileBlock(cast(BareBlockNode)child, vars);
@@ -304,17 +334,18 @@ string compileStatement(StatementNode statement, FuncVars* vars)
 
 string compileReturn(ReturnStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 0)
     {
-       return "mov    rsp, rbp    ; takedown stack frame\n"
-              "pop    rbp\n"
-              "ret\n";
+       return "    mov    rsp, rbp    ; takedown stack frame\n"
+              "    pop    rbp\n"
+              "    ret\n";
     }
     const environOffset = (vars.closureVars.length > 0)
                         ? ENVIRON_PTR_SIZE
                         : 0;
     auto str = "";
-    str ~= compileExpr(cast(BoolExprNode)node.children[0], vars);
+    str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
     if (vars.retType.size <= 8)
     {
         str ~= "    mov     r10, " ~ vars.retType.getWordSize ~ " [rbp-"
@@ -348,60 +379,110 @@ string compileReturn(ReturnStmtNode node, FuncVars* vars)
 
 string compileIfStmt(IfStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileWhileStmt(WhileStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileForStmt(ForStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileForeachStmt(ForeachStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileMatchStmt(MatchStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileDeclaration(DeclarationNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto child = node.children[0];
+    if (cast(DeclTypeInferNode)child) {
+        return compileDeclTypeInfer(cast(DeclTypeInferNode)child, vars);
+    }
     return "";
+}
+
+string compileDeclTypeInfer(DeclTypeInferNode node, FuncVars* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto left = node.children[0];
+    auto str = compileExpression(cast(BoolExprNode)node.children[1], vars);
+    auto type = node.children[1].data["type"].get!(Type*);
+    if (cast(IdentifierNode)left)
+    {
+        auto varName = getIdentifier(cast(IdentifierNode)left);
+        auto var = new VarTypePair;
+        var.varName = varName;
+        var.type = type;
+        vars.stackVars ~= var;
+
+        // TODO we need to either put the var value in r8 (and possibly r9), or
+        // we need to just start putting everything on the stack (probably a
+        // better idea)
+
+        str = "    ; var infer assign [" ~ varName ~ "]\n" ~ str
+            ~ vars.compileVarSet(varName);
+    }
+    else
+    {
+
+    }
+    return str;
 }
 
 string compileAssignExisting(AssignExistingNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileSpawnStmt(SpawnStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileYieldStmt(YieldStmtNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileChanWrite(ChanWriteNode node, FuncVars* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
 string compileFuncCall(FuncCallNode node, FuncVars* vars)
 {
-    return "";
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = compileArgList(cast(FuncCallArgListNode)node.children[1], vars);
+    str ~= "    call   " ~ getIdentifier(cast(IdentifierNode)node.children[0])
+                         ~ "\n";
+    return str;
 }
 
-int main(string[] argv)
+string compileArgList(FuncCallArgListNode node, FuncVars* vars)
 {
-    return 0;
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = node.children
+                   .map!(a => compileExpression(cast(BoolExprNode)a, vars))
+                   .reduce!((a, b) => a ~ b);
+    return str;
 }

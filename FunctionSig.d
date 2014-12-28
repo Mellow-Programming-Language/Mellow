@@ -83,6 +83,9 @@ class FunctionSigBuilder : Visitor
         funcSig.returnType = returnType;
         funcSig.templateParams = templateParams;
         funcSig.funcBodyBlocks = cast(FuncBodyBlocksNode)node.children[1];
+        "here".writeln;
+        funcSig.funcBodyBlocks.writeln;
+        "and here".writeln;
         toplevelFuncs ~= funcSig;
         funcName = "";
         funcArgs = [];
@@ -162,6 +165,12 @@ class FunctionSigBuilder : Visitor
             node.children[0].accept(this);
             returnType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
+        }
+        else
+        {
+            auto voidType = new Type;
+            voidType.tag = TypeEnum.VOID;
+            returnType = voidType;
         }
     }
 

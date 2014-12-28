@@ -151,6 +151,12 @@ class FunctionBuilder : Visitor
 
     mixin TypeVisitors;
 
+    FuncSig*[] getCompilableFuncSigs()
+    {
+        return toplevelFuncs.filter!(a => a.funcBodyBlocks !is null)
+                            .array;
+    }
+
     this (ProgramNode node, RecordBuilder records, FunctionSigBuilder sigs)
     {
         this.records = records;
@@ -254,6 +260,7 @@ class FunctionBuilder : Visitor
     void visit(BoolExprNode node)
     {
         node.children[0].accept(this);
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(OrTestNode node)
@@ -273,6 +280,7 @@ class FunctionBuilder : Visitor
             }
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(AndTestNode node)
@@ -292,6 +300,7 @@ class FunctionBuilder : Visitor
             }
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(NotTestNode node)
@@ -304,6 +313,7 @@ class FunctionBuilder : Visitor
                 throw new Exception("Cannot negate non-bool type.");
             }
         }
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(ComparisonNode node)
@@ -362,11 +372,13 @@ class FunctionBuilder : Visitor
             resultType = boolType;
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(ExprNode node)
     {
         node.children[0].accept(this);
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(OrExprNode node)
@@ -385,6 +397,7 @@ class FunctionBuilder : Visitor
             }
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(XorExprNode node)
@@ -403,6 +416,7 @@ class FunctionBuilder : Visitor
             }
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(AndExprNode node)
@@ -421,6 +435,7 @@ class FunctionBuilder : Visitor
             }
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(ShiftExprNode node)
@@ -439,6 +454,7 @@ class FunctionBuilder : Visitor
             }
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(SumExprNode node)
@@ -519,6 +535,7 @@ class FunctionBuilder : Visitor
             }
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(ProductExprNode node)
@@ -543,6 +560,7 @@ class FunctionBuilder : Visitor
             resultType = promoteNumeric(resultType, nextType);
         }
         builderStack[$-1] ~= resultType;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(ValueNode node)
@@ -582,16 +600,19 @@ class FunctionBuilder : Visitor
                 child.accept(this);
             }
         }
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(ParenExprNode node)
     {
         node.children[0].accept(this);
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(NumberNode node)
     {
         node.children[0].accept(this);
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(IntNumNode node)
@@ -650,6 +671,7 @@ class FunctionBuilder : Visitor
         type.tag = TypeEnum.ARRAY;
         type.array = arrayType;
         builderStack[$-1] ~= type;
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(VariableTypePairNode node)
