@@ -157,6 +157,12 @@ class FunctionBuilder : Visitor
                             .array;
     }
 
+    FuncSig*[] getExternFuncSigs()
+    {
+        return toplevelFuncs.filter!(a => a.funcBodyBlocks is null)
+                            .array;
+    }
+
     this (ProgramNode node, RecordBuilder records, FunctionSigBuilder sigs)
     {
         this.records = records;

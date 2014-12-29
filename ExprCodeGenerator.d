@@ -7,6 +7,22 @@ import visitor;
 import CodeGenerator;
 import typedecl;
 
+debug (COMPILE_TRACE)
+{
+    string traceIndent;
+    enum tracer =
+        `
+        string funcName = __FUNCTION__;
+        writeln(traceIndent, "Entered: ", funcName);
+        traceIndent ~= "  ";
+        scope(success)
+        {
+            traceIndent = traceIndent[0..$-2];
+            writeln(traceIndent, "Exiting: ", funcName);
+        }
+        `;
+}
+
 string exprOp(string op, string descendNode)
 {
     return `
@@ -31,18 +47,21 @@ string exprOp(string op, string descendNode)
     `;
 }
 
-string compileExpression(BoolExprNode node, FuncVars* vars)
+string compileExpression(ASTNode node, Context* vars)
 {
-    return "";
+    debug (COMPILE_TRACE) mixin(tracer);
+    return compileBoolExpr(cast(BoolExprNode)node, vars);
 }
 
-string compileBoolExpr(BoolExprNode node, FuncVars* vars)
+string compileBoolExpr(BoolExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return compileOrTest(cast(OrTestNode)node.children[0], vars);
 }
 
-string compileOrTest(OrTestNode node, FuncVars* vars)
+string compileOrTest(OrTestNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileAndTest(cast(AndTestNode)node.children[0], vars);
@@ -52,8 +71,9 @@ string compileOrTest(OrTestNode node, FuncVars* vars)
     return str;
 }
 
-string compileAndTest(AndTestNode node, FuncVars* vars)
+string compileAndTest(AndTestNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileNotTest(cast(NotTestNode)node.children[0], vars);
@@ -63,8 +83,9 @@ string compileAndTest(AndTestNode node, FuncVars* vars)
     return str;
 }
 
-string compileNotTest(NotTestNode node, FuncVars* vars)
+string compileNotTest(NotTestNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     auto child = node.children[0];
     auto type = node.data["type"].get!(Type*);
@@ -86,8 +107,9 @@ string compileNotTest(NotTestNode node, FuncVars* vars)
     return str;
 }
 
-string compileComparison(ComparisonNode node, FuncVars* vars)
+string compileComparison(ComparisonNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileExpr(cast(ExprNode)node.children[0], vars);
@@ -95,13 +117,15 @@ string compileComparison(ComparisonNode node, FuncVars* vars)
     return "";
 }
 
-string compileExpr(ExprNode node, FuncVars* vars)
+string compileExpr(ExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return compileOrExpr(cast(OrExprNode)node.children[0], vars);;
 }
 
-string compileOrExpr(OrExprNode node, FuncVars* vars)
+string compileOrExpr(OrExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileXorExpr(cast(XorExprNode)node.children[0], vars);
@@ -111,8 +135,9 @@ string compileOrExpr(OrExprNode node, FuncVars* vars)
     return str;
 }
 
-string compileXorExpr(XorExprNode node, FuncVars* vars)
+string compileXorExpr(XorExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileAndExpr(cast(AndExprNode)node.children[0], vars);
@@ -122,8 +147,9 @@ string compileXorExpr(XorExprNode node, FuncVars* vars)
     return str;
 }
 
-string compileAndExpr(AndExprNode node, FuncVars* vars)
+string compileAndExpr(AndExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileShiftExpr(cast(ShiftExprNode)node.children[0], vars);
@@ -133,22 +159,25 @@ string compileAndExpr(AndExprNode node, FuncVars* vars)
     return str;
 }
 
-string compileShiftExpr(ShiftExprNode node, FuncVars* vars)
+string compileShiftExpr(ShiftExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return compileSumExpr(cast(SumExprNode)node.children[0], vars);
 }
 
-string compileSumExpr(SumExprNode node, FuncVars* vars)
+string compileSumExpr(SumExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
-        return compileProduct(cast(ProductNode)node.children[0], vars);
+        return compileProductExpr(cast(ProductExprNode)node.children[0], vars);
     }
     return "";
 }
 
-string compileProductExpr(ProductExprNode node, FuncVars* vars)
+string compileProductExpr(ProductExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileValue(cast(ValueNode)node.children[0], vars);
@@ -156,8 +185,9 @@ string compileProductExpr(ProductExprNode node, FuncVars* vars)
     return "";
 }
 
-string compileValue(ValueNode node, FuncVars* vars)
+string compileValue(ValueNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     auto child = node.children[0];
     auto str = "";
     if (cast(BooleanLiteralNode)child) {
@@ -189,127 +219,193 @@ string compileValue(ValueNode node, FuncVars* vars)
     return str;
 }
 
-string compileBooleanLiteral(BooleanLiteralNode node, FuncVars* vars)
+string compileBooleanLiteral(BooleanLiteralNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileLambda(LambdaNode node, FuncVars* vars)
+string compileLambda(LambdaNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileLambdaArgs(LambdaArgsNode node, FuncVars* vars)
+string compileLambdaArgs(LambdaArgsNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileValueTuple(ValueTupleNode node, FuncVars* vars)
+string compileValueTuple(ValueTupleNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileParenExpr(ParenExprNode node, FuncVars* vars)
+string compileParenExpr(ParenExprNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileArrayLiteral(ArrayLiteralNode node, FuncVars* vars)
+string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileNumber(NumberNode node, FuncVars* vars)
+string compileNumber(NumberNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileCharLit(CharLitNode node, FuncVars* vars)
+string compileCharLit(CharLitNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileStringLit(StringLitNode node, FuncVars* vars)
+string compileStringLit(StringLitNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto stringLit = (cast(ASTTerminal)node.children[0]).token[1..$-1];
+    auto label = vars.getUniqDataLabel();
+    auto entry = new DataEntry();
+    entry.label = label;
+    entry.data = DataEntry.toNasmDataString(stringLit);
+    vars.dataEntries ~= entry;
+    auto str = "";
+    // Allocate space for the string with malloc. The size of the string is
+    // the size of the refcount section, the size of the string size section,
+    // and the size of the string itself rounded up to the nearest power of 2 +
+    // 1 for the null byte
+    auto strAllocSize = getAllocSize(stringLit.length) + REF_COUNT_SIZE
+                                                       + CLAM_STR_SIZE
+                                                       + 1;
+    str ~= "    ; allocate string, [" ~ ((stringLit.length < 10)
+                                        ? stringLit
+                                        : (stringLit[0..10])
+                                       ) ~ "]\n";
+    str ~= "    mov    rdi, " ~ strAllocSize.to!string ~ "\n";
+    str ~= "    call   malloc\n";
+    // Set the reference count to 1, where the ref count is the first four
+    // bytes of the string allocation
+    str ~= "    mov    dword [rax], " ~ 1.to!string ~ "\n";
+    // Set the length of the string, where the string size location is just
+    // past the ref count
+    str ~= "    mov    dword [rax+" ~ REF_COUNT_SIZE.to!string ~ "], "
+        ~ stringLit.length.to!string ~ "\n";
+    str ~= "    push   rax\n";
+    // Copy the string from the data section
+    str ~= "    mov    rdi, rax\n";
+    str ~= "    add    rdi, " ~ (REF_COUNT_SIZE + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    str ~= "    mov    rsi, " ~ label ~ "\n";
+    str ~= "    mov    rdx, " ~ (stringLit.length + 1).to!string ~ "\n";
+    str ~= "    call   memcpy\n";
+    str ~= "    pop    rax\n";
+
+    // TODO do something else with values, like... put them on the stack
+
+    // The string value ptr sits in r8
+    str ~= "    mov    r8, rax\n";
+    return str;
+}
+
+string compileIntNum(IntNumNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileIntNum(IntNumNode node, FuncVars* vars)
+string compileFloatNum(FloatNumNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileFloatNum(FloatNumNode node, FuncVars* vars)
+string compileSliceLengthSentinel(SliceLengthSentinelNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileSliceLengthSentinel(SliceLengthSentinelNode node, FuncVars* vars)
+string compileChanRead(ChanReadNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileChanRead(ChanReadNode node, FuncVars* vars)
+string compileTrailer(TrailerNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileTrailer(TrailerNode node, FuncVars* vars)
+string compileDynArrAccess(DynArrAccessNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileDynArrAccess(DynArrAccessNode node, FuncVars* vars)
+string compileTemplateInstanceMaybeTrailer(TemplateInstanceMaybeTrailerNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileTemplateInstanceMaybeTrailer(TemplateInstanceMaybeTrailerNode node, FuncVars* vars)
+string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileFuncCallTrailer(FuncCallTrailerNode node, FuncVars* vars)
+string compileSlicing(SlicingNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileSlicing(SlicingNode node, FuncVars* vars)
+string compileSingleIndex(SingleIndexNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileSingleIndex(SingleIndexNode node, FuncVars* vars)
+string compileIndexRange(IndexRangeNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileIndexRange(IndexRangeNode node, FuncVars* vars)
+string compileStartToIndexRange(StartToIndexRangeNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileStartToIndexRange(StartToIndexRangeNode node, FuncVars* vars)
+string compileIndexToEndRange(IndexToEndRangeNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileIndexToEndRange(IndexToEndRangeNode node, FuncVars* vars)
+string compileIndexToIndexRange(IndexToIndexRangeNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileIndexToIndexRange(IndexToIndexRangeNode node, FuncVars* vars)
+string compileFuncCallArgList(FuncCallArgListNode node, Context* vars)
 {
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileFuncCallArgList(FuncCallArgListNode node, FuncVars* vars)
+string compileDotAccess(DotAccessNode node, Context* vars)
 {
-    return "";
-}
-
-string compileDotAccess(DotAccessNode node, FuncVars* vars)
-{
+    debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }

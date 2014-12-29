@@ -10,13 +10,13 @@ import std.range;
 import ExprCodeGenerator;
 
 // Since functions can return tuples, the function ABI is to place the return
-// value into an assumed-allocated location just past where the arguments were
+// value into an assumed-allocated location just before where the arguments are
 // placed. So, on the stack for a function call, we have:
+// return value allocation
 // arg3
 // arg2
 // arg1
 // arg0
-// return value allocation
 // return address
 // RBP
 // beginning of available stack space
@@ -31,18 +31,24 @@ const RETURN_ADDRESS_SIZE = 8;
 const STACK_PROLOGUE_SIZE = RBP_SIZE + RETURN_ADDRESS_SIZE;
 const ENVIRON_PTR_SIZE = 8;
 
+const CLAM_PTR_SIZE = 8; // sizeof(char*))
+const REF_COUNT_SIZE = 4; // sizeof(uint32_t))
+const CLAM_STR_SIZE = 4; // sizeof(uint32_t))
+const STR_START_OFFSET = REF_COUNT_SIZE + CLAM_STR_SIZE;
+const VARIANT_TAG_SIZE = 4; // sizeof(uint32_t))
+
 debug (COMPILE_TRACE)
 {
     string traceIndent;
     enum tracer =
         `
-        string funcName = __FUNCTION__;
-        writeln(traceIndent, "Entered: ", funcName);
+        string mixin_funcName = __FUNCTION__;
+        writeln(traceIndent, "Entered: ", mixin_funcName);
         traceIndent ~= "  ";
         scope(success)
         {
             traceIndent = traceIndent[0..$-2];
-            writeln(traceIndent, "Exiting: ", funcName);
+            writeln(traceIndent, "Exiting: ", mixin_funcName);
         }
         `;
 }
@@ -85,23 +91,100 @@ auto getRRegSuffix(ulong size)
     }
 }
 
-struct FuncVars
+// Get the power-of-2 size larger than the input size, for use in array size
+// allocations. Arrays are always a power-of-2 in size.
+// Credit: Henry S. Warren, Jr.'s "Hacker's Delight.", and Larry Gritz from
+// http://stackoverflow.com/questions/364985/algorithm-for-finding-the-smallest-power-of-two-thats-greater-or-equal-to-a-giv
+auto getAllocSize(ulong requestedSize)
 {
+    auto x = requestedSize;
+    if (x < 0)
+    {
+        return 0;
+    }
+    --x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x |= x >> 32;
+    return x+1;
+}
+
+unittest
+{
+    assert(0.getAllocSize == 0);
+    assert(1.getAllocSize == 1);
+    assert(2.getAllocSize == 2);
+    assert(3.getAllocSize == 4);
+    assert(4.getAllocSize == 4);
+    assert(6.getAllocSize == 8);
+    assert(1002.getAllocSize == 1024);
+}
+
+auto toNasmDataString(string input)
+{
+    auto str = "`";
+    //foreach (c; input)
+    //{
+    //    switch (c)
+    //    {
+    //    case ' ': .. case '~': str ~= c;
+    //    }
+    //}
+    str ~= input;
+    str ~= "`, 0";
+    return str;
+}
+
+struct DataEntry
+{
+    string label;
+    string data;
+
+    static auto toNasmDataString(string input)
+    {
+        auto str = "`";
+        //foreach (c; input)
+        //{
+        //    switch (c)
+        //    {
+        //    case ' ': .. case '~': str ~= c;
+        //    }
+        //}
+        str ~= input;
+        str ~= "`, 0";
+        return str;
+    }
+}
+
+struct Context
+{
+    DataEntry*[] dataEntries;
+    FuncSig*[string] externFuncs;
+    FuncSig*[string] compileFuncs;
     VarTypePair*[] closureVars;
     VarTypePair*[] funcArgs;
     VarTypePair*[] stackVars;
     Type* retType;
     ulong[] tempBytes;
     private uint uniqLabelCounter;
+    private uint uniqDataCounter;
+
+    auto getUniqDataLabel()
+    {
+        return "__S" ~ (uniqDataCounter++).to!string;
+    }
 
     auto getUniqLabel()
     {
         return ".L" ~ (uniqLabelCounter++).to!string;
     }
 
-    auto getUniqLabelSuffix()
+    void refreshLabelCounter()
     {
-        return (uniqLabelCounter++).to!string;
+        uniqLabelCounter = 0;
     }
 
     auto getStackPtrOffset()
@@ -262,13 +345,15 @@ struct FuncVars
     }
 }
 
-string compileFunction(FuncSig* sig)
+string compileFunction(FuncSig* sig, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    auto vars = new FuncVars();
     vars.closureVars = sig.closureVars;
     vars.funcArgs = sig.funcArgs;
+    vars.stackVars = [];
     vars.retType = sig.returnType;
+    vars.tempBytes = [];
+    vars.refreshLabelCounter();
     auto func = "";
     func ~= sig.funcName ~ ":\n";
     func ~= q"EOS
@@ -287,7 +372,7 @@ EOS";
     return func;
 }
 
-string compileBlock(BareBlockNode block, FuncVars* vars)
+string compileBlock(BareBlockNode block, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto code = "";
@@ -298,7 +383,7 @@ string compileBlock(BareBlockNode block, FuncVars* vars)
     return code;
 }
 
-string compileStatement(StatementNode statement, FuncVars* vars)
+string compileStatement(StatementNode statement, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto child = statement.children[0];
@@ -332,7 +417,7 @@ string compileStatement(StatementNode statement, FuncVars* vars)
     return "";
 }
 
-string compileReturn(ReturnStmtNode node, FuncVars* vars)
+string compileReturn(ReturnStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 0)
@@ -377,37 +462,37 @@ string compileReturn(ReturnStmtNode node, FuncVars* vars)
     return str;
 }
 
-string compileIfStmt(IfStmtNode node, FuncVars* vars)
+string compileIfStmt(IfStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileWhileStmt(WhileStmtNode node, FuncVars* vars)
+string compileWhileStmt(WhileStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileForStmt(ForStmtNode node, FuncVars* vars)
+string compileForStmt(ForStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileForeachStmt(ForeachStmtNode node, FuncVars* vars)
+string compileForeachStmt(ForeachStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileMatchStmt(MatchStmtNode node, FuncVars* vars)
+string compileMatchStmt(MatchStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileDeclaration(DeclarationNode node, FuncVars* vars)
+string compileDeclaration(DeclarationNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto child = node.children[0];
@@ -417,7 +502,7 @@ string compileDeclaration(DeclarationNode node, FuncVars* vars)
     return "";
 }
 
-string compileDeclTypeInfer(DeclTypeInferNode node, FuncVars* vars)
+string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto left = node.children[0];
@@ -445,44 +530,78 @@ string compileDeclTypeInfer(DeclTypeInferNode node, FuncVars* vars)
     return str;
 }
 
-string compileAssignExisting(AssignExistingNode node, FuncVars* vars)
+string compileAssignExisting(AssignExistingNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileSpawnStmt(SpawnStmtNode node, FuncVars* vars)
+string compileSpawnStmt(SpawnStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileYieldStmt(YieldStmtNode node, FuncVars* vars)
+string compileYieldStmt(YieldStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileChanWrite(ChanWriteNode node, FuncVars* vars)
+string compileChanWrite(ChanWriteNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
 }
 
-string compileFuncCall(FuncCallNode node, FuncVars* vars)
+string compileFuncCall(FuncCallNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto funcName = getIdentifier(cast(IdentifierNode)node.children[0]);
+    auto numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
     auto str = compileArgList(cast(FuncCallArgListNode)node.children[1], vars);
-    str ~= "    call   " ~ getIdentifier(cast(IdentifierNode)node.children[0])
-                         ~ "\n";
+    if (funcName in vars.externFuncs)
+    {
+        if (numArgs > 6)
+        {
+            throw new Exception("man I just don't know anymore");
+        }
+        if (numArgs >= 1)
+            str ~= "    mov    rdi, [rsp]\n";
+        if (numArgs >= 2)
+            str ~= "    mov    rsi, [rsp-8]\n";
+        if (numArgs >= 3)
+            str ~= "    mov    rdx, [rsp-16]\n";
+        if (numArgs >= 4)
+            str ~= "    mov    rcx, [rsp-24]\n";
+        if (numArgs >= 5)
+            str ~= "    mov    r8, [rsp-32]\n";
+        if (numArgs >= 6)
+            str ~= "    mov    r9, [rsp-40]\n";
+    }
+
+    // TODO The space for the return value should be just before the arguments,
+    // not just after, so that I can clear the stack of the arguments, and in
+    // the case of an extern func, I can just populate the empty space with the
+    // value in RAX
+
+    str ~= "    call   " ~ funcName ~ "\n";
+    str ~= "    add    rsp, " ~ (numArgs * 8).to!string ~ "\n";
     return str;
 }
 
-string compileArgList(FuncCallArgListNode node, FuncVars* vars)
+string compileArgList(FuncCallArgListNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = node.children
-                   .map!(a => compileExpression(cast(BoolExprNode)a, vars))
+                   .reverse
+                   .map!(a => compileExpression(a, vars)
+                            ~ ((a.data["type"].get!(Type*).tag
+                                == TypeEnum.FUNCPTR)
+                               ? ("    push   r8\n" ~ "    push   r9\n")
+                               :  "    push   r8\n"
+                              )
+                        )
                    .reduce!((a, b) => a ~ b);
     return str;
 }

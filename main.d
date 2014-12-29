@@ -40,10 +40,31 @@ int main(string[] argv)
         {
             sig.format.writeln;
         }
-        funcs.getCompilableFuncSigs
-             .map!(a => a.compileFunction)
-             .reduce!((a, b) => a ~ "\n" ~ b)
-             .writeln;
+        auto context = new Context();
+        foreach (sig; funcs.getExternFuncSigs)
+        {
+            context.externFuncs[sig.funcName] = sig;
+        }
+        foreach (sig; funcs.getCompilableFuncSigs)
+        {
+            context.compileFuncs[sig.funcName] = sig;
+        }
+        auto str = funcs.getCompilableFuncSigs
+                        .map!(a => a.compileFunction(context))
+                        .reduce!((a, b) => a ~ "\n" ~ b);
+        str = "    extern malloc\n"
+            ~ "    extern memcpy\n"
+            ~ funcs.getExternFuncSigs
+                   .map!(a => "    extern " ~ a.funcName ~ "\n")
+                   .reduce!((a, b) => a ~ b)
+            ~ "    SECTION .data\n"
+            ~ context.dataEntries
+                     .map!(a => a.label ~ ": db " ~ a.data ~ "\n")
+                     .reduce!((a, b) => a ~ b)
+            ~ "    SECTION .text\n"
+            ~ "    global main\n"
+            ~ str;
+        str.writeln;
     }
     else
     {
