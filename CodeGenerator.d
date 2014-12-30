@@ -560,25 +560,25 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     auto funcName = getIdentifier(cast(IdentifierNode)node.children[0]);
     auto numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
     auto str = compileArgList(cast(FuncCallArgListNode)node.children[1], vars);
-    if (funcName in vars.externFuncs)
-    {
-        if (numArgs > 6)
-        {
-            throw new Exception("man I just don't know anymore");
-        }
-        if (numArgs >= 1)
-            str ~= "    mov    rdi, [rsp]\n";
-        if (numArgs >= 2)
-            str ~= "    mov    rsi, [rsp-8]\n";
-        if (numArgs >= 3)
-            str ~= "    mov    rdx, [rsp-16]\n";
-        if (numArgs >= 4)
-            str ~= "    mov    rcx, [rsp-24]\n";
-        if (numArgs >= 5)
-            str ~= "    mov    r8, [rsp-32]\n";
-        if (numArgs >= 6)
-            str ~= "    mov    r9, [rsp-40]\n";
-    }
+    if (numArgs >= 1)
+        str ~= "    mov    rdi, [rsp]\n";
+    if (numArgs >= 2)
+        str ~= "    mov    rsi, [rsp-8]\n";
+    if (numArgs >= 3)
+        str ~= "    mov    rdx, [rsp-16]\n";
+    if (numArgs >= 4)
+        str ~= "    mov    rcx, [rsp-24]\n";
+    if (numArgs >= 5)
+        str ~= "    mov    r8, [rsp-32]\n";
+    if (numArgs >= 6)
+        str ~= "    mov    r9, [rsp-40]\n";
+    str ~= "    add    rsp, " ~ (((numArgs <= 6) ? numArgs : 6) * 8).to!string
+                              ~ "\n";
+    // If there are more than 6 args, then after we pop off the top 48 bytes,
+    // the remaining arguments are on the top of the stack.
+
+    // TODO Might need to ensure things are in the right order, and might need
+    // to handle fat ptrs in a special way
 
     // TODO The space for the return value should be just before the arguments,
     // not just after, so that I can clear the stack of the arguments, and in
@@ -586,7 +586,10 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     // value in RAX
 
     str ~= "    call   " ~ funcName ~ "\n";
-    str ~= "    add    rsp, " ~ (numArgs * 8).to!string ~ "\n";
+    if (numArgs > 6)
+    {
+        str ~= "    add    rsp, " ~ ((numArgs - 6) * 8).to!string ~ "\n";
+    }
     return str;
 }
 
