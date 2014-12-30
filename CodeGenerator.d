@@ -11,12 +11,12 @@ import ExprCodeGenerator;
 
 // Since functions can return tuples, the function ABI is to place the return
 // value into an assumed-allocated location just before where the arguments are
-// placed. So, on the stack for a function call, we have:
+// placed. Note that arguments 0-5 are in registers rdi, rsi, rdx, rcx, r8, and
+// r9. So, on the stack for a function call, we have:
 // return value allocation
-// arg3
-// arg2
-// arg1
-// arg0
+// arg8
+// arg7
+// arg6
 // return address
 // RBP
 // beginning of available stack space
