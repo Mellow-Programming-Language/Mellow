@@ -159,9 +159,16 @@ struct DataEntry
     }
 }
 
+struct FloatEntry
+{
+    string label;
+    string floatStr;
+}
+
 struct Context
 {
     DataEntry*[] dataEntries;
+    FloatEntry*[] floatEntries;
     FuncSig*[string] externFuncs;
     FuncSig*[string] compileFuncs;
     VarTypePair*[] closureVars;
@@ -558,33 +565,8 @@ string compileFuncCall(FuncCallNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto funcName = getIdentifier(cast(IdentifierNode)node.children[0]);
-    auto numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
     auto str = compileArgList(cast(FuncCallArgListNode)node.children[1], vars);
-    if (numArgs >= 1)
-        str ~= "    mov    rdi, [rsp]\n";
-    if (numArgs >= 2)
-        str ~= "    mov    rsi, [rsp-8]\n";
-    if (numArgs >= 3)
-        str ~= "    mov    rdx, [rsp-16]\n";
-    if (numArgs >= 4)
-        str ~= "    mov    rcx, [rsp-24]\n";
-    if (numArgs >= 5)
-        str ~= "    mov    r8, [rsp-32]\n";
-    if (numArgs >= 6)
-        str ~= "    mov    r9, [rsp-40]\n";
-    str ~= "    add    rsp, " ~ (((numArgs <= 6) ? numArgs : 6) * 8).to!string
-                              ~ "\n";
-    // If there are more than 6 args, then after we pop off the top 48 bytes,
-    // the remaining arguments are on the top of the stack.
-
-    // TODO Might need to ensure things are in the right order, and might need
-    // to handle fat ptrs in a special way
-
-    // TODO The space for the return value should be just before the arguments,
-    // not just after, so that I can clear the stack of the arguments, and in
-    // the case of an extern func, I can just populate the empty space with the
-    // value in RAX
-
+    auto numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
     str ~= "    call   " ~ funcName ~ "\n";
     if (numArgs > 6)
     {
@@ -596,15 +578,85 @@ string compileFuncCall(FuncCallNode node, Context* vars)
 string compileArgList(FuncCallArgListNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    auto str = node.children
-                   .reverse
-                   .map!(a => compileExpression(a, vars)
-                            ~ ((a.data["type"].get!(Type*).tag
-                                == TypeEnum.FUNCPTR)
-                               ? ("    push   r8\n" ~ "    push   r9\n")
-                               :  "    push   r8\n"
-                              )
-                        )
-                   .reduce!((a, b) => a ~ b);
+
+    // If there are more than 6 args, then after we pop off the top 48 bytes,
+    // the remaining arguments are on the top of the stack.
+
+    // TODO Might need to ensure things are in the right order, and might need
+    // to handle fat ptrs in a special way
+
+    // TODO The space for the return value should be just before the arguments,
+    // not just after, so that I can clear the stack of the arguments, and in
+    // the case of an extern func, I can just populate the empty space with the
+    // value in RAX
+
+    auto str = "";
+    TypeEnum[] types;
+    foreach_reverse (child; node.children)
+    {
+        str ~= compileExpression(child, vars);
+        auto type = child.data["type"].get!(Type*).tag;
+        types ~= type;
+        switch (type)
+        {
+        case TypeEnum.FUNCPTR:
+            str ~= "    push   r8\n";
+            str ~= "    push   r9\n";
+            break;
+        case TypeEnum.FLOAT:
+            str ~= "    sub    rsp, 4\n";
+            str ~= "    movss  dword [rsp], xmm0\n";
+            break;
+        case TypeEnum.DOUBLE:
+            str ~= "    sub    rsp, 8\n";
+            str ~= "    movsd  qword [rsp], xmm0\n";
+            break;
+        default:
+            str ~= "    push   r8\n";
+            break;
+        }
+    }
+    auto intReg = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+    auto floatReg = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
+                     "xmm7"];
+
+
+    // TODO need to ensure that all func call registers are properly populated.
+    // This will involve keeping track of the types of the things taken off the
+    // stack, so that the correct corresponding rxx or xmmx register is
+    // populated, and to ensure that any remaining arguments are left on the
+    // stack
+
+
+    auto intRegIndex = 0;
+    auto floatRegIndex = 0;
+    auto numArgs = node.children.length;
+    foreach (i; 0..numArgs)
+    {
+        switch (types[$ - 1 - i])
+        {
+        case TypeEnum.FUNCPTR:
+            break;
+        case TypeEnum.FLOAT:
+            break;
+        case TypeEnum.DOUBLE:
+            break;
+        default:
+            if (intRegIndex < intReg.length)
+            {
+                str ~= "    mov    " ~ intReg[intRegIndex]
+                                     ~ ", [rsp+" ~ (i*8).to!string ~ "]\n";
+                intRegIndex++;
+            }
+            else
+            {
+                // TODO handle the case where we've run out of int registers
+                // and need this argument to remain on the stack
+            }
+            break;
+        }
+    }
+    str ~= "    add    rsp, " ~ (((numArgs <= 6) ? numArgs : 6) * 8).to!string
+                              ~ "\n";
     return str;
 }

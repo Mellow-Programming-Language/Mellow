@@ -191,16 +191,13 @@ string compileValue(ValueNode node, Context* vars)
     auto child = node.children[0];
     auto str = "";
     if (cast(BooleanLiteralNode)child) {
-
+        str ~= compileBooleanLiteral(cast(BooleanLiteralNode)child, vars);
     } else if (cast(LambdaNode)child) {
 
     } else if (cast(CharLitNode)child) {
 
     } else if (cast(StringLitNode)child) {
         str ~= compileStringLit(cast(StringLitNode)child, vars);
-
-        // TODO handle dotaccess case
-
     } else if (cast(ValueTupleNode)child) {
 
     } else if (cast(ParenExprNode)child) {
@@ -208,7 +205,7 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(ArrayLiteralNode)child) {
 
     } else if (cast(NumberNode)child) {
-
+        str ~= compileNumber(cast(NumberNode)child, vars);
     } else if (cast(ChanReadNode)child) {
 
     } else if (cast(IdentifierNode)child) {
@@ -216,13 +213,26 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(SliceLengthSentinelNode)child) {
 
     }
+
+    // TODO handle dotaccess case
+
     return str;
 }
 
 string compileBooleanLiteral(BooleanLiteralNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto boolValue = (cast(ASTTerminal)node.children[0]).token;
+    if (boolValue == "true")
+    {
+        str ~= "    mov    r8, 1\n";
+    }
+    else
+    {
+        str ~= "    mov    r8, 0\n";
+    }
+    return str;
 }
 
 string compileLambda(LambdaNode node, Context* vars)
@@ -246,7 +256,7 @@ string compileValueTuple(ValueTupleNode node, Context* vars)
 string compileParenExpr(ParenExprNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    return compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
 }
 
 string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
@@ -258,7 +268,17 @@ string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
 string compileNumber(NumberNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto child = node.children[0];
+    if (cast(IntNumNode)child)
+    {
+        str ~= compileIntNum(cast(IntNumNode)child, vars);
+    }
+    else if (cast(FloatNumNode)child)
+    {
+        str ~= compileFloatNum(cast(FloatNumNode)child, vars);
+    }
+    return str;
 }
 
 string compileCharLit(CharLitNode node, Context* vars)
@@ -317,13 +337,20 @@ string compileStringLit(StringLitNode node, Context* vars)
 string compileIntNum(IntNumNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto num = (cast(ASTTerminal)node.children[0]).token;
+    return "    mov    r8, " ~ num ~ "\n";
 }
 
 string compileFloatNum(FloatNumNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto num = (cast(ASTTerminal)node.children[0]).token;
+    auto label = vars.getUniqDataLabel();
+    auto entry = new FloatEntry();
+    entry.label = label;
+    entry.floatStr = num;
+    vars.floatEntries ~= entry;
+    return "    movsd    xmm0, [" ~ label ~ "]\n";
 }
 
 string compileSliceLengthSentinel(SliceLengthSentinelNode node, Context* vars)

@@ -52,19 +52,29 @@ int main(string[] argv)
         auto str = funcs.getCompilableFuncSigs
                         .map!(a => a.compileFunction(context))
                         .reduce!((a, b) => a ~ "\n" ~ b);
-        str = "    extern malloc\n"
-            ~ "    extern memcpy\n"
-            ~ funcs.getExternFuncSigs
-                   .map!(a => "    extern " ~ a.funcName ~ "\n")
-                   .reduce!((a, b) => a ~ b)
-            ~ "    SECTION .data\n"
-            ~ context.dataEntries
-                     .map!(a => a.label ~ ": db " ~ a.data ~ "\n")
-                     .reduce!((a, b) => a ~ b)
-            ~ "    SECTION .text\n"
-            ~ "    global main\n"
-            ~ str;
-        str.writeln;
+        auto header = "";
+        header ~= "    extern malloc\n"
+                ~ "    extern memcpy\n";
+        header ~= funcs.getExternFuncSigs
+                       .map!(a => "    extern " ~ a.funcName ~ "\n")
+                       .reduce!((a, b) => a ~ b);
+        header ~= "    SECTION .data\n";
+        if (context.dataEntries.length > 0)
+        {
+            header ~= context.dataEntries
+                             .map!(a => a.label ~ ": db " ~ a.data ~ "\n")
+                             .reduce!((a, b) => a ~ b);
+        }
+        if (context.floatEntries.length > 0)
+        {
+            header ~= context.floatEntries
+                             .map!(a => a.label ~ ": dq " ~ a.floatStr ~ "\n")
+                             .reduce!((a, b) => a ~ b);
+        }
+        header ~= "    SECTION .text\n"
+                ~ "    global main\n";
+        auto full = header ~ str;
+        full.writeln;
     }
     else
     {
