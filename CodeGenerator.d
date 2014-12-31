@@ -638,8 +638,32 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
         case TypeEnum.FUNCPTR:
             break;
         case TypeEnum.FLOAT:
+            if (floatRegIndex < floatReg.length)
+            {
+                str ~= "    movss  " ~ floatReg[floatRegIndex]
+                                     ~ ", [rsp+" ~ (i*4).to!string ~ "]\n";
+                floatRegIndex++;
+            }
+            else
+            {
+                // TODO handle the case where we've run out of float registers
+                // and need this argument to remain on the stack
+            }
+            break;
             break;
         case TypeEnum.DOUBLE:
+            if (floatRegIndex < floatReg.length)
+            {
+                str ~= "    movsd  " ~ floatReg[floatRegIndex]
+                                     ~ ", [rsp+" ~ (i*8).to!string ~ "]\n";
+                floatRegIndex++;
+            }
+            else
+            {
+                // TODO handle the case where we've run out of float registers
+                // and need this argument to remain on the stack
+            }
+            break;
             break;
         default:
             if (intRegIndex < intReg.length)
