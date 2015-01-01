@@ -174,14 +174,14 @@ string compileSumExpr(SumExprNode node, Context* vars)
     }
     auto str = "";
     str ~= compileProductExpr(cast(ProductExprNode)node.children[0], vars);
-    Type* leftType = node.children[0].data.get!(Type*);
+    Type* leftType = node.children[0].data["type"].get!(Type*);
     Type* rightType;
     for (auto i = 2; i < node.children.length; i += 2)
     {
         str~= "    push   r8\n";
         str ~= compileProductExpr(cast(ProductExprNode)node.children[i], vars);
         auto op = (cast(ASTTerminal)node.children[i-1]).token;
-        rightType = node.children[i].data.get!(Type*);
+        rightType = node.children[i].data["type"].get!(Type*);
         if (leftType.isIntegral && rightType.isIntegral)
         {
             str ~= "    pop    r9\n";
@@ -210,14 +210,14 @@ string compileProductExpr(ProductExprNode node, Context* vars)
     }
     auto str = "";
     str ~= compileValue(cast(ValueNode)node.children[0], vars);
-    Type* leftType = node.children[0].data.get!(Type*);
+    Type* leftType = node.children[0].data["type"].get!(Type*);
     Type* rightType;
     for (auto i = 2; i < node.children.length; i += 2)
     {
         str~= "    push   r8\n";
         str ~= compileValue(cast(ValueNode)node.children[i], vars);
         auto op = (cast(ASTTerminal)node.children[i-1]).token;
-        rightType = node.children[i].data.get!(Type*);
+        rightType = node.children[i].data["type"].get!(Type*);
         if (leftType.isIntegral && rightType.isIntegral)
         {
             str ~= "    pop    r9\n";
@@ -227,17 +227,17 @@ string compileProductExpr(ProductExprNode node, Context* vars)
                 str ~= "    imul   r8, r9\n";
                 break;
             case "/":
-                str ~= "    mov    rax, r9\n"
+                str ~= "    mov    rax, r9\n";
                 // Sign extend rax into rdx, to get rdx:rax
-                str ~= "    cqo\n"
+                str ~= "    cqo\n";
                 str ~= "    idiv   r8\n";
                 // Result of divison lies in rax
                 str ~= "    mov    r8, rax\n";
                 break;
             case "%":
-                str ~= "    mov    rax, r9\n"
+                str ~= "    mov    rax, r9\n";
                 // Sign extend rax into rdx, to get rdx:rax
-                str ~= "    cqo\n"
+                str ~= "    cqo\n";
                 str ~= "    idiv   r8\n";
                 // Remainder lies in rdx
                 str ~= "    mov    r8, rdx\n";
@@ -500,6 +500,12 @@ string compileFuncCallArgList(FuncCallArgListNode node, Context* vars)
 }
 
 string compileDotAccess(DotAccessNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    return "";
+}
+
+string compileIsExpr(IsExprNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";

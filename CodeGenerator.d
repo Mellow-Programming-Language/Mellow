@@ -169,6 +169,8 @@ struct Context
 {
     DataEntry*[] dataEntries;
     FloatEntry*[] floatEntries;
+    string[] blockEndLabels;
+    string[] blockNextLabels;
     FuncSig*[string] externFuncs;
     FuncSig*[string] compileFuncs;
     VarTypePair*[] closureVars;
@@ -472,7 +474,79 @@ string compileReturn(ReturnStmtNode node, Context* vars)
 string compileIfStmt(IfStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    str ~= compileCondAssignments(
+        cast(CondAssignmentsNode)node.children[0], vars
+    );
+    if (cast(IsExprNode)node.children[1])
+    {
+        str ~= compileIsExpr(cast(IsExprNode)node.children[1], vars);
+    }
+    else
+    {
+        str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    }
+    auto blockEndLabel = vars.getUniqLabel();
+    auto blockNextLabel = vars.getUniqLabel();
+    vars.blockEndLabels ~= blockEndLabel;
+    str ~= "    cmp    r8, 0\n";
+    // If it's zero, then it's false, meaning go to the next label
+    str ~= "    je     " ~ blockNextLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= "    jmp    " ~ blockEndLabel ~ "\n";
+    str ~= blockNextLabel ~ ":\n";
+    str ~= compileElseIfs(cast(ElseIfsNode)node.children[3], vars);
+    str ~= compileElseStmt(cast(ElseStmtNode)node.children[4], vars);
+    str ~= blockEndLabel ~ ":\n";
+    vars.blockEndLabels.length--;
+    return str;
+}
+
+string compileElseIfs(ElseIfsNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    foreach (child; node.children)
+    {
+        str ~= compileElseIfStmt(cast(ElseIfStmtNode)child, vars);
+    }
+    return str;
+}
+
+string compileElseIfStmt(ElseIfStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    str ~= compileCondAssignments(
+        cast(CondAssignmentsNode)node.children[0], vars
+    );
+    if (cast(IsExprNode)node.children[1])
+    {
+        str ~= compileIsExpr(cast(IsExprNode)node.children[1], vars);
+    }
+    else
+    {
+        str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    }
+    auto blockNextLabel = vars.getUniqLabel();
+    str ~= "    cmp    r8, 0\n";
+    // If it's zero, then it's false, meaning go to the next label
+    str ~= "    je     " ~ blockNextLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= "    jmp    " ~ vars.blockEndLabels[$-1] ~ "\n";
+    str ~= blockNextLabel ~ ":\n";
+    return str;
+}
+
+string compileElseStmt(ElseStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    if (node.children.length > 0)
+    {
+        str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    }
+    return str;
 }
 
 string compileWhileStmt(WhileStmtNode node, Context* vars)
@@ -538,6 +612,18 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
 }
 
 string compileAssignExisting(AssignExistingNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    return "";
+}
+
+string compileCondAssignments(CondAssignmentsNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    return "";
+}
+
+string compileCondAssign(CondAssignNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
