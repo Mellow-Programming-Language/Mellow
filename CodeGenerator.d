@@ -552,7 +552,28 @@ string compileElseStmt(ElseStmtNode node, Context* vars)
 string compileWhileStmt(WhileStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto blockLoopLabel = vars.getUniqLabel();
+    auto blockEndLabel = vars.getUniqLabel();
+    auto str = "";
+    str ~= compileCondAssignments(
+        cast(CondAssignmentsNode)node.children[0], vars
+    );
+    str ~= blockLoopLabel ~ ":\n";
+    if (cast(IsExprNode)node.children[1])
+    {
+        str ~= compileIsExpr(cast(IsExprNode)node.children[1], vars);
+    }
+    else
+    {
+        str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    }
+    str ~= "    cmp    r8, 0\n";
+    // If it's zero, then it's false, meaning don't enter the loop
+    str ~= "    je     " ~ blockEndLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
+    str ~= blockEndLabel ~ ":\n";
+    return str;
 }
 
 string compileForStmt(ForStmtNode node, Context* vars)
