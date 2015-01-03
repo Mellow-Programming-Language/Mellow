@@ -26,24 +26,18 @@ debug (COMPILE_TRACE)
 string exprOp(string op, string descendNode)
 {
     return `
-    str ~= node.children
-               .map!(a => compile` ~ descendNode
-                                   ~ `(cast(` ~ descendNode ~ `Node`
-                                   ~ `)a, vars))
-               .reduce!((a, b) => a ~ b);
-    auto type = node.data["type"].get!(Type*);
-    str ~= "    mov    r8, " ~ type.getWordSize ~ "[rbp-"
-        ~ vars.getStackPtrOffset.to!string ~ "\n";
-    vars.deallocateTempSpace();
-    foreach (i; 0..node.children.length - 1)
+    str ~= compile` ~ descendNode ~ `(`
+                    ~ `cast(` ~ descendNode ~ `Node)node.children[0], vars`
+                    ~ `);
+    for (auto i = 2; i < node.children.length; i += 2)
     {
-        str ~= "    mov    r9, " ~ type.getWordSize ~ "[rbp-"
-            ~ vars.getStackPtrOffset.to!string ~ "\n";
-        vars.deallocateTempSpace();
-        str ~= "    ` ~ op ~ `     r8, r9\n";
+        str ~= "    push   r8\n";
+        str ~= compile` ~ descendNode ~ `(`
+                        ~ `cast(` ~ descendNode ~ `Node)node.children[i], vars`
+                        ~ `);
+        str ~= "    pop    r9\n";
+        str ~= "    ` ~ op ~ `    r8, r9\n";
     }
-    vars.allocateTempSpace(type.size);
-    str ~= "    mov    [rbp-" ~ vars.getStackPtrOffset.to!string ~ "], r8\n";
     `;
 }
 
@@ -92,13 +86,7 @@ string compileNotTest(NotTestNode node, Context* vars)
     if (cast(NotTestNode)child)
     {
         str ~= compileNotTest(cast(NotTestNode)child, vars);
-        str ~= "    mov    r8, " ~ type.getWordSize ~ "[rbp-"
-            ~ vars.getStackPtrOffset.to!string ~ "\n";
-        vars.deallocateTempSpace();
         str ~= "    not    r8\n";
-        vars.allocateTempSpace(type.size);
-        str ~= "    mov    [rbp-" ~ vars.getStackPtrOffset.to!string
-                                  ~ "], r8\n";
     }
     else
     {
@@ -277,7 +265,10 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(ChanReadNode)child) {
 
     } else if (cast(IdentifierNode)child) {
-
+        auto idNode = cast(IdentifierNode)child;
+        auto varName = (cast(ASTTerminal)idNode.children[0]).token;
+        str ~= "    ; getting " ~ varName ~ "\n";
+        str ~= vars.compileVarGet(varName);
     } else if (cast(SliceLengthSentinelNode)child) {
 
     }
@@ -385,7 +376,8 @@ string compileStringLit(StringLitNode node, Context* vars)
     // past the ref count
     str ~= "    mov    dword [rax+" ~ REF_COUNT_SIZE.to!string ~ "], "
         ~ stringLit.length.to!string ~ "\n";
-    str ~= "    push   rax\n";
+    vars.allocateStackSpace(8);
+    str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], rax\n";
     // Copy the string from the data section
     str ~= "    mov    rdi, rax\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE + CLAM_STR_SIZE).to!string
@@ -393,7 +385,8 @@ string compileStringLit(StringLitNode node, Context* vars)
     str ~= "    mov    rsi, " ~ label ~ "\n";
     str ~= "    mov    rdx, " ~ (stringLit.length + 1).to!string ~ "\n";
     str ~= "    call   memcpy\n";
-    str ~= "    pop    rax\n";
+    str ~= "    mov    rax, qword [rbp-" ~ vars.getTop.to!string ~ "]\n";
+    vars.deallocateStackSpace(8);
 
     // TODO do something else with values, like... put them on the stack
 

@@ -21,6 +21,15 @@ import ExprCodeGenerator;
 // RBP
 // beginning of available stack space
 
+// The 64-bit ABI additionally guarantees 128 bytes of space below RSP that can
+// be freely used by the function definition. Any sub's from RSP will continue
+// to move this 128 byte space further downward. This space can only be
+// considered "available" if this function call is a leaf call in the call tree.
+// Otherwise, it'll get clobbered by a deeper function call. So if the call
+// isn't a leaf call, stack space must be specifically allocated by sub's from
+// RSP. The stack must be kept on a 16 byte alignment or else everything blows
+// up
+
 // Any operation that expects an expression value can be found on the top of the
 // stack, save for the actual variable values, which are in register r8, or
 // across r8 and r9 in the case of a fat ptr. A tuple will always be on the
@@ -69,7 +78,7 @@ auto getOffset(VarTypePair*[] vars, ulong index)
 
 auto getStackOffset(VarTypePair*[] vars, ulong index)
 {
-    return getAlignedSize(vars[0..index].map!(a => a.type.size).array);
+    return getAlignedSize(vars[0..index+1].map!(a => a.type.size).array);
 }
 
 auto getWordSize(Type* type)
@@ -181,7 +190,7 @@ struct Context
     VarTypePair*[] funcArgs;
     VarTypePair*[] stackVars;
     Type* retType;
-    ulong[] tempBytes;
+    private uint topOfStack;
     private uint uniqLabelCounter;
     private uint uniqDataCounter;
 
@@ -200,26 +209,29 @@ struct Context
         uniqLabelCounter = 0;
     }
 
+    auto getTop()
+    {
+        return topOfStack;
+    }
+
+    void allocateStackSpace(uint bytes)
+    {
+        topOfStack += bytes;
+    }
+
+    void deallocateStackSpace(uint bytes)
+    {
+        topOfStack -= bytes;
+    }
+
+    void resetStack()
+    {
+        topOfStack = 0;
+    }
+
     auto getStackPtrOffset()
     {
-        return tempBytes.reduce!((a, b) => a + b)
-            + getStackOffset(stackVars, stackVars.length);
-    }
-
-    auto allocateTempSpace(ulong size)
-    {
-        tempBytes ~= getPadding(cast(int)getStackPtrOffset(), cast(int)size)
-            + size;
-    }
-
-    auto deallocateTempSpace()
-    {
-        tempBytes = tempBytes[0..$-1];
-    }
-
-    auto getTopTempSize()
-    {
-        return tempBytes[$-1];
+        return getStackOffset(stackVars, stackVars.length);
     }
 
     // Either the value of the variable is in r8, implying that the type is
@@ -311,10 +323,10 @@ struct Context
                         ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                            getOffset(funcArgs, i)).to!string ~ "], r8\n";
                 }
-                return "    mov    QWORD [rbp+"
+                return "    mov    qword [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i)).to!string ~ "], r8\n"
-                    ~ "    mov    QWORD [rbp+"
+                    ~ "    mov    qword [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i) + 8).to!string ~ "], r9\n";
             }
@@ -330,9 +342,9 @@ struct Context
                         ~ getOffset(closureVars, i).to!string ~ "], r8\n";
                     return str;
                 }
-                str ~= "    mov    QWORD [r10+"
+                str ~= "    mov    qword [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "], r8\n"
-                    ~ "    mov    QWORD [r10+"
+                    ~ "    mov    qword [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "], r9\n";
                 return str;
             }
@@ -347,9 +359,9 @@ struct Context
                     return "    mov    " ~ getWordSize(var.type) ~ " [rbp-"
                         ~ (getStackOffset(stackVars, i)).to!string ~ "], r8\n";
                 }
-                return "    mov    QWORD [rbp-"
+                return "    mov    qword [rbp-"
                     ~ (getStackOffset(stackVars, i)).to!string ~ "], r8\n"
-                    ~ "    mov    QWORD [rbp-"
+                    ~ "    mov    qword [rbp-"
                     ~ (getStackOffset(stackVars, i) + 8).to!string ~ "], r9\n";
             }
         }
@@ -363,15 +375,20 @@ string compileFunction(FuncSig* sig, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto func = "";
     func ~= sig.funcName ~ ":\n";
-    func ~= q"EOS
-    push   rbp         ; set up stack frame
-    mov    rbp, rsp
-EOS";
+    func ~= "    push   rbp         ; set up stack frame\n";
+    func ~= "    mov    rbp, rsp\n";
+
+    // TODO the following is temporary until a we have a function analyzer that
+    // tells us the maximum amount of stack space a function will allocate.
+    // Which will also be super important for once green threads are implemented
+
+    func ~= "    sub    rsp, 128    ; dirty dirty hack\n";
     vars.closureVars = sig.closureVars;
     auto intRegIndex = 0;
     auto floatRegIndex = 0;
     vars.funcArgs = [];
     vars.stackVars = [];
+    vars.resetStack();
     foreach (arg; sig.funcArgs)
     {
         if (arg.type.isFloat)
@@ -383,19 +400,23 @@ EOS";
             else if (arg.type.tag == TypeEnum.DOUBLE)
             {
                 vars.stackVars ~= arg;
-                func ~= "    sub    rsp, 8\n";
-                func ~= "    movsd  qword [rsp], " ~ FLOAT_REG[floatRegIndex]
-                                                   ~ "\n";
+                vars.allocateStackSpace(8);
+                func ~= "    movsd  qword [rbp-" ~ vars.getTop.to!string
+                                                 ~ "], "
+                                                 ~ FLOAT_REG[floatRegIndex]
+                                                 ~ "\n";
                 floatRegIndex++;
             }
             else if (arg.type.tag == TypeEnum.FLOAT)
             {
                 vars.stackVars ~= arg;
-                func ~= "    sub    rsp, 4\n";
+                vars.allocateStackSpace(4);
                 func ~= "    cvtsd2ss " ~ FLOAT_REG[floatRegIndex] ~ ", "
                                         ~ FLOAT_REG[floatRegIndex] ~ "\n";
-                func ~= "    movss  dword [rsp], " ~ FLOAT_REG[floatRegIndex]
-                                                   ~ "\n";
+                func ~= "    movss  dword [rbp-" ~ vars.getTop.to!string
+                                                 ~ "], "
+                                                 ~ FLOAT_REG[floatRegIndex]
+                                                 ~ "\n";
                 floatRegIndex++;
             }
         }
@@ -408,23 +429,24 @@ EOS";
             else
             {
                 vars.stackVars ~= arg;
-                func ~= "    push   " ~ INT_REG[intRegIndex] ~ "\n";
+                vars.allocateStackSpace(8);
+                func ~= "    mov    qword [rbp-" ~ vars.getTop.to!string
+                                                 ~ "], "
+                                                 ~ INT_REG[intRegIndex] ~ "\n";
                 intRegIndex++;
             }
         }
     }
     vars.retType = sig.returnType;
-    vars.tempBytes = [];
     vars.refreshLabelCounter();
     sig.funcBodyBlocks.writeln;
     func ~= compileBlock(
         cast(BareBlockNode)sig.funcBodyBlocks.children[0], vars
     );
-    func ~= q"EOS
-    mov    rsp, rbp    ; takedown stack frame
-    pop    rbp
-    ret
-EOS";
+    func ~= "    add    rsp, 128    ; dirty dirty hack\n";
+    func ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+    func ~= "    pop    rbp\n";
+    func ~= "    ret\n";
     return func;
 }
 
@@ -755,20 +777,28 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
         {
         case TypeEnum.FUNCPTR:
             assert(false, "unimplemented");
-            str ~= "    push   r8\n";
-            str ~= "    push   r9\n";
+            vars.allocateStackSpace(8);
+            str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], "
+                                            ~ "r8\n";
+            vars.allocateStackSpace(8);
+            str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], "
+                                            ~ "r9\n";
             break;
         case TypeEnum.DOUBLE:
-            str ~= "    sub    rsp, 8\n";
-            str ~= "    movsd  qword [rsp], xmm0\n";
+            vars.allocateStackSpace(8);
+            str ~= "    movsd  qword [rbp-" ~ vars.getTop.to!string ~ "], "
+                                            ~ "xmm0\n";
             break;
         case TypeEnum.FLOAT:
+            vars.allocateStackSpace(8);
             str ~= "    cvtss2sd xmm0, xmm0\n";
-            str ~= "    sub    rsp, 8\n";
-            str ~= "    movss  qword [rsp], xmm0\n";
+            str ~= "    movsd  qword [rbp-" ~ vars.getTop.to!string ~ "], "
+                                            ~ "xmm0\n";
             break;
         default:
-            str ~= "    push   r8\n";
+            vars.allocateStackSpace(8);
+            str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], "
+                                            ~ "r8\n";
             break;
         }
     }
@@ -796,7 +826,10 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
             if (floatRegIndex < FLOAT_REG.length)
             {
                 str ~= "    movsd  " ~ FLOAT_REG[floatRegIndex]
-                                     ~ ", [rsp+" ~ (i*8).to!string ~ "]\n";
+                                     ~ ", qword [rbp-"
+                                     ~ vars.getTop.to!string
+                                     ~ "]\n";
+                vars.deallocateStackSpace(8);
                 floatRegIndex++;
             }
             else
@@ -809,7 +842,10 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
             if (intRegIndex < INT_REG.length)
             {
                 str ~= "    mov    " ~ INT_REG[intRegIndex]
-                                     ~ ", [rsp+" ~ (i*8).to!string ~ "]\n";
+                                     ~ ", qword [rbp-"
+                                     ~ vars.getTop.to!string
+                                     ~ "]\n";
+                vars.deallocateStackSpace(8);
                 intRegIndex++;
             }
             else
@@ -820,7 +856,5 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
             break;
         }
     }
-    str ~= "    add    rsp, " ~ (((numArgs <= 6) ? numArgs : 6) * 8).to!string
-                              ~ "\n";
     return str;
 }
