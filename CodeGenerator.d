@@ -37,6 +37,10 @@ const CLAM_STR_SIZE = 4; // sizeof(uint32_t))
 const STR_START_OFFSET = REF_COUNT_SIZE + CLAM_STR_SIZE;
 const VARIANT_TAG_SIZE = 4; // sizeof(uint32_t))
 
+const INT_REG = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+const FLOAT_REG = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
+                   "xmm7"];
+
 debug (COMPILE_TRACE)
 {
     string traceIndent;
@@ -357,18 +361,61 @@ struct Context
 string compileFunction(FuncSig* sig, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    vars.closureVars = sig.closureVars;
-    vars.funcArgs = sig.funcArgs;
-    vars.stackVars = [];
-    vars.retType = sig.returnType;
-    vars.tempBytes = [];
-    vars.refreshLabelCounter();
     auto func = "";
     func ~= sig.funcName ~ ":\n";
     func ~= q"EOS
     push   rbp         ; set up stack frame
     mov    rbp, rsp
 EOS";
+    vars.closureVars = sig.closureVars;
+    auto intRegIndex = 0;
+    auto floatRegIndex = 0;
+    vars.funcArgs = [];
+    vars.stackVars = [];
+    foreach (arg; sig.funcArgs)
+    {
+        if (arg.type.isFloat)
+        {
+            if (floatRegIndex >= FLOAT_REG.length)
+            {
+                vars.funcArgs ~= arg;
+            }
+            else if (arg.type.tag == TypeEnum.DOUBLE)
+            {
+                vars.stackVars ~= arg;
+                func ~= "    sub    rsp, 8\n";
+                func ~= "    movsd  qword [rsp], " ~ FLOAT_REG[floatRegIndex]
+                                                   ~ "\n";
+                floatRegIndex++;
+            }
+            else if (arg.type.tag == TypeEnum.FLOAT)
+            {
+                vars.stackVars ~= arg;
+                func ~= "    sub    rsp, 4\n";
+                func ~= "    cvtsd2ss " ~ FLOAT_REG[floatRegIndex] ~ ", "
+                                        ~ FLOAT_REG[floatRegIndex] ~ "\n";
+                func ~= "    movss  dword [rsp], " ~ FLOAT_REG[floatRegIndex]
+                                                   ~ "\n";
+                floatRegIndex++;
+            }
+        }
+        else
+        {
+            if (intRegIndex >= INT_REG.length)
+            {
+                vars.funcArgs ~= arg;
+            }
+            else
+            {
+                vars.stackVars ~= arg;
+                func ~= "    push   " ~ INT_REG[intRegIndex] ~ "\n";
+                intRegIndex++;
+            }
+        }
+    }
+    vars.retType = sig.returnType;
+    vars.tempBytes = [];
+    vars.refreshLabelCounter();
     sig.funcBodyBlocks.writeln;
     func ~= compileBlock(
         cast(BareBlockNode)sig.funcBodyBlocks.children[0], vars
@@ -707,25 +754,24 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
         switch (type)
         {
         case TypeEnum.FUNCPTR:
+            assert(false, "unimplemented");
             str ~= "    push   r8\n";
             str ~= "    push   r9\n";
-            break;
-        case TypeEnum.FLOAT:
-            str ~= "    sub    rsp, 4\n";
-            str ~= "    movss  dword [rsp], xmm0\n";
             break;
         case TypeEnum.DOUBLE:
             str ~= "    sub    rsp, 8\n";
             str ~= "    movsd  qword [rsp], xmm0\n";
+            break;
+        case TypeEnum.FLOAT:
+            str ~= "    cvtss2sd xmm0, xmm0\n";
+            str ~= "    sub    rsp, 8\n";
+            str ~= "    movss  qword [rsp], xmm0\n";
             break;
         default:
             str ~= "    push   r8\n";
             break;
         }
     }
-    auto intReg = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
-    auto floatReg = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
-                     "xmm7"];
 
 
     // TODO need to ensure that all func call registers are properly populated.
@@ -743,25 +789,13 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
         switch (types[$ - 1 - i])
         {
         case TypeEnum.FUNCPTR:
+            assert(false, "unimplemented");
             break;
         case TypeEnum.FLOAT:
-            if (floatRegIndex < floatReg.length)
-            {
-                str ~= "    movss  " ~ floatReg[floatRegIndex]
-                                     ~ ", [rsp+" ~ (i*4).to!string ~ "]\n";
-                floatRegIndex++;
-            }
-            else
-            {
-                // TODO handle the case where we've run out of float registers
-                // and need this argument to remain on the stack
-            }
-            break;
-            break;
         case TypeEnum.DOUBLE:
-            if (floatRegIndex < floatReg.length)
+            if (floatRegIndex < FLOAT_REG.length)
             {
-                str ~= "    movsd  " ~ floatReg[floatRegIndex]
+                str ~= "    movsd  " ~ FLOAT_REG[floatRegIndex]
                                      ~ ", [rsp+" ~ (i*8).to!string ~ "]\n";
                 floatRegIndex++;
             }
@@ -771,11 +805,10 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
                 // and need this argument to remain on the stack
             }
             break;
-            break;
         default:
-            if (intRegIndex < intReg.length)
+            if (intRegIndex < INT_REG.length)
             {
-                str ~= "    mov    " ~ intReg[intRegIndex]
+                str ~= "    mov    " ~ INT_REG[intRegIndex]
                                      ~ ", [rsp+" ~ (i*8).to!string ~ "]\n";
                 intRegIndex++;
             }
