@@ -100,12 +100,57 @@ string compileNotTest(NotTestNode node, Context* vars)
 
 string compileComparison(ComparisonNode node, Context* vars)
 {
+
+    // TODO Need to refactor to account for allowing == and != on strings
+
     debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileExpr(cast(ExprNode)node.children[0], vars);
     }
-    return "";
+    auto op = (cast(ASTTerminal)node.children[1]).token;
+    auto str = "";
+    str ~= compileExpr(cast(ExprNode)node.children[0], vars);
+    vars.allocateStackSpace(8);
+    auto valLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
+    str ~= compileExpr(cast(ExprNode)node.children[2], vars);
+    str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+    vars.deallocateStackSpace(8);
+    // Assume that the comparison fails, and update if it succeeds
+    str ~= "    mov    r10, 0\n";
+    str ~= "    cmp    r9, r8\n";
+    auto failureLabel = vars.getUniqLabel();
+    // r9 is left value, r8 is right value
+    final switch (op)
+    {
+    case "<=":
+        str ~= "    jg    " ~ failureLabel ~ "\n";
+        break;
+    case ">=":
+        str ~= "    jl    " ~ failureLabel ~ "\n";
+        break;
+    case "<":
+        str ~= "    jge   " ~ failureLabel ~ "\n";
+        break;
+    case ">":
+        str ~= "    jle   " ~ failureLabel ~ "\n";
+        break;
+    case "==":
+        str ~= "    jne   " ~ failureLabel ~ "\n";
+        break;
+    case "!=":
+        str ~= "    je    " ~ failureLabel ~ "\n";
+        break;
+    case "<in>":
+        break;
+    case "in":
+        break;
+    }
+    str ~= "    mov    r10, 1\n";
+    str ~= failureLabel ~ ":\n";
+    str ~= "    mov    r8, r10\n";
+    return str;
 }
 
 string compileExpr(ExprNode node, Context* vars)
