@@ -259,7 +259,7 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(ParenExprNode)child) {
 
     } else if (cast(ArrayLiteralNode)child) {
-
+        str ~= compileArrayLiteral(cast(ArrayLiteralNode)child, vars);
     } else if (cast(NumberNode)child) {
         str ~= compileNumber(cast(NumberNode)child, vars);
     } else if (cast(ChanReadNode)child) {
@@ -321,7 +321,34 @@ string compileParenExpr(ParenExprNode node, Context* vars)
 string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto elemSize = node.children[0].data["type"].get!(Type*).size;
+    auto numElems = node.children.length;
+    auto allocLength = getAllocSize(numElems);
+    // The 8 is the ref count area and the array length area, each 4 bytes
+    auto totalAllocSize = allocLength * elemSize + 8;
+    auto str = "";
+    str ~= "    mov    rdi, " ~ totalAllocSize.to!string ~ "\n";
+    str ~= "    call   malloc\n";
+    // Set ref count to 1
+    str ~= "    mov    dword [rax], 1\n";
+    // Set array length to number of elements
+    str ~= "    mov    dword [rax+4], " ~ numElems.to!string ~ "\n";
+    vars.allocateStackSpace(8);
+    auto raxLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ raxLoc ~ "], rax\n";
+    foreach (i, child; node.children)
+    {
+        str ~= compileValue(cast(ValueNode)child, vars);
+        str ~= "    mov    rax, qword [rbp-" ~ raxLoc ~ "]\n";
+        // Place elements into array past ref count and array size
+        str ~= "    mov    " ~ getWordSize(elemSize)
+                             ~ " [rax+" ~ (8 + i * elemSize).to!string
+                             ~ "], r8" ~ getRRegSuffix(elemSize)
+                             ~ "\n";
+    }
+    vars.deallocateStackSpace(8);
+    str ~= "    mov    r8, rax\n";
+    return str;
 }
 
 string compileNumber(NumberNode node, Context* vars)

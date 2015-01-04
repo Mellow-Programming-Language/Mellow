@@ -76,9 +76,9 @@ auto getOffset(VarTypePair*[] vars, ulong index)
     return getAlignedIndexOffset(vars.map!(a => a.type.size).array, index);
 }
 
-auto getWordSize(Type* type)
+auto getWordSize(ulong size)
 {
-    final switch (type.size)
+    final switch (size)
     {
     case 1:  return "byte";
     case 2:  return "word";
