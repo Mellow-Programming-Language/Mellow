@@ -31,11 +31,14 @@ string exprOp(string op, string descendNode)
                     ~ `);
     for (auto i = 2; i < node.children.length; i += 2)
     {
-        str ~= "    push   r8\n";
+        vars.allocateStackSpace(8);
+        auto valLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
         str ~= compile` ~ descendNode ~ `(`
                         ~ `cast(` ~ descendNode ~ `Node)node.children[i], vars`
                         ~ `);
-        str ~= "    pop    r9\n";
+        str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+        vars.deallocateStackSpace(8);
         str ~= "    ` ~ op ~ `    r8, r9\n";
     }
     `;
@@ -166,13 +169,16 @@ string compileSumExpr(SumExprNode node, Context* vars)
     Type* rightType;
     for (auto i = 2; i < node.children.length; i += 2)
     {
-        str~= "    push   r8\n";
+        vars.allocateStackSpace(8);
+        auto valLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
         str ~= compileProductExpr(cast(ProductExprNode)node.children[i], vars);
         auto op = (cast(ASTTerminal)node.children[i-1]).token;
         rightType = node.children[i].data["type"].get!(Type*);
         if (leftType.isIntegral && rightType.isIntegral)
         {
-            str ~= "    pop    r9\n";
+            str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+            vars.deallocateStackSpace(8);
             final switch (op)
             {
             case "+":
@@ -202,13 +208,16 @@ string compileProductExpr(ProductExprNode node, Context* vars)
     Type* rightType;
     for (auto i = 2; i < node.children.length; i += 2)
     {
-        str~= "    push   r8\n";
+        vars.allocateStackSpace(8);
+        auto valLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
         str ~= compileValue(cast(ValueNode)node.children[i], vars);
         auto op = (cast(ASTTerminal)node.children[i-1]).token;
         rightType = node.children[i].data["type"].get!(Type*);
         if (leftType.isIntegral && rightType.isIntegral)
         {
-            str ~= "    pop    r9\n";
+            str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+            vars.deallocateStackSpace(8);
             final switch (op)
             {
             case "*":
