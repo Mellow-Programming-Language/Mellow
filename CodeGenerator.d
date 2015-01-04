@@ -76,11 +76,6 @@ auto getOffset(VarTypePair*[] vars, ulong index)
     return getAlignedIndexOffset(vars.map!(a => a.type.size).array, index);
 }
 
-auto getStackOffset(VarTypePair*[] vars, ulong index)
-{
-    return getAlignedSize(vars[0..index+1].map!(a => a.type.size).array);
-}
-
 auto getWordSize(Type* type)
 {
     final switch (type.size)
@@ -211,7 +206,7 @@ struct Context
 
     auto getTop()
     {
-        return topOfStack;
+        return (stackVars.length * 8) + topOfStack;
     }
 
     void allocateStackSpace(uint bytes)
@@ -227,11 +222,6 @@ struct Context
     void resetStack()
     {
         topOfStack = 0;
-    }
-
-    auto getStackPtrOffset()
-    {
-        return getStackOffset(stackVars, stackVars.length);
     }
 
     // Either the value of the variable is in r8, implying that the type is
@@ -251,14 +241,14 @@ struct Context
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov    r8, " ~ getWordSize(var.type) ~ " [rbp+"
+                    return "    mov    r8, qword [rbp+"
                         ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                            getOffset(funcArgs, i)).to!string ~ "]\n";
                 }
-                return "    mov    r8, QWORD [rbp+"
+                return "    mov    r8, qword [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i)).to!string ~ "]\n"
-                    ~ "    mov    r9, QWORD [rbp+"
+                    ~ "    mov    r9, qword [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i) + 8).to!string ~ "]\n";
             }
@@ -267,16 +257,16 @@ struct Context
         {
             if (varName == var.varName)
             {
-                auto str = "    mov    r10, [rbp+" ~ 8.to!string ~ "]\n";
+                auto str = "    mov    r10, [rbp+8]\n";
                 if (var.type.size <= 8)
                 {
-                    str ~= "    mov    r8, " ~ getWordSize(var.type) ~ " [r10+"
+                    str ~= "    mov    r8, qword [r10+"
                         ~ getOffset(closureVars, i).to!string ~ "]\n";
                     return str;
                 }
-                str ~= "    mov    r8, QWORD [r10+"
+                str ~= "    mov    r8, qword [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "]\n"
-                    ~ "    mov    r9, QWORD [r10+"
+                    ~ "    mov    r9, qword [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "]\n";
                 return str;
             }
@@ -287,13 +277,13 @@ struct Context
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov    r8, " ~ getWordSize(var.type) ~ " [rbp-"
-                        ~ (getStackOffset(stackVars, i)).to!string ~ "]\n";
+                    return "    mov    r8, qword [rbp-"
+                        ~ ((i + 1) * 8).to!string ~ "]\n";
                 }
-                return "    mov    r8, QWORD [rbp-"
-                    ~ (getStackOffset(stackVars, i)).to!string ~ "]\n"
-                    ~ "    mov    r9, QWORD [rbp-"
-                    ~ (getStackOffset(stackVars, i) + 8).to!string ~ "]\n";
+                return "    mov    r8, qword [rbp-"
+                    ~ ((i + 1) * 8).to!string ~ "]\n"
+                    ~ "    mov    r9, qword [rbp-"
+                    ~ ((i + 1) * 8 + 8).to!string ~ "]\n";
             }
         }
         assert(false);
@@ -319,7 +309,7 @@ struct Context
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov    " ~ getWordSize(var.type) ~ " [rbp+"
+                    return "    mov    qword [rbp+"
                         ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                            getOffset(funcArgs, i)).to!string ~ "], r8\n";
                 }
@@ -338,7 +328,7 @@ struct Context
                 auto str = "    mov    r10, [rbp+" ~ 8.to!string ~ "]\n";
                 if (var.type.size <= 8)
                 {
-                    str ~= "    mov    " ~ getWordSize(var.type) ~ " [r10+"
+                    str ~= "    mov    qword [r10+"
                         ~ getOffset(closureVars, i).to!string ~ "], r8\n";
                     return str;
                 }
@@ -356,13 +346,13 @@ struct Context
                 "just before size check".writeln;
                 if (var.type.size <= 8)
                 {
-                    return "    mov    " ~ getWordSize(var.type) ~ " [rbp-"
-                        ~ (getStackOffset(stackVars, i)).to!string ~ "], r8\n";
+                    return "    mov    qword [rbp-"
+                        ~ ((i + 1) * 8).to!string ~ "], r8\n";
                 }
                 return "    mov    qword [rbp-"
-                    ~ (getStackOffset(stackVars, i)).to!string ~ "], r8\n"
+                    ~ ((i + 1) * 8).to!string ~ "], r8\n"
                     ~ "    mov    qword [rbp-"
-                    ~ (getStackOffset(stackVars, i) + 8).to!string ~ "], r9\n";
+                    ~ ((i + 1) * 8 + 8).to!string ~ "], r9\n";
             }
         }
         assert(false);
@@ -397,23 +387,10 @@ string compileFunction(FuncSig* sig, Context* vars)
             {
                 vars.funcArgs ~= arg;
             }
-            else if (arg.type.tag == TypeEnum.DOUBLE)
+            else
             {
                 vars.stackVars ~= arg;
-                vars.allocateStackSpace(8);
                 func ~= "    movsd  qword [rbp-" ~ vars.getTop.to!string
-                                                 ~ "], "
-                                                 ~ FLOAT_REG[floatRegIndex]
-                                                 ~ "\n";
-                floatRegIndex++;
-            }
-            else if (arg.type.tag == TypeEnum.FLOAT)
-            {
-                vars.stackVars ~= arg;
-                vars.allocateStackSpace(4);
-                func ~= "    cvtsd2ss " ~ FLOAT_REG[floatRegIndex] ~ ", "
-                                        ~ FLOAT_REG[floatRegIndex] ~ "\n";
-                func ~= "    movss  dword [rbp-" ~ vars.getTop.to!string
                                                  ~ "], "
                                                  ~ FLOAT_REG[floatRegIndex]
                                                  ~ "\n";
@@ -429,7 +406,7 @@ string compileFunction(FuncSig* sig, Context* vars)
             else
             {
                 vars.stackVars ~= arg;
-                vars.allocateStackSpace(8);
+                vars.getTop.writeln();
                 func ~= "    mov    qword [rbp-" ~ vars.getTop.to!string
                                                  ~ "], "
                                                  ~ INT_REG[intRegIndex] ~ "\n";
@@ -511,23 +488,12 @@ string compileReturn(ReturnStmtNode node, Context* vars)
     str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
     if (vars.retType.size <= 8)
     {
-        str ~= "    mov     r10, " ~ vars.retType.getWordSize ~ " [rbp-"
-            ~ vars.getStackPtrOffset.to!string ~ "]\n"
-            ~ "    mov     " ~ vars.retType.getWordSize ~ "[rbp+"
-            ~ (STACK_PROLOGUE_SIZE + environOffset).to!string ~ "], "
-            ~ "r10" ~ vars.retType.size.getRRegSuffix ~ "\n";
+
     }
     // Handle the fat ptr case
     else if (vars.retType.size == 16)
     {
-        str ~= "    mov     r10, " ~ vars.retType.getWordSize ~ " [rbp-"
-            ~ vars.getStackPtrOffset.to!string ~ "]\n"
-            ~ "    mov     r11, " ~ vars.retType.getWordSize ~ " [rbp-"
-            ~ (vars.getStackPtrOffset + 8).to!string ~ "]\n"
-            ~ "    mov     " ~ vars.retType.getWordSize ~ "[rbp+"
-            ~ (STACK_PROLOGUE_SIZE + environOffset + 8).to!string ~ "], r10\n"
-            ~ "    mov     " ~ vars.retType.getWordSize ~ "[rbp+"
-            ~ (STACK_PROLOGUE_SIZE + environOffset).to!string ~ "], r11\n";
+
     }
     // Handle the tuple case
     else
@@ -686,13 +652,10 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
         var.varName = varName;
         var.type = type;
         vars.stackVars ~= var;
-
-        // TODO we need to either put the var value in r8 (and possibly r9), or
-        // we need to just start putting everything on the stack (probably a
-        // better idea)
-
-        str = "    ; var infer assign [" ~ varName ~ "]\n" ~ str
-            ~ vars.compileVarSet(varName);
+        str = "    ; var infer assign [" ~ varName
+                                         ~ "]\n"
+                                         ~ str
+                                         ~ vars.compileVarSet(varName);
     }
     else
     {

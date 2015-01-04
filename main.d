@@ -49,15 +49,22 @@ int main(string[] argv)
         {
             context.compileFuncs[sig.funcName] = sig;
         }
-        auto str = funcs.getCompilableFuncSigs
+        auto str = "";
+        auto header = "";
+        if (funcs.getCompilableFuncSigs.length > 0)
+        {
+            str ~= funcs.getCompilableFuncSigs
                         .map!(a => a.compileFunction(context))
                         .reduce!((a, b) => a ~ "\n" ~ b);
-        auto header = "";
+        }
         header ~= "    extern malloc\n"
                 ~ "    extern memcpy\n";
-        header ~= funcs.getExternFuncSigs
-                       .map!(a => "    extern " ~ a.funcName ~ "\n")
-                       .reduce!((a, b) => a ~ b);
+        if (funcs.getExternFuncSigs.length > 0)
+        {
+            header ~= funcs.getExternFuncSigs
+                           .map!(a => "    extern " ~ a.funcName ~ "\n")
+                           .reduce!((a, b) => a ~ b);
+        }
         header ~= "    SECTION .data\n";
         if (context.dataEntries.length > 0)
         {
