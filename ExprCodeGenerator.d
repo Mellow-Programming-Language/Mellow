@@ -124,22 +124,22 @@ string compileComparison(ComparisonNode node, Context* vars)
     final switch (op)
     {
     case "<=":
-        str ~= "    jg    " ~ failureLabel ~ "\n";
+        str ~= "    jg     " ~ failureLabel ~ "\n";
         break;
     case ">=":
-        str ~= "    jl    " ~ failureLabel ~ "\n";
+        str ~= "    jl     " ~ failureLabel ~ "\n";
         break;
     case "<":
-        str ~= "    jge   " ~ failureLabel ~ "\n";
+        str ~= "    jge    " ~ failureLabel ~ "\n";
         break;
     case ">":
-        str ~= "    jle   " ~ failureLabel ~ "\n";
+        str ~= "    jle    " ~ failureLabel ~ "\n";
         break;
     case "==":
-        str ~= "    jne   " ~ failureLabel ~ "\n";
+        str ~= "    jne    " ~ failureLabel ~ "\n";
         break;
     case "!=":
-        str ~= "    je    " ~ failureLabel ~ "\n";
+        str ~= "    je     " ~ failureLabel ~ "\n";
         break;
     case "<in>":
         break;
