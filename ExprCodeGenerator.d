@@ -29,7 +29,7 @@ string exprOp(string op, string descendNode)
     str ~= compile` ~ descendNode ~ `(`
                     ~ `cast(` ~ descendNode ~ `Node)node.children[0], vars`
                     ~ `);
-    for (auto i = 2; i < node.children.length; i += 2)
+    for (auto i = 1; i < node.children.length; i++)
     {
         vars.allocateStackSpace(8);
         auto valLoc = vars.getTop.to!string;
@@ -85,7 +85,6 @@ string compileNotTest(NotTestNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     auto child = node.children[0];
-    auto type = node.data["type"].get!(Type*);
     if (cast(NotTestNode)child)
     {
         str ~= compileNotTest(cast(NotTestNode)child, vars);
