@@ -108,10 +108,9 @@ AssignExistingOp :: "="
                   | "~="
                   ;
 LorRValue :: Identifier LorRTrailer?;
-LorRTrailer :: LorRMemberAccess
-             | (Slicing LorRTrailer?)
+LorRTrailer :: (#"." Identifier LorRTrailer?)
+             | (#"[" SingleIndex #"]" LorRTrailer?)
              ;
-LorRMemberAccess :: #"." LorRValue;
 Assignment :: DeclAssignment | DeclTypeInfer | AssignExisting;
 CondAssignments :: CondAssign*;
 CondAssign :: Assignment #";";

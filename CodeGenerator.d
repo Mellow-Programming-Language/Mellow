@@ -181,10 +181,15 @@ struct Context
     string[] blockNextLabels;
     FuncSig*[string] externFuncs;
     FuncSig*[string] compileFuncs;
+    StructType*[string] structDefs;
+    VariantType*[string] variantDefs;
     VarTypePair*[] closureVars;
     VarTypePair*[] funcArgs;
     VarTypePair*[] stackVars;
     Type* retType;
+    // Set when calculating l-value addresses, to determine how the assignment
+    // should be made
+    bool isStackAligned;
     private uint topOfStack;
     private uint uniqLabelCounter;
     private uint uniqDataCounter;
@@ -222,6 +227,25 @@ struct Context
     void resetStack()
     {
         topOfStack = 0;
+    }
+
+    bool isStackAlignedVar(string varName)
+    {
+        foreach (var; stackVars)
+        {
+            if (var.varName == varName)
+            {
+                return true;
+            }
+        }
+        foreach (var; funcArgs)
+        {
+            if (var.varName == varName)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Either the value of the variable is in r8, implying that the type is
@@ -284,6 +308,82 @@ struct Context
                     ~ ((i + 1) * 8).to!string ~ "]\n"
                     ~ "    mov    r9, qword [rbp-"
                     ~ ((i + 1) * 8 + 8).to!string ~ "]\n";
+            }
+        }
+        assert(false);
+        return "";
+    }
+
+    string compileVarAddress(string varName)
+    {
+        const environOffset = (closureVars.length > 0)
+                           ? ENVIRON_PTR_SIZE
+                           : 0;
+        const retValOffset = retType.size;
+        foreach (i, var; funcArgs)
+        {
+            if (varName == var.varName)
+            {
+                if (var.type.size <= 8)
+                {
+                    return "    mov    r8, rbp\n"
+                         ~ "    add    r8, "
+                         ~ (STACK_PROLOGUE_SIZE
+                            + environOffset
+                            + retValOffset
+                            + getOffset(funcArgs, i)).to!string
+                         ~ "\n";
+                }
+                return "    mov    r8, rbp\n"
+                     ~ "    add    r8, "
+                     ~ (STACK_PROLOGUE_SIZE
+                        + environOffset
+                        + retValOffset
+                        + getOffset(funcArgs, i)).to!string
+                     ~ "\n"
+                     ~ "    mov    r9, rbp\n"
+                     ~ "    add    r9, "
+                     ~ (STACK_PROLOGUE_SIZE
+                        + environOffset
+                        + retValOffset
+                        + getOffset(funcArgs, i) + 8).to!string
+                     ~ "\n";
+            }
+        }
+        foreach (i, var; closureVars)
+        {
+            if (varName == var.varName)
+            {
+                auto str = "    mov    r10, [rbp+8]\n";
+                if (var.type.size <= 8)
+                {
+                    str ~= "    mov    r8, r10\n";
+                    str ~= "    add    r8, "
+                        ~ getOffset(closureVars, i).to!string ~ "\n";
+                    return str;
+                }
+                str ~= "    mov    r8, r10\n";
+                str ~= "    add    r8, " ~ getOffset(funcArgs, i).to!string
+                                         ~ "\n";
+                str ~= "    mov    r9, r10\n";
+                str ~= "    add    r9, " ~ getOffset(funcArgs, i).to!string
+                                         ~ "\n";
+                return str;
+            }
+        }
+        foreach (i, var; stackVars)
+        {
+            if (varName == var.varName)
+            {
+                if (var.type.size <= 8)
+                {
+                    return "    mov    r8, rbp\n"
+                         ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n";
+                }
+                return "    mov    r8, rbp\n"
+                     ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n"
+                     ~ "    mov    r9, rbp\n"
+                     ~ "    sub    r9, " ~ ((i + 1) * 8 + 8).to!string ~ "]n";
             }
         }
         assert(false);
@@ -636,6 +736,12 @@ string compileDeclaration(DeclarationNode node, Context* vars)
     if (cast(DeclTypeInferNode)child) {
         return compileDeclTypeInfer(cast(DeclTypeInferNode)child, vars);
     }
+    else if (cast(DeclAssignmentNode)child) {
+        return compileDeclAssignment(cast(DeclAssignmentNode)child, vars);
+    }
+    else if (cast(VariableTypePairNode)child) {
+        return compileVariableTypePair(cast(VariableTypePairNode)child, vars);
+    }
     return "";
 }
 
@@ -664,22 +770,127 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
     return str;
 }
 
-string compileAssignExisting(AssignExistingNode node, Context* vars)
+string compileVariableTypePair(VariableTypePairNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
+}
+
+string compileAssignExisting(AssignExistingNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    auto op = (cast(ASTTerminal)node.children[1]).token;
+    auto type = node.children[2].data["type"].get!(Type*);
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[2], vars);
+    vars.allocateStackSpace(8);
+    auto valLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
+    // Assume it's true to begin with
+    vars.isStackAligned = true;
+    str ~= compileLorRValue(cast(LorRValueNode)node.children[0], vars);
+    str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+    vars.deallocateStackSpace(8);
+    if (vars.isStackAligned)
+    {
+        str ~= "    mov    qword [r8], r9\n";
+    }
+    else
+    {
+        str ~= "    mov    " ~ getWordSize(type.size)
+                             ~ " [r8], r9"
+                             ~ getRRegSuffix(type.size) ~ "\n";
+    }
+    return str;
+}
+
+string compileLorRValue(LorRValueNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    auto id = getIdentifier(cast(IdentifierNode)node.children[0]);
+    str ~= vars.compileVarAddress(id);
+    if (node.children.length > 1)
+    {
+        str ~= compileLorRTrailer(cast(LorRTrailerNode)node.children[1], vars);
+        vars.isStackAligned = false;
+    }
+    // This check is hit when we're either checking the top-level LoRValue id,
+    // or when it's a struct member. A struct member may be the same id as
+    // a stack variable, so we can tell that we're referring to a stack
+    // variable if isStackAligned is still set to the default true value from
+    // compileAssignExisting()
+    else if (vars.isStackAligned && !vars.isStackAlignedVar(id))
+    {
+        vars.isStackAligned = false;
+    }
+    return str;
+}
+
+string compileLorRTrailer(LorRTrailerNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    vars.allocateStackSpace(8);
+    auto valLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
+    auto child = node.children[0];
+    if (cast(IdentifierNode)child) {
+        assert(false, "Unimplemented");
+    }
+    else if (cast(SingleIndexNode)child) {
+        str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
+        str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+        // [r9] is the actual variable we're indexing, so
+        // [r9]+(header offset + r8 * type.size) is the address we want. But we
+        // need to know type.size, so we're probably gonna need to change
+        // Function.d, not only to get the type, but also because the grammar
+        // changes need to be updated in the typechecker anyway
+        str ~= "    ";
+    }
+    vars.deallocateStackSpace(8);
+    return str;
 }
 
 string compileCondAssignments(CondAssignmentsNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    foreach (child; node.children)
+    {
+        str ~= compileCondAssign(cast(CondAssignNode)child, vars);
+    }
+    return str;
 }
 
 string compileCondAssign(CondAssignNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    return compileAssignment(cast(AssignmentNode)node.children[0], vars);
+}
+
+string compileAssignment(AssignmentNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    auto child = node.children[0];
+    if (cast(DeclTypeInferNode)child) {
+        str ~= compileDeclTypeInfer(cast(DeclTypeInferNode)child, vars);
+    }
+    else if (cast(AssignExistingNode)child) {
+        str ~= compileAssignExisting(cast(AssignExistingNode)child, vars);
+    }
+    else if (cast(DeclAssignmentNode)child) {
+        str ~= compileDeclAssignment(cast(DeclAssignmentNode)child, vars);
+    }
+    return str;
+}
+
+string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
 }
 
 string compileSpawnStmt(SpawnStmtNode node, Context* vars)

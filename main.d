@@ -41,6 +41,8 @@ int main(string[] argv)
             sig.format.writeln;
         }
         auto context = new Context();
+        context.structDefs = records.structDefs;
+        context.variantDefs = records.variantDefs;
         foreach (sig; funcs.getExternFuncSigs)
         {
             context.externFuncs[sig.funcName] = sig;

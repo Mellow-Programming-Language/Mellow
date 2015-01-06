@@ -539,7 +539,7 @@ string compileSlicing(SlicingNode node, Context* vars)
 string compileSingleIndex(SingleIndexNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    return compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
 }
 
 string compileIndexRange(IndexRangeNode node, Context* vars)
