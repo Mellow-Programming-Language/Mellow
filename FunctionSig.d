@@ -249,7 +249,6 @@ class FunctionSigBuilder : Visitor
     void visit(ValueTupleNode node) {}
     void visit(LorRValueNode node) {}
     void visit(LorRTrailerNode node) {}
-    void visit(LorRMemberAccessNode node) {}
     void visit(SlicingNode node) {}
     void visit(SingleIndexNode node) {}
     void visit(IndexRangeNode node) {}

@@ -322,6 +322,10 @@ string compileValue(ValueNode node, Context* vars)
         auto varName = (cast(ASTTerminal)idNode.children[0]).token;
         str ~= "    ; getting " ~ varName ~ "\n";
         str ~= vars.compileVarGet(varName);
+        if (node.children.length > 1)
+        {
+            str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
+        }
     } else if (cast(SliceLengthSentinelNode)child) {
 
     }
@@ -509,13 +513,66 @@ string compileChanRead(ChanReadNode node, Context* vars)
 string compileTrailer(TrailerNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto child = node.children[0];
+    if (cast(DynArrAccessNode)child) {
+        str ~= compileDynArrAccess(cast(DynArrAccessNode)child, vars);
+    }
+    else if (cast(TemplateInstanceMaybeTrailerNode)child) {
+        assert(false, "Unimplemented");
+    }
+    else if (cast(FuncCallTrailerNode)child) {
+        assert(false, "Unimplemented");
+    }
+    else if (cast(DotAccessNode)child) {
+        assert(false, "Unimplemented");
+    }
+    return str;
 }
 
 string compileDynArrAccess(DynArrAccessNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto arrayType = node.data["parenttype"].get!(Type*);
+    auto resultType = node.data["type"].get!(Type*);
+    auto str = "";
+    // Put the indexed-into variable on the stack
+    vars.allocateStackSpace(8);
+    auto valLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
+    // Check if the slice is a range
+    if (arrayType.cmp(resultType))
+    {
+        // Get the start index in r8 and the end index in r9
+        assert(false, "Unimplemented");
+    }
+    else
+    {
+        // Get the index in r8
+        str ~= compileSlicing(cast(SlicingNode)node.children[0], vars);
+        // Get the indexed-into value, so we can index into it
+        str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
+        // Offset index by type size
+        str ~= "    imul   r8, " ~ resultType.size.to!string ~ "\n";
+        // Offset index beyond ref count and array length sections
+        str ~= "    add    r8, 8\n";
+        // Combine the index offset with the address of the start of the array
+        str ~= "    add    r8, r10\n";
+        // Clear r10 because we might not be moving eight bytes into the reg
+        str ~= "    mov    r10, 0\n";
+        // Actually grab the value
+        str ~= "    mov    r10" ~ getRRegSuffix(resultType.size)
+                               ~ ", "
+                               ~ getWordSize(resultType.size)
+                               ~ " [r8]\n";
+        str ~= "    mov    r8, r10\n";
+        if (node.children.length > 1)
+        {
+            str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
+        }
+    }
+    vars.deallocateStackSpace(8);
+    return str;
 }
 
 string compileTemplateInstanceMaybeTrailer(TemplateInstanceMaybeTrailerNode node, Context* vars)
@@ -533,7 +590,15 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
 string compileSlicing(SlicingNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto child = node.children[0];
+    if (cast(IndexRangeNode)child) {
+        str ~= compileIndexRange(cast(IndexRangeNode)child, vars);
+    }
+    else if (cast(SingleIndexNode)child) {
+        str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
+    }
+    return str;
 }
 
 string compileSingleIndex(SingleIndexNode node, Context* vars)
@@ -545,6 +610,7 @@ string compileSingleIndex(SingleIndexNode node, Context* vars)
 string compileIndexRange(IndexRangeNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 

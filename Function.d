@@ -593,6 +593,15 @@ class FunctionBuilder : Visitor
             else if (funcLookup.success)
             {
                 curFuncCallSig = funcLookup.sig;
+                auto funcPtr = new FuncPtrType();
+                funcPtr.funcArgs = funcLookup.sig.funcArgs
+                                                 .map!(a => a.type)
+                                                 .array;
+                funcPtr.returnType = funcLookup.sig.returnType;
+                auto wrap = new Type;
+                wrap.tag = TypeEnum.FUNCPTR;
+                wrap.funcPtr = funcPtr;
+                builderStack[$-1] ~= wrap;
             }
             if (node.children.length > 1)
             {
@@ -863,49 +872,17 @@ class FunctionBuilder : Visitor
     {
         node.children[0].accept(this);
         string varName = id;
-        if (lvalue is null)
+        funcScopes.updateIfClosedOver(varName);
+        auto lookup = funcScopes.scopeLookup(varName);
+        if (!lookup.success)
         {
-            funcScopes.updateIfClosedOver(varName);
-            auto lookup = funcScopes.scopeLookup(varName);
-            if (!lookup.success)
-            {
-                throw new Exception("Cannot assign to undeclared variable.");
-            }
-            auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
-                                                       .decls[varName]
-                                                       .type;
-            lvalue = varType.copy;
+            throw new Exception("Cannot assign to undeclared variable.");
         }
-        // This means the varName is a member of whatever the current lvalue
-        // type is
-        else
-        {
-            switch (lvalue.tag)
-            {
-            case TypeEnum.STRUCT:
-                foreach (member; lvalue.structDef.members)
-                {
-                    if (member.name == varName)
-                    {
-                        lvalue = member.type.copy;
-                        break;
-                    }
-                }
-                break;
-            case TypeEnum.VARIANT:
-                foreach (constructor; lvalue.variantDef.members)
-                {
-                    if (constructor.constructorName == varName)
-                    {
-                        lvalue = constructor.constructorElems.copy;
-                        break;
-                    }
-                }
-                break;
-            default:
-                throw new Exception("No member of non-struct type.");
-            }
-        }
+        auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
+                                                   .decls[varName]
+                                                   .type;
+        lvalue = varType.copy;
+        node.data["type"] = lvalue.copy;
         if (node.children.length > 1)
         {
             node.children[1].accept(this);
@@ -914,61 +891,74 @@ class FunctionBuilder : Visitor
 
     void visit(LorRTrailerNode node)
     {
-        foreach (child; node.children)
+        if (lvalue.tag == TypeEnum.AGGREGATE)
         {
-            child.accept(this);
+            lvalue = instantiateAggregate(records, lvalue.aggregate);
         }
-    }
-
-    void visit(LorRMemberAccessNode node)
-    {
-        node.children[0].accept(this);
+        node.data["parenttype"] = lvalue;
+        if (cast(IdentifierNode)node.children[0]) {
+            if (lvalue.tag != TypeEnum.STRUCT)
+            {
+                throw new Exception("Member access only valid on struct type");
+            }
+            node.children[0].accept(this);
+            auto memberName = id;
+            bool found = false;
+            foreach (member; lvalue.structDef.members)
+            {
+                if (memberName == member.name)
+                {
+                    found = true;
+                    node.data["type"] = member.type.copy;
+                }
+            }
+            if (!found)
+            {
+                throw new Exception(memberName ~ " is not member of struct");
+            }
+            if (node.children.length > 1)
+            {
+                node.children[1].accept(this);
+            }
+        }
+        else if (cast(SingleIndexNode)node.children[0]) {
+            if (lvalue.tag != TypeEnum.ARRAY)
+            {
+                throw new Exception("Cannot index non-array type");
+            }
+            node.children[0].accept(this);
+            lvalue = lvalue.array.arrayType.copy;
+            node.data["type"] = lvalue.copy;
+            if (node.children.length > 1)
+            {
+                node.children[1].accept(this);
+            }
+        }
     }
 
     void visit(SlicingNode node)
     {
         insideSlice++;
-        // We're working on an lvalue
-        if (lvalue !is null)
+        auto arrayType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (arrayType.tag != TypeEnum.ARRAY)
         {
-            if (lvalue.tag != TypeEnum.ARRAY)
-            {
-                throw new Exception("Cannot slice non-array type.");
-            }
-            node.children[0].accept(this);
-            auto sliceType = builderStack[$-1][$-1];
-            builderStack[$-1] = builderStack[$-1][0..$-1];
-            // Single index, so not a slice. Else, we maintain the array
-            // type, since we're just slicing, so leave lvalue as is
-            if (sliceType.tag != TypeEnum.TUPLE)
-            {
-                lvalue = lvalue.array.arrayType;
-            }
+            throw new Exception("Cannot slice non-array type.");
         }
-        // We're working on an rvalue
+        node.children[0].accept(this);
+        auto sliceType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        // If it's not a range, then it's a single index, meaning a single
+        // instance of what the array type contains
+        if (sliceType.tag != TypeEnum.TUPLE)
+        {
+            builderStack[$-1] ~= arrayType.array.arrayType;
+        }
+        // Otherwise, it's a range, meaning the outgoing type is just the
+        // array type again
         else
         {
-            auto arrayType = builderStack[$-1][$-1];
-            builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (arrayType.tag != TypeEnum.ARRAY)
-            {
-                throw new Exception("Cannot slice non-array type.");
-            }
-            node.children[0].accept(this);
-            auto sliceType = builderStack[$-1][$-1];
-            builderStack[$-1] = builderStack[$-1][0..$-1];
-            // If it's not a range, then it's a single index, meaning a single
-            // instance of what the array type contains
-            if (sliceType.tag != TypeEnum.TUPLE)
-            {
-                builderStack[$-1] ~= arrayType.array.arrayType;
-            }
-            // Otherwise, it's a range, meaning the outgoing type is just the
-            // array type again
-            else
-            {
-                builderStack[$-1] ~= arrayType;
-            }
+            builderStack[$-1] ~= arrayType;
         }
         insideSlice--;
     }
@@ -1057,11 +1047,15 @@ class FunctionBuilder : Visitor
 
     void visit(DynArrAccessNode node)
     {
+        // The type of the array we're indexing
+        node.data["parenttype"] = builderStack[$-1][$-1];
         node.children[0].accept(this);
         if (node.children.length > 1)
         {
             node.children[1].accept(this);
         }
+        // The type yielded after indexing
+        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(SliceLengthSentinelNode node)
@@ -1156,12 +1150,38 @@ class FunctionBuilder : Visitor
         auto name = id;
         auto curType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (curType.tag == TypeEnum.AGGREGATE)
+        {
+            curType = instantiateAggregate(records, curType.aggregate);
+        }
         // If the dot-access is with a struct, then we need to check if this is
         // any of all three of member method, member value, or UFCS (if the
         // function isn't a member function, but still takes the struct type
         // as it's first argument)
         if (curType.tag == TypeEnum.STRUCT)
-        {}
+        {
+            // First check to see if it's a data member
+            bool found = false;
+            foreach (member; curType.structDef.members)
+            {
+                if (name == member.name)
+                {
+                    found = true;
+                    builderStack[$-1] ~= member.type.copy;
+                }
+            }
+            if (!found)
+            {
+                throw new Exception(name ~ " is not member of struct");
+            }
+
+            // TODO check to see if it's a UFCS call or a member function call
+
+            if (node.children.length > 1)
+            {
+                node.children[1].accept(this);
+            }
+        }
         // It's some other type, meaning this must be UFCS
         else
         {
@@ -1172,7 +1192,10 @@ class FunctionBuilder : Visitor
             }
             curFuncCallSig = funcLookup.sig;
             node.children[1].accept(this);
-            // Finish this. Gotta actually determine whether the UFCS call works
+
+            // TODO Finish this. Gotta actually determine whether the UFCS call
+            // works
+
         }
     }
 

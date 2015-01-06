@@ -245,7 +245,6 @@ class RecordBuilder : Visitor
     void visit(ValueTupleNode node) {}
     void visit(LorRValueNode node) {}
     void visit(LorRTrailerNode node) {}
-    void visit(LorRMemberAccessNode node) {}
     void visit(ParenExprNode node) {}
     void visit(ArrayLiteralNode node) {}
     void visit(LambdaNode node) {}

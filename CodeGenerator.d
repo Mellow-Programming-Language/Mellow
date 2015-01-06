@@ -830,6 +830,8 @@ string compileLorRValue(LorRValueNode node, Context* vars)
 string compileLorRTrailer(LorRTrailerNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto type = node.data["type"].get!(Type*);
+    auto parentType = node.data["parenttype"].get!(Type*);
     auto str = "";
     vars.allocateStackSpace(8);
     auto valLoc = vars.getTop.to!string;
@@ -842,11 +844,21 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
         str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
         str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
         // [r9] is the actual variable we're indexing, so
-        // [r9]+(header offset + r8 * type.size) is the address we want. But we
-        // need to know type.size, so we're probably gonna need to change
-        // Function.d, not only to get the type, but also because the grammar
-        // changes need to be updated in the typechecker anyway
-        str ~= "    ";
+        // [r9]+(header offset + r8 * type.size) is the address we want
+        str ~= "    mov    r9, [r9]\n";
+        // Add offset for ref count and array length
+        str ~= "    add    r9, 8\n";
+        // Get index offset
+        str ~= "    imul   r8, " ~ type.size.to!string ~ "\n";
+        // Get completed address in r8
+        str ~= "    add    r8, r9\n";
+        if (node.children.length > 1)
+        {
+            str ~= compileLorRTrailer(
+                cast(LorRTrailerNode)node.children[1],
+                vars
+            );
+        }
     }
     vars.deallocateStackSpace(8);
     return str;
