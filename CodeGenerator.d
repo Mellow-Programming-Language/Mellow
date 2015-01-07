@@ -248,6 +248,25 @@ struct Context
         return false;
     }
 
+    bool isFuncName(string name)
+    {
+        foreach (func; externFuncs)
+        {
+            if (func.funcName == name)
+            {
+                return true;
+            }
+        }
+        foreach (func; compileFuncs)
+        {
+            if (func.funcName == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Either the value of the variable is in r8, implying that the type is
     // either 1, 2, 4, or 8 bytes, or it is split between r8 and r9, where
     // r8 is the environment portion of a fat pointer, and r9 is the function
@@ -588,7 +607,7 @@ string compileReturn(ReturnStmtNode node, Context* vars)
     str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
     if (vars.retType.size <= 8)
     {
-
+        str ~= "    mov    rax, r8\n";
     }
     // Handle the fat ptr case
     else if (vars.retType.size == 16)
@@ -600,9 +619,10 @@ string compileReturn(ReturnStmtNode node, Context* vars)
     {
 
     }
-    str ~= "mov    rsp, rbp    ; takedown stack frame\n"
-           "pop    rbp\n"
-           "ret\n";
+    str ~= "    add    rsp, 128    ; dirty dirty hack\n";
+    str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+    str ~= "    pop    rbp\n";
+    str ~= "    ret\n";
     return str;
 }
 
@@ -934,6 +954,7 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     {
         str ~= "    add    rsp, " ~ ((numArgs - 6) * 8).to!string ~ "\n";
     }
+    str ~= "    mov    r8, rax\n";
     return str;
 }
 

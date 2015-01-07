@@ -319,9 +319,16 @@ string compileValue(ValueNode node, Context* vars)
 
     } else if (cast(IdentifierNode)child) {
         auto idNode = cast(IdentifierNode)child;
-        auto varName = (cast(ASTTerminal)idNode.children[0]).token;
-        str ~= "    ; getting " ~ varName ~ "\n";
-        str ~= vars.compileVarGet(varName);
+        auto name = getIdentifier(idNode);
+        if (vars.isFuncName(name))
+        {
+            str ~= "    mov    r8, " ~ name ~ "\n";
+        }
+        else
+        {
+            str ~= "    ; getting " ~ name ~ "\n";
+            str ~= vars.compileVarGet(name);
+        }
         if (node.children.length > 1)
         {
             str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
@@ -522,7 +529,7 @@ string compileTrailer(TrailerNode node, Context* vars)
         assert(false, "Unimplemented");
     }
     else if (cast(FuncCallTrailerNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileFuncCallTrailer(cast(FuncCallTrailerNode)child, vars);
     }
     else if (cast(DotAccessNode)child) {
         assert(false, "Unimplemented");
@@ -584,7 +591,15 @@ string compileTemplateInstanceMaybeTrailer(TemplateInstanceMaybeTrailerNode node
 string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    vars.allocateStackSpace(8);
+    auto valLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
+    str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
+    str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
+    vars.deallocateStackSpace(8);
+    str ~= "    call   r10\n";
+    return str;
 }
 
 string compileSlicing(SlicingNode node, Context* vars)
@@ -627,12 +642,6 @@ string compileIndexToEndRange(IndexToEndRangeNode node, Context* vars)
 }
 
 string compileIndexToIndexRange(IndexToIndexRangeNode node, Context* vars)
-{
-    debug (COMPILE_TRACE) mixin(tracer);
-    return "";
-}
-
-string compileFuncCallArgList(FuncCallArgListNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
