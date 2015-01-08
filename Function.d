@@ -492,7 +492,32 @@ class FunctionBuilder : Visitor
                 }
                 break;
             case "~":
-                if (resultType.cmp(nextType))
+                if (resultType.tag == TypeEnum.STRING)
+                {
+                    // We can only append a string or a char to a string, and
+                    // the end result is always a string
+                    if (nextType.tag != TypeEnum.CHAR
+                        && nextType.tag != TypeEnum.STRING)
+                    {
+                        throw new Exception(
+                            "String append without char or string."
+                        );
+                    }
+                }
+                else if (nextType.tag == TypeEnum.STRING)
+                {
+                    // We can only append a string or a char to a string, and
+                    // the end result is always a string
+                    if (resultType.tag != TypeEnum.CHAR
+                        && resultType.tag != TypeEnum.STRING)
+                    {
+                        throw new Exception(
+                            "String append without char or string."
+                        );
+                    }
+                    resultType = nextType.copy;
+                }
+                else if (resultType.cmp(nextType))
                 {
                     if (resultType.tag == TypeEnum.ARRAY)
                     {

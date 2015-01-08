@@ -60,6 +60,7 @@ int main(string[] argv)
                         .reduce!((a, b) => a ~ "\n" ~ b);
         }
         header ~= "    extern malloc\n"
+                ~ "    extern free\n"
                 ~ "    extern memcpy\n";
         if (funcs.getExternFuncSigs.length > 0)
         {

@@ -35,6 +35,20 @@ import ExprCodeGenerator;
 // across r8 and r9 in the case of a fat ptr. A tuple will always be on the
 // stack
 
+// Listing of caller-saved vs. callee-saved registers
+// Caller-Saved        Callee-Saved
+// ------------        ------------
+// rax                 rbx
+// rcx                 rbp
+// rdx                 r12
+// rsi                 r13
+// rdi                 r14
+// rsp                 r15
+// r8
+// r9
+// r10
+// r11
+
 const RBP_SIZE = 8;
 const RETURN_ADDRESS_SIZE = 8;
 const STACK_PROLOGUE_SIZE = RBP_SIZE + RETURN_ADDRESS_SIZE;
@@ -99,6 +113,36 @@ auto getRRegSuffix(ulong size)
     }
 }
 
+string compileRegSave(string[] regs, Context* vars)
+{
+    auto str = "";
+    foreach (i, reg; regs)
+    {
+        vars.allocateStackSpace(8);
+        str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string
+                                        ~ "], "
+                                        ~ reg
+                                        ~ "\n";
+    }
+    return str;
+}
+
+// This function assumes it is being called on the same array of strings in the
+// same order as a previous call on compileRegSave
+string compileRegRestore(string[] regs, Context* vars)
+{
+    auto str = "";
+    foreach_reverse (i, reg; regs)
+    {
+        str ~= "    mov    " ~ reg
+                             ~ ", qword [rbp-"
+                             ~ vars.getTop.to!string
+                             ~ "]\n";
+        vars.deallocateStackSpace(8);
+    }
+    return str;
+}
+
 // Get the power-of-2 size larger than the input size, for use in array size
 // allocations. Arrays are always a power-of-2 in size.
 // Credit: Henry S. Warren, Jr.'s "Hacker's Delight.", and Larry Gritz from
@@ -118,6 +162,47 @@ auto getAllocSize(ulong requestedSize)
     x |= x >> 16;
     x |= x >> 32;
     return x+1;
+}
+
+// Derived from "gcc -S -O2" on:
+// unsigned long long getAllocSize(unsigned long long x)
+// {
+//     --x;
+//     x |= x >> 1;
+//     x |= x >> 2;
+//     x |= x >> 4;
+//     x |= x >> 8;
+//     x |= x >> 16;
+//     x |= x >> 32;
+//     return x+1;
+// }
+string getAllocSizeAsm(string inReg, string outReg)
+in {
+    assert(inReg != outReg, "inReg must be a different register than outReg");
+}
+body {
+    auto str = "";
+    str ~= "    sub    " ~ inReg ~ ", 1\n";
+    str ~= "    mov    " ~ outReg ~ ", " ~ inReg ~ "\n";
+    str ~= "    shr    " ~ outReg ~ ", 1\n";
+    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
+    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
+    str ~= "    shr    " ~ inReg ~ ", 2\n";
+    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
+    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
+    str ~= "    shr    " ~ inReg ~ ", 4\n";
+    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
+    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
+    str ~= "    shr    " ~ inReg ~ ", 8\n";
+    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
+    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
+    str ~= "    shr    " ~ inReg ~ ", 16\n";
+    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
+    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
+    str ~= "    shr    " ~ inReg ~ ", 32\n";
+    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
+    str ~= "    add    " ~ outReg ~ ", 1\n";
+    return str;
 }
 
 unittest
@@ -815,6 +900,16 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
     auto op = (cast(ASTTerminal)node.children[1]).token;
     auto type = node.children[2].data["type"].get!(Type*);
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[2], vars);
+    // Set the refcount for array and string temporaries to 1, since we're
+    // actually storing the value now
+    if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING)
+    {
+        auto label = vars.getUniqLabel();
+        str ~= "    cmp    dword [r8], 0\n";
+        str ~= "    jnz    " ~ label ~ "\n";
+        str ~= "    mov    dword [r8], 1\n";
+        str ~= label ~ ":\n";
+    }
     vars.allocateStackSpace(8);
     auto valLoc = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
