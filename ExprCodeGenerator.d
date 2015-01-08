@@ -213,6 +213,8 @@ string compileSumExpr(SumExprNode node, Context* vars)
     Type* rightType;
     for (auto i = 2; i < node.children.length; i += 2)
     {
+        // Left value is in r9, right value is in r8 once both sides are
+        // evaluated
         vars.allocateStackSpace(8);
         auto valLoc = vars.getTop.to!string;
         str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
@@ -234,9 +236,96 @@ string compileSumExpr(SumExprNode node, Context* vars)
                 break;
             }
         }
-        else {}
+        else if ((leftType.isFloat || rightType.isFloat)
+            && leftType.tag != TypeEnum.ARRAY
+            && rightType.tag != TypeEnum.ARRAY)
+        {
+            str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+            vars.deallocateStackSpace(8);
+            final switch (op)
+            {
+            case "+":
+                str ~= "    add    r8, r9\n";
+                break;
+            case "-":
+                str ~= "    sub    r9, r8\n";
+                str ~= "    mov    r8, r9\n";
+                break;
+            }
+        }
+        else
+        {
+            final switch (op)
+            {
+            case "~":
+                str ~= compileAppendOp(leftType, rightType, vars)
+                break;
+            }
+        }
     }
     return str;
+}
+
+string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
+{
+    // leftType is in r9, rightType is in r8
+    auto str = "";
+    // If the right type is an array type or a string type, then swap with the
+    // left type, so that we only need to write append cases for the following:
+    // left    right
+    // ----    -----
+    // char    char
+    // elem    elem
+    // string  string
+    // string  char
+    // array   array
+    // array   elem
+    if (rightType.tag == TypeEnum.ARRAY || rightType.tag == TypeEnum.STRING)
+    {
+        str ~= "    xchg   r9, r8\n";
+        swap(leftType, rightType);
+    }
+    // Appending two non-array, non-string types
+    if (leftType.tag != TypeEnum.ARRAY && leftType.tag != TypeEnum.STRING
+        && rightType.tag != TypeEnum.ARRAY && rightType.tag != TypeEnum.STRING)
+    {
+        // String special case
+        if (leftType.tag == TypeEnum.CHAR)
+        {
+
+        }
+        // Array case
+        else
+        {
+
+        }
+    }
+    else if (leftType.tag == TypeEnum.STRING)
+    {
+        if (rightType.tag == TypeEnum.STRING)
+        {
+
+        }
+        // Right type is char
+        else
+        {
+
+        }
+    }
+    else if (leftType.tag == TypeEnum.ARRAY)
+    {
+        // Appending two arrays of the same type
+        if (leftType.cmp(rightType))
+        {
+
+        }
+        // Appending an element of the array type (right) to the
+        // array (left)
+        else if (leftType.array.arrayType.cmp(rightType))
+        {
+
+        }
+    }
 }
 
 string compileProductExpr(ProductExprNode node, Context* vars)
@@ -289,6 +378,7 @@ string compileProductExpr(ProductExprNode node, Context* vars)
         {
             // Convert either or both to floating point numbers, and also tend
             // to the float vs double size thing
+            assert(false, "Unimplemented");
         }
     }
     return str;
@@ -302,21 +392,21 @@ string compileValue(ValueNode node, Context* vars)
     if (cast(BooleanLiteralNode)child) {
         str ~= compileBooleanLiteral(cast(BooleanLiteralNode)child, vars);
     } else if (cast(LambdaNode)child) {
-
+        assert(false, "Unimplemented");
     } else if (cast(CharLitNode)child) {
-
+        assert(false, "Unimplemented");
     } else if (cast(StringLitNode)child) {
         str ~= compileStringLit(cast(StringLitNode)child, vars);
     } else if (cast(ValueTupleNode)child) {
-
+        assert(false, "Unimplemented");
     } else if (cast(ParenExprNode)child) {
-
+        assert(false, "Unimplemented");
     } else if (cast(ArrayLiteralNode)child) {
         str ~= compileArrayLiteral(cast(ArrayLiteralNode)child, vars);
     } else if (cast(NumberNode)child) {
         str ~= compileNumber(cast(NumberNode)child, vars);
     } else if (cast(ChanReadNode)child) {
-
+        assert(false, "Unimplemented");
     } else if (cast(IdentifierNode)child) {
         auto idNode = cast(IdentifierNode)child;
         auto name = getIdentifier(idNode);
@@ -334,7 +424,7 @@ string compileValue(ValueNode node, Context* vars)
             str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
         }
     } else if (cast(SliceLengthSentinelNode)child) {
-
+        assert(false, "Unimplemented");
     }
 
     // TODO handle dotaccess case
@@ -460,9 +550,11 @@ string compileStringLit(StringLitNode node, Context* vars)
                                        ) ~ "]\n";
     str ~= "    mov    rdi, " ~ strAllocSize.to!string ~ "\n";
     str ~= "    call   malloc\n";
-    // Set the reference count to 1, where the ref count is the first four
-    // bytes of the string allocation
-    str ~= "    mov    dword [rax], " ~ 1.to!string ~ "\n";
+    // Set the reference count to 0, where the ref count is the first four bytes
+    // of the string allocation. Note that we're setting it to 0 so that
+    // optimizations can be made with appends with string and array temporaries.
+    // The ref count will be set to 1 when actually assigned to a variable
+    str ~= "    mov    dword [rax], 0\n";
     // Set the length of the string, where the string size location is just
     // past the ref count
     str ~= "    mov    dword [rax+" ~ REF_COUNT_SIZE.to!string ~ "], "

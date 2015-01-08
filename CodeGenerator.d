@@ -769,8 +769,9 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto left = node.children[0];
-    auto str = compileExpression(cast(BoolExprNode)node.children[1], vars);
-    auto type = node.children[1].data["type"].get!(Type*);
+    auto right = node.children[1];
+    auto str = compileExpression(cast(BoolExprNode)right, vars);
+    auto type = right.data["type"].get!(Type*);
     if (cast(IdentifierNode)left)
     {
         auto varName = getIdentifier(cast(IdentifierNode)left);
@@ -778,6 +779,17 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
         var.varName = varName;
         var.type = type;
         vars.stackVars ~= var;
+        // Set the refcount for array and string temporaries to 1, since we're
+        // actually storing the value now
+        if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING)
+        {
+            auto label = vars.getUniqLabel();
+            str ~= "    cmp    dword [r8], 0\n";
+            str ~= "    jnz    " ~ label ~ "\n";
+            str ~= "    mov    dword [r8], 1\n";
+            str ~= label ~ ":\n";
+        }
+        // Note the use of str in the expression, which is why we're not ~=ing
         str = "    ; var infer assign [" ~ varName
                                          ~ "]\n"
                                          ~ str
