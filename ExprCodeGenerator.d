@@ -221,10 +221,10 @@ string compileSumExpr(SumExprNode node, Context* vars)
         str ~= compileProductExpr(cast(ProductExprNode)node.children[i], vars);
         auto op = (cast(ASTTerminal)node.children[i-1]).token;
         rightType = node.children[i].data["type"].get!(Type*);
+        str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+        vars.deallocateStackSpace(8);
         if (leftType.isIntegral && rightType.isIntegral)
         {
-            str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
-            vars.deallocateStackSpace(8);
             final switch (op)
             {
             case "+":
@@ -240,8 +240,6 @@ string compileSumExpr(SumExprNode node, Context* vars)
             && leftType.tag != TypeEnum.ARRAY
             && rightType.tag != TypeEnum.ARRAY)
         {
-            str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
-            vars.deallocateStackSpace(8);
             final switch (op)
             {
             case "+":
@@ -258,8 +256,11 @@ string compileSumExpr(SumExprNode node, Context* vars)
             final switch (op)
             {
             case "~":
+                str ~= "    ; append op (~) algorithm start\n";
+                // Since the right type is in r8 and the left type is in r9,
+                // which is totally confusing, we swap them here
                 str ~= "    xchg   r8, r9\n";
-                str ~= compileAppendOp(leftType, rightType, vars);
+                str ~= compileAppendOp(rightType, leftType, vars);
                 break;
             }
         }
@@ -281,7 +282,8 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     // string  char
     // array   array
     // array   elem
-    if (rightType.tag == TypeEnum.ARRAY || rightType.tag == TypeEnum.STRING)
+    if ((rightType.tag == TypeEnum.ARRAY || rightType.tag == TypeEnum.STRING)
+        && (leftType.tag != TypeEnum.ARRAY && leftType.tag != TypeEnum.STRING))
     {
         str ~= "    xchg   r8, r9\n";
         swap(leftType, rightType);
@@ -338,8 +340,12 @@ string compileStringStringAppend(Context* vars)
     str ~= "    movsxd r10, dword [r8+4]\n";
     // Get size of right string
     str ~= "    movsxd r11, dword [r9+4]\n";
+    auto r10Save = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ r10Save ~ "], r10\n";
     // Get the alloc size of left string in r12
     str ~= getAllocSizeAsm("r10", "r12");
+    str ~= "    mov    r10, qword [rbp-" ~ r10Save ~ "]\n";
+    vars.deallocateStackSpace(8);
     // Get the space left over (leftRemaining) in the left string in r12
     str ~= "    sub    r12, r10\n";
     // pseudo: if (leftRemaining >= rightSize && ((int*)left)[0] == 0)
@@ -366,7 +372,7 @@ string compileStringStringAppend(Context* vars)
     str ~= "    call   memcpy\n";
     str ~= compileRegRestore(["r8", "r9", "r10", "r11"], vars);
     // Add the size of the right string into the updated left string
-    str ~= "    add    dword [r8], r11d\n";
+    str ~= "    add    dword [r8+4], r11d\n";
     // Re-add a null byte
     str ~= "    mov    r13, r8\n";
     str ~= "    add    r13, " ~ (REF_COUNT_SIZE
@@ -455,6 +461,7 @@ string compileStringStringAppend(Context* vars)
     str ~= "    call   free\n";
     str ~= compileRegRestore(["rax"], vars);
     str ~= "    mov    r8, rax\n";
+    str ~= "    ; append op (~) algorithm end\n";
     str ~= endRealloc ~ ":\n";
     return str;
 }
