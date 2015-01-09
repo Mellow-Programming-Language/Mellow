@@ -340,6 +340,7 @@ string compileStringStringAppend(Context* vars)
     str ~= "    movsxd r10, dword [r8+4]\n";
     // Get size of right string
     str ~= "    movsxd r11, dword [r9+4]\n";
+    vars.allocateStackSpace(8);
     auto r10Save = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ r10Save ~ "], r10\n";
     // Get the alloc size of left string in r12
