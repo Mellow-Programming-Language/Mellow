@@ -256,7 +256,6 @@ string compileSumExpr(SumExprNode node, Context* vars)
             final switch (op)
             {
             case "~":
-                str ~= "    ; append op (~) algorithm start\n";
                 // Since the right type is in r8 and the left type is in r9,
                 // which is totally confusing, we swap them here
                 str ~= "    xchg   r8, r9\n";
@@ -272,6 +271,7 @@ string compileSumExpr(SumExprNode node, Context* vars)
 string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
 {
     auto str = "";
+    str ~= "    ; append op (~) algorithm start\n";
     // If the right type is an array type or a string type, then swap with the
     // left type, so that we only need to write append cases for the following:
     // left    right
@@ -320,7 +320,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
         // Appending two arrays of the same type
         if (leftType.cmp(rightType))
         {
-
+            str ~= compileArrayArrayAppend(vars, leftType.array.arrayType.size);
         }
         // Appending an element of the array type (right) to the
         // array (left)
@@ -329,6 +329,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
 
         }
     }
+    str ~= "    ; append op (~) algorithm end\n";
     return str;
 }
 
@@ -462,8 +463,146 @@ string compileStringStringAppend(Context* vars)
     str ~= "    call   free\n";
     str ~= compileRegRestore(["rax"], vars);
     str ~= "    mov    r8, rax\n";
-    str ~= "    ; append op (~) algorithm end\n";
     str ~= endRealloc ~ ":\n";
+    return str;
+}
+
+string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
+{
+    auto str = "";
+    auto endRealloc = vars.getUniqLabel();
+    // Get size of left array
+    str ~= "    movsxd r10, dword [r8+4]\n";
+    // Get size of right array
+    str ~= "    movsxd r11, dword [r9+4]\n";
+    vars.allocateStackSpace(8);
+    auto r10Save = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ r10Save ~ "], r10\n";
+    vars.allocateStackSpace(8);
+    auto r11Save = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ r11Save ~ "], r11\n";
+    // Get number of bytes of data in left array
+    str ~= "    imul   r10, " ~ arrayTypeSize.to!string ~ "\n";
+    // Get the alloc size of left array in r12. Clobbers r10
+    str ~= getAllocSizeAsm("r10", "r12");
+    str ~= "    mov    r10, qword [rbp-" ~ r10Save ~ "]\n";
+    // Get number of bytes of data in left array
+    str ~= "    imul   r10, " ~ arrayTypeSize.to!string ~ "\n";
+    // Get the space left over (leftRemaining) in the left array in r12
+    str ~= "    sub    r12, r10\n";
+    // Get number of bytes of data in right array
+    str ~= "    imul   r11, " ~ arrayTypeSize.to!string ~ "\n";
+    // pseudo: if (leftRemaining >= rightSize && ((int*)left)[0] == 0)
+    str ~= "    cmp    r12, r11\n";
+    auto cannotReuseLeft = vars.getUniqLabel();
+    str ~= "    jl     " ~ cannotReuseLeft ~ "\n";
+    str ~= "    cmp    dword [r8], 0\n";
+    str ~= "    jnz    " ~ cannotReuseLeft ~ "\n";
+    // Prime rdi with starting address of right section in left array
+    str ~= "    mov    rdi, r8\n";
+    str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
+                               + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    str ~= "    add    rdi, r10\n";
+    // Prime rsi with right array content
+    str ~= "    mov    rsi, r9\n";
+    str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
+                               + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    // Prime rdx with number of bytes to copy, the size of the right
+    // array
+    str ~= "    mov    rdx, r11\n";
+    str ~= compileRegSave(["r8", "r9", "r10", "r11"], vars);
+    str ~= "    call   memcpy\n";
+    str ~= compileRegRestore(["r8", "r9", "r10", "r11"], vars);
+    str ~= "    mov    r11, qword [rbp-" ~ r11Save ~ "]\n";
+    // Add the size of the right array into the updated left array
+    str ~= "    add    dword [r8+4], r11d\n";
+    // Deallocate right array if necessary
+    str ~= "    cmp    dword [r9], 0\n";
+    str ~= "    jnz    " ~ endRealloc ~ "\n";
+    str ~= "    mov    rdi, r9\n";
+    str ~= compileRegSave(["r8"], vars);
+    str ~= "    call   free\n";
+    str ~= compileRegRestore(["r8"], vars);
+    str ~= "    jmp    " ~ endRealloc ~ "\n";
+    str ~= cannotReuseLeft ~ ":\n";
+    // Get total array size in r13 and r15
+    str ~= "    mov    r10, qword [rbp-" ~ r10Save ~ "]\n";
+    str ~= "    imul   r10, " ~ arrayTypeSize.to!string ~ "\n";
+    str ~= "    mov    r11, qword [rbp-" ~ r11Save ~ "]\n";
+    str ~= "    imul   r11, " ~ arrayTypeSize.to!string ~ "\n";
+    str ~= "    mov    r13, r10\n";
+    str ~= "    add    r13, r11\n";
+    // Get array alloc size in r14
+    str ~= getAllocSizeAsm("r13", "r14");
+    str ~= "    mov    r13, r14\n";
+    // Add ref count, array size
+    str ~= "    add    r13, " ~ (REF_COUNT_SIZE
+                               + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    str ~= "    mov    rdi, r13\n";
+    str ~= compileRegSave(["r8", "r9", "r10", "r11"], vars);
+    // Get new array allocation in rax
+    str ~= "    call   malloc\n";
+    str ~= compileRegRestore(["r8", "r9", "r10", "r11"], vars);
+    // Set the ref count and array length
+    str ~= "    mov    dword [rax], 0\n";
+    str ~= "    mov    r10, qword [rbp-" ~ r10Save ~ "]\n";
+    str ~= "    mov    r11, qword [rbp-" ~ r11Save ~ "]\n";
+    str ~= "    mov    dword [rax+4], r10d\n";
+    str ~= "    add    dword [rax+4], r11d\n";
+    // Copy left portion of array into new allocation
+    str ~= "    mov    rdi, rax\n";
+    str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
+                               + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    str ~= "    mov    rsi, r8\n";
+    str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
+                               + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    str ~= "    mov    rdx, r10\n";
+    str ~= "    imul   rdx, " ~ arrayTypeSize.to!string ~ "\n";
+    str ~= compileRegSave(["r8", "r9", "r10", "r11", "rax"], vars);
+    str ~= "    call   memcpy\n";
+    str ~= compileRegRestore(["r8", "r9", "r10", "r11", "rax"], vars);
+    // Copy right portion of array into new allocation
+    str ~= "    mov    r10, qword [rbp-" ~ r10Save ~ "]\n";
+    str ~= "    mov    r11, qword [rbp-" ~ r11Save ~ "]\n";
+    str ~= "    mov    rdi, rax\n";
+    str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
+                               + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    str ~= "    imul   r10, " ~ arrayTypeSize.to!string ~ "\n";
+    str ~= "    add    rdi, r10\n";
+    str ~= "    mov    rsi, r9\n";
+    str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
+                               + CLAM_STR_SIZE).to!string
+                              ~ "\n";
+    str ~= "    mov    rdx, r11\n";
+    str ~= "    imul   rdx, " ~ arrayTypeSize.to!string ~ "\n";
+    str ~= compileRegSave(["r8", "r9", "r10", "r11", "rax"], vars);
+    str ~= "    call   memcpy\n";
+    str ~= compileRegRestore(["r8", "r9", "r10", "r11", "rax"], vars);
+    auto noLeftFree = vars.getUniqLabel();
+    // Deallocate left array if necessary
+    str ~= "    cmp    dword [r8], 0\n";
+    str ~= "    jnz    " ~ noLeftFree ~ "\n";
+    str ~= "    mov    rdi, r8\n";
+    str ~= compileRegSave(["r9", "rax"], vars);
+    str ~= "    call   free\n";
+    str ~= compileRegRestore(["r9", "rax"], vars);
+    str ~= noLeftFree ~ ":\n";
+    // Deallocate right array if necessary
+    str ~= "    cmp    dword [r9], 0\n";
+    str ~= "    jnz    " ~ endRealloc ~ "\n";
+    str ~= "    mov    rdi, r9\n";
+    str ~= compileRegSave(["rax"], vars);
+    str ~= "    call   free\n";
+    str ~= compileRegRestore(["rax"], vars);
+    str ~= "    mov    r8, rax\n";
+    str ~= endRealloc ~ ":\n";
+    vars.deallocateStackSpace(16);
     return str;
 }
 
@@ -622,8 +761,11 @@ string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
     auto str = "";
     str ~= "    mov    rdi, " ~ totalAllocSize.to!string ~ "\n";
     str ~= "    call   malloc\n";
-    // Set ref count to 1
-    str ~= "    mov    dword [rax], 1\n";
+    // Set the reference count to 0, where the ref count is the first four bytes
+    // of the array allocation. Note that we're setting it to 0 so that
+    // optimizations can be made with appends with string and array temporaries.
+    // The ref count will be set to 1 when actually assigned to a variable
+    str ~= "    mov    dword [rax], 0\n";
     // Set array length to number of elements
     str ~= "    mov    dword [rax+4], " ~ numElems.to!string ~ "\n";
     vars.allocateStackSpace(8);

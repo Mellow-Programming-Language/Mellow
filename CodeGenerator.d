@@ -864,15 +864,12 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
         var.varName = varName;
         var.type = type;
         vars.stackVars ~= var;
-        // Set the refcount for array and string temporaries to 1, since we're
-        // actually storing the value now
-        if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING)
+        // Increase the ref-count by 1 for dynamically allocated types
+        if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING
+            || type.tag == TypeEnum.VARIANT || type.tag == TypeEnum.STRUCT
+            || type.tag == TypeEnum.HASH || type.tag == TypeEnum.SET)
         {
-            auto label = vars.getUniqLabel();
-            str ~= "    cmp    dword [r8], 0\n";
-            str ~= "    jnz    " ~ label ~ "\n";
-            str ~= "    mov    dword [r8], 1\n";
-            str ~= label ~ ":\n";
+            str ~= "    add    dword [r8], 1\n";
         }
         // Note the use of str in the expression, which is why we're not ~=ing
         str = "    ; var infer assign [" ~ varName
