@@ -1023,7 +1023,19 @@ string compileIndexToIndexRange(IndexToIndexRangeNode node, Context* vars)
 string compileDotAccess(DotAccessNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto accessedType = node.data["type"].get!(Type*);
+    auto id = getIdentifier(node.children[0]);
+    auto str = "";
+    if (accessedType.tag == TypeEnum.ARRAY
+        || accessedType.tag == TypeEnum.STRING)
+    {
+        if (id == "length")
+        {
+            // Grab the length of the string or array and throw it back into r8
+            str ~= "    movsd  r8, dword [r8+4]\n";
+        }
+    }
+    return str;
 }
 
 string compileIsExpr(IsExprNode node, Context* vars)

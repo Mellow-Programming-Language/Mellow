@@ -1165,16 +1165,18 @@ class FunctionBuilder : Visitor
 
     void visit(DotAccessNode node)
     {
-        // Need to cover three cases:
+        // Need to cover four cases:
         // First is handling the case of simply accessing a member value of the
         // type we're dot-accessing into.
         // Second, need to handle the case of accessing a member method of the
         // type.
-        // Third, need to handle UFCS
+        // Third, need to handle UFCS.
+        // Fourth, need to handle compiler-supported members, like ".length"
         node.children[0].accept(this);
         auto name = id;
         auto curType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
+        node.data["type"] = curType.copy;
         if (curType.tag == TypeEnum.AGGREGATE)
         {
             curType = instantiateAggregate(records, curType.aggregate);
@@ -1205,6 +1207,24 @@ class FunctionBuilder : Visitor
             if (node.children.length > 1)
             {
                 node.children[1].accept(this);
+            }
+        }
+        else if (curType.tag == TypeEnum.ARRAY
+            || curType.tag == TypeEnum.STRING)
+        {
+            // We're accessing the length property of arrays and strings
+            if (name == "length")
+            {
+                auto longType = new Type();
+                longType.tag = TypeEnum.LONG;
+                builderStack[$-1] ~= longType;
+            }
+
+            // TODO handle the case of UFCS
+
+            else
+            {
+
             }
         }
         // It's some other type, meaning this must be UFCS
