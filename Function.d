@@ -129,6 +129,7 @@ auto format(TypeEnum tag)
     case TypeEnum.FUNCPTR:      return "FUNCPTR";
     case TypeEnum.STRUCT:       return "STRUCT";
     case TypeEnum.VARIANT:      return "VARIANT";
+    case TypeEnum.CHAN:         return "CHAN";
     }
 }
 
@@ -1623,6 +1624,40 @@ class FunctionBuilder : Visitor
         }
     }
 
+    // Note that in the syntax BoolExpr <-= BoolExpr, the left expression must
+    // yield a chan-type that contains the same type as the type of the right
+    // expression
+    void visit(ChanWriteNode node)
+    {
+        // BoolExprNode
+        node.children[0].accept(this);
+        auto leftType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        // BoolExprNode
+        node.children[1].accept(this);
+        auto rightType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (leftType.tag != TypeEnum.CHAN)
+        {
+            throw new Exception("Can't chan-write to non-channel");
+        }
+        else if (leftType.chan.chanType.cmp(rightType))
+        {
+            throw new Exception("Can't chan-write mismatched types");
+        }
+    }
+
+    void visit(ChanReadNode node)
+    {
+        node.children[0].accept(this);
+        auto type = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (type.tag != TypeEnum.CHAN)
+        {
+            throw new Exception("Cannot chan-read from non-channel");
+        }
+        builderStack[$-1] ~= type.chan.chanType.copy;
+    }
 
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
@@ -1640,8 +1675,6 @@ class FunctionBuilder : Visitor
     void visit(InterfaceDefNode node) {}
     void visit(InterfaceBodyNode node) {}
     void visit(InterfaceEntryNode node) {}
-    void visit(ChanWriteNode node) {}
-    void visit(ChanReadNode node) {}
     void visit(TemplateInstanceMaybeTrailerNode node) {}
 
     void visit(ASTTerminal node) {}

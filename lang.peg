@@ -265,7 +265,7 @@ TypeId :: ChanType
         | HashType
         | UserType
         ;
-ChanType :: #"chan" TemplateInstantiation;
+ChanType :: #"chan" #"!" ((#"(" TypeId #")") | (TypeId));
 ArrayType :: #"[" #"]" TypeId;
 SetType :: #"<" #">" BasicType;
 HashType :: #"[" BasicType #"]" TypeId;

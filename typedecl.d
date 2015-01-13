@@ -26,6 +26,7 @@ enum TypeEnum
     FUNCPTR,
     STRUCT,
     VARIANT,
+    CHAN,
 }
 
 struct ArrayType
@@ -431,6 +432,23 @@ struct VariantType
     }
 }
 
+struct ChanType
+{
+    Type* chanType;
+
+    ChanType* copy()
+    {
+        auto c = new ChanType();
+        c.chanType = this.chanType.copy;
+        return c;
+    }
+
+    string format() const
+    {
+        return "chan!(" ~ chanType.format() ~ ")";
+    }
+}
+
 struct Type
 {
     TypeEnum tag;
@@ -444,6 +462,7 @@ struct Type
         FuncPtrType* funcPtr;
         StructType* structDef;
         VariantType* variantDef;
+        ChanType* chan;
     };
 
     Type* copy()
@@ -488,6 +507,9 @@ struct Type
         case TypeEnum.AGGREGATE:
             c.aggregate = this.aggregate.copy;
             break;
+        case TypeEnum.CHAN:
+            c.chan = this.chan.copy;
+            break;
         }
         return c;
     }
@@ -519,6 +541,7 @@ struct Type
         case TypeEnum.FUNCPTR   : return str ~ funcPtr.format();
         case TypeEnum.STRUCT    : return str ~ structDef.format();
         case TypeEnum.VARIANT   : return str ~ variantDef.format();
+        case TypeEnum.CHAN      : return str ~ chan.format();
         }
     }
 
@@ -583,6 +606,8 @@ struct Type
                         zip(aggregate.templateInstantiations,
                           o.aggregate.templateInstantiations)
                         .map!(a => a[0].cmp(a[1])));
+        case TypeEnum.CHAN:
+            return chan.chanType.cmp(o.chan.chanType);
         }
     }
 
@@ -606,6 +631,7 @@ struct Type
         case TypeEnum.FUNCPTR   : return FAT_PTR_SIZE;
         case TypeEnum.STRUCT    : return PTR_SIZE;
         case TypeEnum.VARIANT   : return PTR_SIZE;
+        case TypeEnum.CHAN      : return PTR_SIZE;
         // Tuples are allocated on the stack, to make tuple-return cheap
         case TypeEnum.TUPLE     : return tuple.types
                                               .map!(a => a.size)
@@ -981,7 +1007,15 @@ mixin template TypeVisitors()
 
     void visit(ChanTypeNode node)
     {
-
+        auto chan = new ChanType();
+        node.children[0].accept(this);
+        auto chanType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        chan.chanType = chanType.copy;
+        auto wrap = new Type();
+        wrap.chan = chan;
+        wrap.tag = TypeEnum.CHAN;
+        builderStack[$-1] ~= wrap;
     }
 
     void visit(FuncRefTypeNode node)
