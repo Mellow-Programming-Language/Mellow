@@ -780,10 +780,8 @@ class FunctionBuilder : Visitor
 
     void visit(AssignExistingNode node)
     {
-        lvalue = null;
         node.children[0].accept(this);
         auto left = lvalue;
-        lvalue = null;
         auto op = (cast(ASTTerminal)node.children[1]).token;
         node.children[2].accept(this);
         auto varType = builderStack[$-1][$-1];
@@ -934,6 +932,7 @@ class FunctionBuilder : Visitor
                 if (memberName == member.name)
                 {
                     found = true;
+                    lvalue = member.type.copy;
                     node.data["type"] = member.type.copy;
                 }
             }
