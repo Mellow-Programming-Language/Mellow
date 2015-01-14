@@ -338,9 +338,11 @@ string compileStringStringAppend(Context* vars)
     auto str = "";
     auto endRealloc = vars.getUniqLabel();
     // Get size of left string
-    str ~= "    movsxd r10, dword [r8+4]\n";
+    str ~= "    mov    r10, 0\n";
+    str ~= "    mov    r10d, dword [r8+4]\n";
     // Get size of right string
-    str ~= "    movsxd r11, dword [r9+4]\n";
+    str ~= "    mov    r11, 0\n";
+    str ~= "    mov    r11d, dword [r9+4]\n";
     vars.allocateStackSpace(8);
     auto r10Save = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ r10Save ~ "], r10\n";
@@ -472,9 +474,11 @@ string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
     auto str = "";
     auto endRealloc = vars.getUniqLabel();
     // Get size of left array
-    str ~= "    movsxd r10, dword [r8+4]\n";
+    str ~= "    mov    r10, 0\n";
+    str ~= "    mov    r10d, dword [r8+4]\n";
     // Get size of right array
-    str ~= "    movsxd r11, dword [r9+4]\n";
+    str ~= "    mov    r11, 0\n";
+    str ~= "    mov    r11d, dword [r9+4]\n";
     vars.allocateStackSpace(8);
     auto r10Save = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ r10Save ~ "], r10\n";
@@ -905,7 +909,7 @@ string compileTrailer(TrailerNode node, Context* vars)
         str ~= compileFuncCallTrailer(cast(FuncCallTrailerNode)child, vars);
     }
     else if (cast(DotAccessNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileDotAccess(cast(DotAccessNode)child, vars);
     }
     return str;
 }
@@ -1024,7 +1028,7 @@ string compileDotAccess(DotAccessNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto accessedType = node.data["type"].get!(Type*);
-    auto id = getIdentifier(node.children[0]);
+    auto id = getIdentifier(cast(IdentifierNode)node.children[0]);
     auto str = "";
     if (accessedType.tag == TypeEnum.ARRAY
         || accessedType.tag == TypeEnum.STRING)
@@ -1032,8 +1036,14 @@ string compileDotAccess(DotAccessNode node, Context* vars)
         if (id == "length")
         {
             // Grab the length of the string or array and throw it back into r8
-            str ~= "    movsd  r8, dword [r8+4]\n";
+            str ~= "    mov    r9, r8\n";
+            str ~= "    mov    r8, 0\n";
+            str ~= "    mov    r8d, dword [r9+4]\n";
         }
+    }
+    else
+    {
+        assert(false, "Unimplemented");
     }
     return str;
 }

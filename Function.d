@@ -1216,7 +1216,7 @@ class FunctionBuilder : Visitor
             if (name == "length")
             {
                 auto longType = new Type();
-                longType.tag = TypeEnum.LONG;
+                longType.tag = TypeEnum.INT;
                 builderStack[$-1] ~= longType;
             }
 
