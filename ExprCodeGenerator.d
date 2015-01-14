@@ -918,14 +918,15 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto arrayType = node.data["parenttype"].get!(Type*);
-    auto resultType = node.data["type"].get!(Type*);
+    auto resultType = arrayType.array.arrayType;
+    auto indexType = node.data["type"].get!(Type*);
     auto str = "";
     // Put the indexed-into variable on the stack
     vars.allocateStackSpace(8);
     auto valLoc = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
     // Check if the slice is a range
-    if (arrayType.cmp(resultType))
+    if (indexType.tag == TypeEnum.TUPLE)
     {
         // Get the start index in r8 and the end index in r9
         assert(false, "Unimplemented");
