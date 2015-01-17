@@ -28,7 +28,6 @@ int main(string[] argv)
             records);
         auto funcs = new FunctionBuilder(cast(ProgramNode)topNode, records,
             funcSigs);
-        auto isThreads = false;
         foreach (structDef; records.structDefs.values)
         {
             writeln(structDef.formatFull());
@@ -89,13 +88,16 @@ int main(string[] argv)
                         .reduce!((a, b) => a ~ "\n" ~ b);
             if (mainExists)
             {
-                str ~= compileEntryPoint(mainTakesArgv, isThreads);
+                str ~= compileEntryPoint(mainTakesArgv, context);
             }
         }
         header ~= "    extern malloc\n"
                 ~ "    extern free\n"
-                ~ "    extern strlen\n"
                 ~ "    extern memcpy\n";
+        header ~= context.runtimeExterns
+                         .keys
+                         .map!(a => "    extern " ~ a ~ "\n")
+                         .reduce!((a, b) => a ~ b);
         if (funcs.getExternFuncSigs.length > 0)
         {
             header ~= funcs.getExternFuncSigs
@@ -127,14 +129,19 @@ int main(string[] argv)
     return 0;
 }
 
-string compileEntryPoint(bool mainTakesArgv, bool threads)
+string compileEntryPoint(bool mainTakesArgv, Context* vars)
 {
     auto str = "";
     str ~= "main:\n";
     str ~= "    push   rbp\n";
     str ~= "    mov    rbp, rsp\n";
-    if (threads)
+    // If we use green threads functionality, enable the green threads runtime
+    if ("newProc" in vars.runtimeExterns
+        || "yield" in vars.runtimeExterns)
     {
+        vars.runtimeExterns["initThreadManager"] = true;
+        vars.runtimeExterns["execScheduler"] = true;
+        vars.runtimeExterns["takedownThreadManager"] = true;
         if (mainTakesArgv)
         {
             str ~= "    sub    rsp, 32\n";
@@ -158,7 +165,7 @@ string compileEntryPoint(bool mainTakesArgv, bool threads)
             str ~= "    mov    rdi, qword [rbp-8]\n";
             // Retrieve argv in rsi
             str ~= "    mov    rsi, qword [rbp-16]\n";
-            str ~= compileArgvStringArray();
+            str ~= compileArgvStringArray(vars);
             // Retrieve args and set []string argv in args
             str ~= "    mov    r10, qword [rbp-32]\n";
             str ~= "    mov    qword [r10], r8\n";
@@ -190,7 +197,7 @@ string compileEntryPoint(bool mainTakesArgv, bool threads)
     {
         if (mainTakesArgv)
         {
-            str ~= compileArgvStringArray();
+            str ~= compileArgvStringArray(vars);
             str ~= "    mov    rdi, r8\n";
         }
         str ~= "    call   __ZZmain\n";
@@ -204,8 +211,9 @@ string compileEntryPoint(bool mainTakesArgv, bool threads)
 // This assembly algorithm assumes the OS-provided argc is in rdi, the
 // OS-provided argv is in rsi, and provides the []string argv-equivalent in
 // r8
-string compileArgvStringArray()
+string compileArgvStringArray(Context* vars)
 {
+    vars.runtimeExterns["strlen"] = true;
     auto str = q"EOF
     ; argc is in rdi, and in r14
     mov    r14, rdi

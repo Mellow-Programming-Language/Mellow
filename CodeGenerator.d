@@ -264,6 +264,7 @@ struct Context
     FloatEntry*[] floatEntries;
     string[] blockEndLabels;
     string[] blockNextLabels;
+    bool[string] runtimeExterns;
     FuncSig*[string] externFuncs;
     FuncSig*[string] compileFuncs;
     StructType*[string] structDefs;
@@ -1032,13 +1033,99 @@ string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
 string compileSpawnStmt(SpawnStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    vars.runtimeExterns["newProc"] = true;
+    auto sig = node.data["sig"].get!(FuncSig*);
+    auto argExprs = (cast(ASTNonTerminal)node.children[1]).children;
+    auto funcArgs = sig.funcArgs;
+    auto str = "";
+
+    // TODO update this to handle large types, namely funcptrs
+
+    if (funcArgs.length > 0)
+    {
+        vars.allocateStackSpace(8);
+        auto r12Loc = vars.getTop;
+        vars.allocateStackSpace(8);
+        auto r13Loc = vars.getTop;
+        // Allocate newProc argLens
+        str ~= "    mov    rdi, " ~ funcArgs.length.to!string ~ "\n";
+        str ~= "    call   malloc\n";
+        str ~= "    mov    r12, rax\n";
+        foreach (i, arg; funcArgs)
+        {
+            auto size = arg.type.size;
+            // argLens contains a negative size if the value is a floating
+            // point argument
+            if (arg.type.isFloat)
+            {
+                size *= -1;
+            }
+            str ~= "    mov    byte [r12+" ~ i.to!string
+                                           ~ "], "
+                                           ~ size.to!string
+                                           ~ "\n";
+        }
+        // Store argLens on stack
+        str ~= "    mov    qword [rbp-" ~ r12Loc.to!string
+                                        ~ "], r12\n";
+        // Allocate newProc args
+        str ~= "    mov    rdi, " ~ (funcArgs.length * 8).to!string
+                                  ~ "\n";
+        str ~= "    call   malloc\n";
+        str ~= "    mov    r13, rax\n";
+        // Store args on stack
+        str ~= "    mov    qword [rbp-" ~ r13Loc.to!string
+                                        ~ "], r13\n";
+        // Populate args with actual arguments
+        foreach (i, argExpr; argExprs)
+        {
+            if (argExpr.data["type"].get!(Type*).size > 8)
+            {
+                assert(false, "Unimplemented");
+            }
+            str ~= compileBoolExpr(cast(BoolExprNode)argExpr, vars);
+            str ~= "    mov    r13, qword [rbp-" ~ r13Loc.to!string
+                                                 ~ "]\n";
+            str ~= "    mov    qword [r13+" ~ (i * 8).to!string
+                                            ~ "], r8\n";
+        }
+        // Populate newProc args
+        str ~= "    mov    rdi, " ~ funcArgs.length.to!string ~ "\n";
+        str ~= "    mov    rsi, " ~ sig.funcName ~ "\n";
+        // Retrieve argLens from stack
+        str ~= "    mov    rdx, qword [rbp-" ~ r12Loc.to!string
+                                             ~ "]\n";
+        // Retrieve args from stack
+        str ~= "    mov    rcx, qword [rbp-" ~ r13Loc.to!string
+                                             ~ "]\n";
+        str ~= "    call   newProc\n";
+        // Free args and argLens
+        str ~= "    mov    rdi, qword [rbp-" ~ r12Loc.to!string
+                                             ~ "]\n";
+        str ~= "    call   free\n";
+        str ~= "    mov    rdi, [rbp-" ~ r13Loc.to!string
+                                       ~ "]\n";
+        str ~= "    call   free\n";
+        vars.deallocateStackSpace(16);
+    }
+    else
+    {
+        str ~= "    mov    rdi, 0\n";
+        str ~= "    mov    rsi, " ~ sig.funcName ~ "\n";
+        str ~= "    mov    rdx, 0\n";
+        str ~= "    mov    rcx, 0\n";
+        str ~= "    call   newProc\n";
+    }
+    return str;
 }
 
 string compileYieldStmt(YieldStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    vars.runtimeExterns["yield"] = true;
+    auto str = "";
+    str ~= "    call   yield\n";
+    return str;
 }
 
 string compileChanWrite(ChanWriteNode node, Context* vars)
