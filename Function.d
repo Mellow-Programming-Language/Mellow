@@ -729,6 +729,7 @@ class FunctionBuilder : Visitor
         pair.type = varType;
         funcScopes[$-1].syms[$-1].decls[varName] = pair;
         decls ~= pair;
+        node.data["pair"] = pair;
     }
 
     void visit(VariableTypePairTupleNode node)

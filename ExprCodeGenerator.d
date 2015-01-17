@@ -855,9 +855,6 @@ string compileStringLit(StringLitNode node, Context* vars)
     str ~= "    call   memcpy\n";
     str ~= "    mov    rax, qword [rbp-" ~ vars.getTop.to!string ~ "]\n";
     vars.deallocateStackSpace(8);
-
-    // TODO do something else with values, like... put them on the stack
-
     // The string value ptr sits in r8
     str ~= "    mov    r8, rax\n";
     return str;

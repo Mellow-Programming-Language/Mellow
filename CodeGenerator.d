@@ -57,6 +57,7 @@ const ENVIRON_PTR_SIZE = 8;
 const CLAM_PTR_SIZE = 8; // sizeof(char*))
 const REF_COUNT_SIZE = 4; // sizeof(uint32_t))
 const CLAM_STR_SIZE = 4; // sizeof(uint32_t))
+const CHAN_VALID_SIZE = 4; // sizeof(uint32_t))
 const STR_START_OFFSET = REF_COUNT_SIZE + CLAM_STR_SIZE;
 const VARIANT_TAG_SIZE = 4; // sizeof(uint32_t))
 
@@ -150,10 +151,6 @@ string compileRegRestore(string[] regs, Context* vars)
 auto getAllocSize(ulong requestedSize)
 {
     auto x = requestedSize;
-    if (x < 0)
-    {
-        return 0;
-    }
     --x;
     x |= x >> 1;
     x |= x >> 2;
@@ -162,6 +159,25 @@ auto getAllocSize(ulong requestedSize)
     x |= x >> 16;
     x |= x >> 32;
     return x+1;
+}
+
+auto getStructAllocSize(StructType* type)
+{
+    return REF_COUNT_SIZE
+        + type.members
+              .map!(a => a.type.size)
+              .array
+              .getAlignedSize;
+}
+
+auto getVariantAllocSize(VariantType* type)
+{
+    return REF_COUNT_SIZE
+         + VARIANT_TAG_SIZE
+         + type.members
+               .map!(a => a.constructorElems.size)
+               .array
+               .reduce!((a, b) => max(a, b));
 }
 
 // Derived from "gcc -S -O2" on:
@@ -499,14 +515,10 @@ struct Context
     // pointer. We then store the value back into its allocated memory location
     string compileVarSet(string varName)
     {
-        "enter".writeln;
-        scope (success) "leave".writeln;
         const environOffset = (closureVars.length > 0)
                            ? ENVIRON_PTR_SIZE
                            : 0;
-        "ret type check?".writeln;
         const retValOffset = retType.size;
-        "yup".writeln;
         foreach (i, var; funcArgs)
         {
             if (varName == var.varName)
@@ -547,7 +559,6 @@ struct Context
         {
             if (varName == var.varName)
             {
-                "just before size check".writeln;
                 if (var.type.size <= 8)
                 {
                     return "    mov    qword [rbp-"
@@ -887,7 +898,94 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
 string compileVariableTypePair(VariableTypePairNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto pair = node.data["pair"].get!(VarTypePair*);
+    vars.stackVars ~= pair;
+    final switch (pair.type.tag)
+    {
+    case TypeEnum.STRING:
+        str ~= "    ; allocate empty string\n";
+        str ~= "    mov    rdi, " ~ (REF_COUNT_SIZE
+                                   + CLAM_STR_SIZE).to!string
+                                  ~ "\n";
+        str ~= "    call   malloc\n";
+        // Set the refcount to 1, as we're assigning this empty string to a
+        // variable
+        str ~= "    mov    dword [rax], 1\n";
+        // Set the length of the string, where the string size location is just
+        // past the ref count
+        str ~= "    mov    dword [rax+" ~ REF_COUNT_SIZE.to!string
+                                        ~ "], 0\n";
+        // The string value ptr sits in r8
+        str ~= "    mov    r8, rax\n";
+        break;
+    case TypeEnum.SET:
+        break;
+    case TypeEnum.HASH:
+        break;
+    case TypeEnum.ARRAY:
+        auto elemSize = pair.type.array.arrayType.size;
+        auto numElems = pair.type.array.prealloc;
+        auto allocLength = getAllocSize(numElems);
+        // The 8 is the ref count area and the array length area, each 4 bytes
+        auto totalAllocSize = allocLength * elemSize + REF_COUNT_SIZE
+                                                     + CLAM_STR_SIZE;
+        str ~= "    mov    rdi, " ~ totalAllocSize.to!string
+                                  ~ "\n";
+        str ~= "    call   malloc\n";
+        // Set the refcount to 1, as we're assigning this array to a variable
+        str ~= "    mov    dword [rax], 1\n";
+        // Set array length to number of elements
+        str ~= "    mov    dword [rax+4], " ~ numElems.to!string
+                                            ~ "\n";
+        str ~= "    mov    r8, rax\n";
+        break;
+    case TypeEnum.FUNCPTR:
+        break;
+    case TypeEnum.STRUCT:
+        str ~= "    mov    rdi, " ~ getStructAllocSize(
+                                        pair.type.structDef
+                                    ).to!string
+                                  ~ "\n";
+        str ~= "    call   malloc\n";
+        // Set the refcount to 1, as we're assigning this array to a variable
+        str ~= "    mov    dword [rax], 1\n";
+        str ~= "    mov    r8, rax\n";
+        break;
+    case TypeEnum.VARIANT:
+        break;
+    case TypeEnum.CHAN:
+        auto elemSize = pair.type.array.arrayType.size;
+        auto totalAllocSize = REF_COUNT_SIZE
+                            + CHAN_VALID_SIZE
+                            + elemSize;
+        str ~= "    mov    rdi, " ~ totalAllocSize.to!string
+                                  ~ "\n";
+        str ~= "    call   malloc\n";
+        // Set the refcount to 1, as we're assigning this chan to a variable
+        str ~= "    mov    dword [rax], 1\n";
+        // Set chan valid-element segment to false
+        str ~= "    mov    dword [rax+4], 0\n";
+        str ~= "    mov    r8, rax\n";
+        break;
+    case TypeEnum.LONG:
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+    case TypeEnum.CHAR:
+    case TypeEnum.BOOL:
+        str ~= "    mov    r8, 0\n";
+        break;
+    case TypeEnum.FLOAT:
+    case TypeEnum.DOUBLE:
+        break;
+    case TypeEnum.TUPLE:
+    case TypeEnum.AGGREGATE:
+    case TypeEnum.VOID:
+        break;
+    }
+    str ~= vars.compileVarSet(pair.varName);
+    return str;
 }
 
 string compileAssignExisting(AssignExistingNode node, Context* vars)

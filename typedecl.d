@@ -1,6 +1,7 @@
 import std.stdio;
 import std.algorithm;
 import std.range;
+import std.conv;
 import parser;
 
 const PTR_SIZE = 8;
@@ -32,11 +33,13 @@ enum TypeEnum
 struct ArrayType
 {
     Type* arrayType;
+    uint prealloc;
 
     ArrayType* copy()
     {
         auto c = new ArrayType();
         c.arrayType = this.arrayType.copy;
+        c.prealloc = this.prealloc;
         return c;
     }
 
@@ -957,8 +960,20 @@ mixin template TypeVisitors()
 
     void visit(ArrayTypeNode node)
     {
-        node.children[0].accept(this);
         auto array = new ArrayType();
+        if (node.children.length > 1)
+        {
+            auto allocNum = (cast(ASTTerminal)
+                            (cast(ASTNonTerminal)node.children[0]).children[0])
+                            .token;
+            array.prealloc = allocNum.to!uint;
+            node.children[1].accept(this);
+        }
+        else
+        {
+            array.prealloc = 0;
+            node.children[0].accept(this);
+        }
         array.arrayType = builderStack[$-1][$-1];
         auto type = new Type();
         type.tag = TypeEnum.ARRAY;
