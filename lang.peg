@@ -85,7 +85,7 @@ ForeachArgs :: Identifier (#"," Identifier)*;
 
 Declaration :: DeclAssignment | DeclTypeInfer | VariableTypePair;
 
-SpawnStmt :: #'spawn' #Sp Identifier FuncCallTrailer;
+SpawnStmt :: #'spawn' #Sp Identifier FuncCallArgList;
 
 YieldStmt :: #'yield' #Sp?;
 

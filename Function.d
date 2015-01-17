@@ -1660,12 +1660,31 @@ class FunctionBuilder : Visitor
         builderStack[$-1] ~= type.chan.chanType.copy;
     }
 
+    void visit(SpawnStmtNode node)
+    {
+        node.children[0].accept(this);
+        auto name = id;
+        auto funcLookup = funcSigLookup(toplevelFuncs, name);
+        if (!funcLookup.success)
+        {
+            throw new Exception("No function " ~ name ~ " to spawn");
+        }
+        if (funcLookup.sig.returnType.tag != TypeEnum.VOID)
+        {
+            throw new Exception("Cannot spawn non-void function");
+        }
+        curFuncCallSig = funcLookup.sig;
+        node.data["sig"] = funcLookup.sig;
+        node.children[1].accept(this);
+    }
+
+    void visit(YieldStmtNode node)
+    {}
+
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}
     void visit(ForConditionalNode node) {}
     void visit(ForPostExpressionNode node) {}
-    void visit(SpawnStmtNode node) {}
-    void visit(YieldStmtNode node) {}
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
     void visit(StructFunctionNode node) {}
