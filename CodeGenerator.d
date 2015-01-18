@@ -622,7 +622,6 @@ string compileFunction(FuncSig* sig, Context* vars)
             else
             {
                 vars.stackVars ~= arg;
-                vars.getTop.writeln();
                 func ~= "    mov    qword [rbp-" ~ vars.getTop.to!string
                                                  ~ "], "
                                                  ~ INT_REG[intRegIndex] ~ "\n";
@@ -632,7 +631,6 @@ string compileFunction(FuncSig* sig, Context* vars)
     }
     vars.retType = sig.returnType;
     vars.refreshLabelCounter();
-    sig.funcBodyBlocks.writeln;
     func ~= compileBlock(
         cast(BareBlockNode)sig.funcBodyBlocks.children[0], vars
     );
@@ -956,7 +954,7 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
     case TypeEnum.VARIANT:
         break;
     case TypeEnum.CHAN:
-        auto elemSize = pair.type.array.arrayType.size;
+        auto elemSize = pair.type.chan.chanType.size;
         auto totalAllocSize = REF_COUNT_SIZE
                             + CHAN_VALID_SIZE
                             + elemSize;
@@ -1229,7 +1227,54 @@ string compileYieldStmt(YieldStmtNode node, Context* vars)
 string compileChanWrite(ChanWriteNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    vars.runtimeExterns["yield"] = true;
+    auto str = "";
+    auto valSize = node.children[1].data["type"].get!(Type*).size;
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
+    vars.allocateStackSpace(8);
+    auto chanLoc = vars.getTop;
+    vars.allocateStackSpace(8);
+    auto valLoc = vars.getTop;
+    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string
+                                    ~ "], r8\n";
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    // Chan is in r9, value is in r8
+    str ~= "    mov    r9, qword [rbp-" ~ chanLoc.to!string
+                                        ~ "]\n";
+    auto tryWrite = vars.getUniqLabel;
+    auto cannotWrite = vars.getUniqLabel;
+    auto successfulWrite = vars.getUniqLabel;
+    str ~= tryWrite ~ ":\n";
+    str ~= "    ; Test if the channel has a valid value in it already,\n";
+    str ~= "    ; yield if yes, write if not\n";
+    str ~= "    cmp    dword [r9+4], 0\n";
+    str ~= "    jnz    " ~ cannotWrite
+                         ~ "\n";
+    str ~= "    mov    " ~ getWordSize(valSize)
+                         ~ " [r9+8], r8"
+                         ~ getRRegSuffix(valSize)
+                         ~ "\n";
+    // Set the channel to declare it contains valid data
+    str ~= "    mov    dword [r9+4], 1\n";
+    str ~= "    jmp    " ~ successfulWrite
+                         ~ "\n";
+    str ~= cannotWrite ~ ":\n";
+    // Store channel and value on stack, then yield
+    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string
+                                    ~ "], r9\n";
+    str ~= "    mov    qword [rbp-" ~ valLoc.to!string
+                                    ~ "], r8\n";
+    str ~= "    call   yield\n";
+    // Restore channel and value, reattempt write
+    str ~= "    mov    r9, qword [rbp-" ~ chanLoc.to!string
+                                        ~ "]\n";
+    str ~= "    mov    r8, qword [rbp-" ~ valLoc.to!string
+                                        ~ "]\n";
+    str ~= "    jmp    " ~ tryWrite
+                         ~ "\n";
+    str ~= successfulWrite ~ ":\n";
+    vars.deallocateStackSpace(16);
+    return str;
 }
 
 string compileFuncCall(FuncCallNode node, Context* vars)

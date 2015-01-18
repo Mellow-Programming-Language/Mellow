@@ -688,7 +688,7 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(NumberNode)child) {
         str ~= compileNumber(cast(NumberNode)child, vars);
     } else if (cast(ChanReadNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileChanRead(cast(ChanReadNode)child, vars);
     } else if (cast(IdentifierNode)child) {
         auto idNode = cast(IdentifierNode)child;
         auto name = getIdentifier(idNode);
@@ -888,7 +888,44 @@ string compileSliceLengthSentinel(SliceLengthSentinelNode node, Context* vars)
 string compileChanRead(ChanReadNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    vars.runtimeExterns["yield"] = true;
+    auto str = "";
+    auto valSize = node.data["type"].get!(Type*).size;
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
+    vars.allocateStackSpace(8);
+    auto chanLoc = vars.getTop;
+    auto tryRead = vars.getUniqLabel;
+    auto cannotRead = vars.getUniqLabel;
+    auto successfulRead = vars.getUniqLabel;
+    // Channel is in r8
+    str ~= tryRead ~ ":\n";
+    str ~= "    ; Test if the channel has a valid value in it.\n";
+    str ~= "    ; Yield if no, read if yes\n";
+    str ~= "    cmp    dword [r8+4], 0\n";
+    str ~= "    jz     " ~ cannotRead
+                         ~ "\n";
+    str ~= "    mov    r9" ~ getRRegSuffix(valSize)
+                           ~ ", "
+                           ~ getWordSize(valSize)
+                           ~ " [r8+8]\n";
+    // Invalidate the data in the channel
+    str ~= "    mov    dword [r8+4], 0\n";
+    str ~= "    mov    r8, r9\n";
+    str ~= "    jmp    " ~ successfulRead
+                         ~ "\n";
+    str ~= cannotRead ~ ":\n";
+    // Store channel on stack, then yield
+    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string
+                                    ~ "], r8\n";
+    str ~= "    call   yield\n";
+    // Restore channel and value, reattempt write
+    str ~= "    mov    r8, qword [rbp-" ~ chanLoc.to!string
+                                        ~ "]\n";
+    str ~= "    jmp    " ~ tryRead
+                         ~ "\n";
+    str ~= successfulRead ~ ":\n";
+    vars.deallocateStackSpace(8);
+    return str;
 }
 
 string compileTrailer(TrailerNode node, Context* vars)

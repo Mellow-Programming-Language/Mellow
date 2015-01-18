@@ -1642,7 +1642,7 @@ class FunctionBuilder : Visitor
         {
             throw new Exception("Can't chan-write to non-channel");
         }
-        else if (leftType.chan.chanType.cmp(rightType))
+        else if (!leftType.chan.chanType.cmp(rightType))
         {
             throw new Exception("Can't chan-write mismatched types");
         }
@@ -1658,6 +1658,7 @@ class FunctionBuilder : Visitor
             throw new Exception("Cannot chan-read from non-channel");
         }
         builderStack[$-1] ~= type.chan.chanType.copy;
+        node.data["type"] = type.chan.chanType.copy;
     }
 
     void visit(SpawnStmtNode node)
