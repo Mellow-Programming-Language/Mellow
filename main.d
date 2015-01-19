@@ -20,7 +20,7 @@ int main(string[] argv)
 {
     string outfileName = "a.out";
     string runtimePath = "runtime/runtime.o";
-    string stdlibPath = "stdlib/stdio.o";
+    string stdlibPath = "stdlib/stdlib.o";
     bool compileOnly = false;
     bool dump = false;
     try

@@ -1,3 +1,4 @@
-To produce a parser, use whatever the current version of the Parser
-Generator is, pass in lang.peg, and use runner.d and visitor.d (from
-visitorAUTO.d) to produce an executable.
+To build the compiler, run `make` in the toplevel project directory. Note that
+the `make` process will attempt to `git clone` a secondary repository (the
+parser generator project at https://github.com/CollinReeser/ParserGenerator),
+which is necessary to build the compiler.

@@ -6,7 +6,7 @@
 #include "stdio.h"
 #include "clam_internal.h"
 
-void clam_writeln(void* clamStr)
+void writeln(void* clamStr)
 {
     printf("%s\n", (char*)(clamStr + STR_START_OFFSET));
 }
