@@ -58,7 +58,6 @@ class FunctionSigBuilder : Visitor
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         funcName = id;
-        writeln("FuncName: ", id);
         // Visit FuncDefArgListNode
         node.children[1].accept(this);
         // Visit FuncReturnTypeNode
@@ -83,9 +82,6 @@ class FunctionSigBuilder : Visitor
         funcSig.returnType = returnType;
         funcSig.templateParams = templateParams;
         funcSig.funcBodyBlocks = cast(FuncBodyBlocksNode)node.children[1];
-        "here".writeln;
-        funcSig.funcBodyBlocks.writeln;
-        "and here".writeln;
         toplevelFuncs ~= funcSig;
         funcName = "";
         funcArgs = [];
@@ -98,7 +94,6 @@ class FunctionSigBuilder : Visitor
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         funcName = id;
-        writeln("FuncName: ", id);
         // Visit TemplateTypeParamsNode
         node.children[1].accept(this);
         // Visit FuncDefArgListNode

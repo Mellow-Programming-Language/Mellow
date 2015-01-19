@@ -22,12 +22,9 @@ class RecordBuilder : Visitor
 
     this (ProgramNode node)
     {
-        writeln("RecordBuilder: this()");
         auto structs = collectNodes!StructDefNode(node);
         auto externStructs = collectNodes!ExternStructDeclNode(node);
         auto variants = collectNodes!VariantDefNode(node);
-        auto printVisitor = new PrintVisitor();
-        printVisitor.visit(cast(ProgramNode)node);
         foreach (structDef; structs)
         {
             builderStack.length++;
@@ -60,7 +57,6 @@ class RecordBuilder : Visitor
                                 .map!(a => cast(ASTNonTerminal)a)
                                 .array;
         auto names = results.map!getName.array;
-        writeln(names);
         return results;
     }
 

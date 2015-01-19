@@ -5,7 +5,7 @@
 
 #define THREAD_DATA_ARR_START_LEN 4
 #define THREAD_DATA_ARR_MUL_INCREASE 2
-#define THREAD_STACK_SIZE (4096*64)
+#define THREAD_STACK_SIZE (4096)
 
 typedef struct
 {

@@ -743,7 +743,6 @@ class FunctionBuilder : Visitor
     void visit(DeclarationNode node)
     {
         node.children[0].accept(this);
-        writeln(format(funcScopes[$-1].syms));
         decls = [];
     }
 
@@ -1374,7 +1373,6 @@ class FunctionBuilder : Visitor
             pair.type = type.array.arrayType;
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
         }
-        writeln(format(funcScopes[$-1].syms));
         // BareBlockNode
         node.children[2].accept(this);
         funcScopes[$-1].syms.length--;

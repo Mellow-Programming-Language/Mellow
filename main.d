@@ -3,6 +3,11 @@ import std.algorithm;
 import std.conv;
 import std.range;
 import std.array;
+import std.getopt;
+import std.process;
+import std.file;
+import std.ascii;
+import std.random;
 import parser;
 import visitor;
 import Record;
@@ -13,21 +18,58 @@ import CodeGenerator;
 
 int main(string[] argv)
 {
-    string line = "";
-    string source = "";
-    while ((line = stdin.readln) !is null)
+    string outfileName = "a.out";
+    string runtimePath = "runtime/runtime.o";
+    string stdlibPath = "stdlib/stdio.o";
+    bool compileOnly = false;
+    bool dump = false;
+    try
     {
-        source ~= line;
+        getopt(argv,
+            "outfile|o", &outfileName,
+            "runtime", &runtimePath,
+            "stdlib", &stdlibPath,
+            "S", &compileOnly,
+            "dump", &dump);
+    }
+    catch (Exception ex)
+    {
+        writeln("Error: Unrecognized cmdline argument.");
+        return 0;
+    }
+    // Strip program name from arguments
+    argv = argv[1..$];
+    if (argv.length != 1)
+    {
+        writeln(argv);
+        writeln("Error: Exactly one filename must be passed for compilation.");
+        return 0;
+    }
+    auto infileName = argv[0];
+    auto source = "";
+    try
+    {
+        source = readText(infileName);
+    }
+    catch (Exception ex)
+    {
+        writeln("Error: Could not read file [" ~ infileName ~ "].");
+        return 0;
     }
     auto parser = new Parser(source);
     auto topNode = parser.parse();
-    if (topNode !is null)
+    if (topNode is null)
     {
-        auto records = new RecordBuilder(cast(ProgramNode)topNode);
-        auto funcSigs = new FunctionSigBuilder(cast(ProgramNode)topNode,
-            records);
-        auto funcs = new FunctionBuilder(cast(ProgramNode)topNode, records,
-            funcSigs);
+        writeln("Error: Could not parse program in file [" ~ infileName ~ "].");
+        return 0;
+    }
+    auto records = new RecordBuilder(cast(ProgramNode)topNode);
+    auto funcSigs = new FunctionSigBuilder(cast(ProgramNode)topNode,
+        records);
+    auto funcs = new FunctionBuilder(cast(ProgramNode)topNode, records,
+        funcSigs);
+    if (dump)
+    {
         foreach (structDef; records.structDefs.values)
         {
             writeln(structDef.formatFull());
@@ -40,93 +82,165 @@ int main(string[] argv)
         {
             sig.format.writeln;
         }
-        auto context = new Context();
-        context.structDefs = records.structDefs;
-        context.variantDefs = records.variantDefs;
-        foreach (sig; funcs.getExternFuncSigs)
+    }
+    auto fullAsm = compileProgram(records, funcs);
+    if (compileOnly)
+    {
+        try
         {
-            context.externFuncs[sig.funcName] = sig;
+            std.file.write(outfileName, fullAsm);
         }
-        auto mainExists = false;
-        auto mainTakesArgv = false;
-        foreach (sig; funcs.getCompilableFuncSigs)
+        catch (Exception ex)
         {
-            context.compileFuncs[sig.funcName] = sig;
-            if (sig.funcName == "main")
-            {
-                mainExists = true;
-                sig.funcName = "__ZZmain";
-                if (sig.funcArgs.length > 1)
-                {
-                    throw new Exception("main() can only take 0 or 1 args");
-                }
-                else if (sig.funcArgs.length == 1)
-                {
-                    if (sig.funcArgs[0].type.tag != TypeEnum.ARRAY
-                        || sig.funcArgs[0].type.array.arrayType.tag
-                           != TypeEnum.STRING)
-                    {
-                        throw new Exception("main() can only receive []string");
-                    }
-                    else
-                    {
-                        mainTakesArgv = true;
-                    }
-                }
-                if (sig.returnType.tag != TypeEnum.VOID)
-                {
-                    throw new Exception("main() cannot return a value");
-                }
-            }
+            writeln("Error: Could not write outfile [" ~ outfileName ~ "].");
+            return 0;
         }
-        auto str = "";
-        auto header = "";
-        if (funcs.getCompilableFuncSigs.length > 0)
-        {
-            str ~= funcs.getCompilableFuncSigs
-                        .map!(a => a.compileFunction(context))
-                        .reduce!((a, b) => a ~ "\n" ~ b);
-            if (mainExists)
-            {
-                str ~= compileEntryPoint(mainTakesArgv, context);
-            }
-        }
-        header ~= "    extern malloc\n"
-                ~ "    extern free\n"
-                ~ "    extern memcpy\n";
-        header ~= context.runtimeExterns
-                         .keys
-                         .map!(a => "    extern " ~ a ~ "\n")
-                         .reduce!((a, b) => a ~ b);
-        if (funcs.getExternFuncSigs.length > 0)
-        {
-            header ~= funcs.getExternFuncSigs
-                           .map!(a => "    extern " ~ a.funcName ~ "\n")
-                           .reduce!((a, b) => a ~ b);
-        }
-        header ~= "    SECTION .data\n";
-        if (context.dataEntries.length > 0)
-        {
-            header ~= context.dataEntries
-                             .map!(a => a.label ~ ": db " ~ a.data ~ "\n")
-                             .reduce!((a, b) => a ~ b);
-        }
-        if (context.floatEntries.length > 0)
-        {
-            header ~= context.floatEntries
-                             .map!(a => a.label ~ ": dq " ~ a.floatStr ~ "\n")
-                             .reduce!((a, b) => a ~ b);
-        }
-        header ~= "    SECTION .text\n"
-                ~ "    global main\n";
-        auto full = header ~ str;
-        full.writeln;
     }
     else
     {
-        writeln("Failed to parse!");
+        auto asmTmpfileName = generateRandomFilename() ~ ".asm";
+        auto objectTmpfileName = generateRandomFilename() ~ ".o";
+        try
+        {
+            auto tempAsmFile = File(asmTmpfileName, "wx");
+            tempAsmFile.write(fullAsm);
+        }
+        catch (Exception ex)
+        {
+            writeln(
+                "Error: Could not write to tempfile [" ~ asmTmpfileName ~ "]."
+            );
+            return 0;
+        }
+        scope (exit) remove(asmTmpfileName);
+        try
+        {
+            auto nasmPid = spawnProcess(
+                ["nasm", "-f", "elf64", "-o", objectTmpfileName, asmTmpfileName]
+            );
+            wait(nasmPid);
+        }
+        catch (ProcessException ex)
+        {
+            writeln("Error: Could not exec [nasm]. Do you have it installed?");
+            return 0;
+        }
+        if (exists(objectTmpfileName))
+        {
+            scope (exit) remove(objectTmpfileName);
+            try
+            {
+                auto gccPid = spawnProcess(
+                    ["gcc", "-o", outfileName, objectTmpfileName, stdlibPath,
+                    runtimePath]
+                );
+                wait(gccPid);
+            }
+            catch (ProcessException ex)
+            {
+                writeln(
+                    "Error: Could not exec [gcc]. Do you have it installed?"
+                );
+                return 0;
+            }
+        }
     }
     return 0;
+}
+
+string generateRandomFilename()
+{
+    auto str = "";
+    foreach (i; 0..32)
+    {
+        str ~= std.ascii.letters[uniform(0, $)];
+    }
+    return str;
+}
+
+string compileProgram(RecordBuilder records, FunctionBuilder funcs)
+{
+    auto context = new Context();
+    context.structDefs = records.structDefs;
+    context.variantDefs = records.variantDefs;
+    foreach (sig; funcs.getExternFuncSigs)
+    {
+        context.externFuncs[sig.funcName] = sig;
+    }
+    auto mainExists = false;
+    auto mainTakesArgv = false;
+    foreach (sig; funcs.getCompilableFuncSigs)
+    {
+        context.compileFuncs[sig.funcName] = sig;
+        if (sig.funcName == "main")
+        {
+            mainExists = true;
+            sig.funcName = "__ZZmain";
+            if (sig.funcArgs.length > 1)
+            {
+                throw new Exception("main() can only take 0 or 1 args");
+            }
+            else if (sig.funcArgs.length == 1)
+            {
+                if (sig.funcArgs[0].type.tag != TypeEnum.ARRAY
+                    || sig.funcArgs[0].type.array.arrayType.tag
+                       != TypeEnum.STRING)
+                {
+                    throw new Exception("main() can only receive []string");
+                }
+                else
+                {
+                    mainTakesArgv = true;
+                }
+            }
+            if (sig.returnType.tag != TypeEnum.VOID)
+            {
+                throw new Exception("main() cannot return a value");
+            }
+        }
+    }
+    auto str = "";
+    auto header = "";
+    if (funcs.getCompilableFuncSigs.length > 0)
+    {
+        str ~= funcs.getCompilableFuncSigs
+                    .map!(a => a.compileFunction(context))
+                    .reduce!((a, b) => a ~ "\n" ~ b);
+        if (mainExists)
+        {
+            str ~= compileEntryPoint(mainTakesArgv, context);
+        }
+    }
+    header ~= "    extern malloc\n"
+            ~ "    extern free\n"
+            ~ "    extern memcpy\n";
+    header ~= context.runtimeExterns
+                     .keys
+                     .map!(a => "    extern " ~ a ~ "\n")
+                     .reduce!((a, b) => a ~ b);
+    if (funcs.getExternFuncSigs.length > 0)
+    {
+        header ~= funcs.getExternFuncSigs
+                       .map!(a => "    extern " ~ a.funcName ~ "\n")
+                       .reduce!((a, b) => a ~ b);
+    }
+    header ~= "    SECTION .data\n";
+    if (context.dataEntries.length > 0)
+    {
+        header ~= context.dataEntries
+                         .map!(a => a.label ~ ": db " ~ a.data ~ "\n")
+                         .reduce!((a, b) => a ~ b);
+    }
+    if (context.floatEntries.length > 0)
+    {
+        header ~= context.floatEntries
+                         .map!(a => a.label ~ ": dq " ~ a.floatStr ~ "\n")
+                         .reduce!((a, b) => a ~ b);
+    }
+    header ~= "    SECTION .text\n"
+            ~ "    global main\n";
+    auto full = header ~ str;
+    return full;
 }
 
 string compileEntryPoint(bool mainTakesArgv, Context* vars)
