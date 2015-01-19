@@ -23,6 +23,7 @@ int main(string[] argv)
     string stdlibPath = "stdlib/stdlib.o";
     bool compileOnly = false;
     bool dump = false;
+    bool help = false;
     try
     {
         getopt(argv,
@@ -30,11 +31,36 @@ int main(string[] argv)
             "runtime", &runtimePath,
             "stdlib", &stdlibPath,
             "S", &compileOnly,
-            "dump", &dump);
+            "dump", &dump,
+            "help", &help);
     }
     catch (Exception ex)
     {
         writeln("Error: Unrecognized cmdline argument.");
+        return 0;
+    }
+    if (help)
+    {
+q"EOF
+All arguments must be prefaced by double dashes, as in --help or --o.
+
+--dump          Inelegantly dump varied information about the parsing and
+                analyzing process.
+
+--help          Print this help text and exit.
+
+--outfile S
+--o S           Provide a string S which will act as the filename of the
+                generated outfile.
+
+--runtime S     Provide the path to the runtime object file, if the default is
+                incorrect.
+
+--S             Only generate the assembly file, don't assemble or link.
+
+--stdlib S      Provide the path to the stdlib object file, if the default is
+                incorrect.
+EOF".write;
         return 0;
     }
     // Strip program name from arguments

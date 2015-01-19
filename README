@@ -2,3 +2,5 @@ To build the compiler, run `make` in the toplevel project directory. Note that
 the `make` process will attempt to `git clone` a secondary repository (the
 parser generator project at https://github.com/CollinReeser/ParserGenerator),
 which is necessary to build the compiler.
+
+`./compiler --help` will provide a summary of options.
