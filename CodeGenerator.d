@@ -281,6 +281,7 @@ struct Context
     string[] blockEndLabels;
     string[] blockNextLabels;
     bool[string] runtimeExterns;
+    bool[string] bssQWordAllocs;
     FuncSig*[string] externFuncs;
     FuncSig*[string] compileFuncs;
     StructType*[string] structDefs;

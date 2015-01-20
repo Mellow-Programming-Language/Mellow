@@ -253,6 +253,14 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs)
                        .map!(a => "    extern " ~ a.funcName ~ "\n")
                        .reduce!((a, b) => a ~ b);
     }
+    if (context.bssQWordAllocs.length > 0)
+    {
+        header ~= "    SECTION .bss\n";
+        foreach (label; context.bssQWordAllocs.keys)
+        {
+            header ~= label ~ ": resq 1\n";
+        }
+    }
     header ~= "    SECTION .data\n";
     if (context.dataEntries.length > 0)
     {

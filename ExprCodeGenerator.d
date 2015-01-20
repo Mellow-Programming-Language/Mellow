@@ -706,7 +706,10 @@ string compileValue(ValueNode node, Context* vars)
             str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
         }
     } else if (cast(SliceLengthSentinelNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileSliceLengthSentinel(
+            cast(SliceLengthSentinelNode)child,
+            vars
+        );
     }
 
     // TODO handle dotaccess case
@@ -882,7 +885,8 @@ string compileFloatNum(FloatNumNode node, Context* vars)
 string compileSliceLengthSentinel(SliceLengthSentinelNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    // Get the length from the __ZZlengthSentinel bss location
+    return "    mov    r8, qword [__ZZlengthSentinel]\n";
 }
 
 string compileChanRead(ChanReadNode node, Context* vars)
@@ -955,15 +959,68 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
     auto resultType = arrayType.array.arrayType;
     auto indexType = node.data["type"].get!(Type*);
     auto str = "";
+    vars.bssQWordAllocs["__ZZlengthSentinel"] = true;
+    // Get length of array in r9, and store it in the bss __ZZlengthSentinel loc
+    str ~= "    mov    r9, 0\n";
+    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    mov    qword [__ZZlengthSentinel], r9\n";
     // Put the indexed-into variable on the stack
     vars.allocateStackSpace(8);
     auto valLoc = vars.getTop.to!string;
+    scope (exit) vars.deallocateStackSpace(8);
     str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
     // Check if the slice is a range
-    if (indexType.tag == TypeEnum.TUPLE)
+    if (arrayType.cmp(indexType))
     {
+        // Since we're getting a range, we need to allocate and populate a new
+        // array with the range of values from the sliced array.
         // Get the start index in r8 and the end index in r9
-        assert(false, "Unimplemented");
+        str ~= compileSlicing(cast(SlicingNode)node.children[0], vars);
+        // Store just the start index, for when we need to memcpy
+        vars.allocateStackSpace(8);
+        auto startIndexLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ startIndexLoc ~ "], r8\n";
+        scope (exit) vars.deallocateStackSpace(8);
+        // Get the total size of the slice
+        str ~= "    mov    r10, r9\n";
+        str ~= "    sub    r10, r8\n";
+        // Store the length of the slice in a callee-saved register
+        str ~= "    mov    r12, r10\n";
+        // Get the alloc size of the slice
+        str ~= getAllocSizeAsm("r10", "rdi");
+        // Multiply the alloc size by the element size
+        str ~= "    imul   rdi, " ~ resultType.size.to!string ~ "\n";
+        // Add 8 for the ref count and array size
+        str ~= "    add    rdi, 8\n";
+        // Get the allocated memory pointer in rax
+        str ~= "    call   malloc\n";
+        // Store the new allocation pointer
+        vars.allocateStackSpace(8);
+        auto newAllocLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ newAllocLoc ~ "], rax\n";
+        scope (exit) vars.deallocateStackSpace(8);
+        // Set the ref-count to 0
+        str ~= "    mov    dword [rax], 0\n";
+        // Set the array length
+        str ~= "    mov    dword [rax+4], r12d\n";
+        // Get the original array pointer
+        str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
+        // memcpy the slice into the new memory allocation
+        str ~= "    mov    rdi, rax\n";
+        str ~= "    add    rdi, 8\n";
+        // Get the start index value
+        str ~= "    mov    rsi, qword [rbp-" ~ startIndexLoc ~ "]\n";
+        str ~= "    imul   rsi, " ~ resultType.size.to!string ~ "\n";
+        str ~= "    add    rsi, 8\n";
+        str ~= "    add    rsi, r10\n";
+        str ~= "    mov    rdx, r12\n";
+        str ~= "    imul   rdx, " ~ resultType.size.to!string ~ "\n";
+        str ~= "    call   memcpy\n";
+        str ~= "    mov    r8, qword [rbp-" ~ newAllocLoc ~ "]\n";
+        if (node.children.length > 1)
+        {
+            str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
+        }
     }
     else
     {
@@ -990,7 +1047,6 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
             str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
         }
     }
-    vars.deallocateStackSpace(8);
     return str;
 }
 
@@ -1037,26 +1093,59 @@ string compileSingleIndex(SingleIndexNode node, Context* vars)
 string compileIndexRange(IndexRangeNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto child = node.children[0];
+    auto str = "";
+    if (cast(StartToIndexRangeNode)child) {
+        str ~= compileStartToIndexRange(cast(StartToIndexRangeNode)child, vars);
+    }
+    else if (cast(IndexToIndexRangeNode)child) {
+        str ~= compileIndexToIndexRange(cast(IndexToIndexRangeNode)child, vars);
+    }
+    else if (cast(IndexToEndRangeNode)child) {
+        str ~= compileIndexToEndRange(cast(IndexToEndRangeNode)child, vars);
+    }
+    return str;
 }
 
 string compileStartToIndexRange(StartToIndexRangeNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    // Get the end index in r8, but we want it in r9 and 0 to be in r8
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
+    str ~= "    mov    r9, 0\n";
+    str ~= "    xchg   r8, r9\n";
+    return str;
 }
 
 string compileIndexToEndRange(IndexToEndRangeNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    // Get the start index in r8
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
+    // Get the end index from the __ZZlengthSentinel bss loc
+    str ~= "    mov    r9, qword [__ZZlengthSentinel]\n";
+    return str;
 }
 
 string compileIndexToIndexRange(IndexToIndexRangeNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    // The start index is expected to be in r8, and the end index is
+    // expected to be in r9
+    auto str = "";
+    vars.allocateStackSpace(8);
+    auto startLoc = vars.getTop.to!string;
+    scope (exit) vars.deallocateStackSpace(8);
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
+    str ~= "    mov    qword [rbp-" ~ startLoc
+                                    ~ "], r8\n";
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    str ~= "    mov    r9, r8\n";
+    str ~= "    mov    r8, qword [rbp-" ~ startLoc
+                                        ~ "]\n";
+    return str;
 }
 
 string compileDotAccess(DotAccessNode node, Context* vars)
