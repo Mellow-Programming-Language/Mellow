@@ -1376,6 +1376,8 @@ class FunctionBuilder : Visitor
         // BareBlockNode
         node.children[2].accept(this);
         funcScopes[$-1].syms.length--;
+        node.data["type"] = loopType;
+        node.data["argnames"] = foreachArgs;
     }
 
     void visit(ForeachArgsNode node)

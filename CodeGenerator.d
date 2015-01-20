@@ -835,7 +835,74 @@ string compileForStmt(ForStmtNode node, Context* vars)
 string compileForeachStmt(ForeachStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto loopType = node.data["type"].get!(Type*);
+    auto foreachArgs = node.data["argnames"].get!(string[]);
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    if (loopType.tag == TypeEnum.ARRAY)
+    {
+        auto loopVarName = foreachArgs[0];
+        auto loopVar = new VarTypePair();
+        loopVar.varName = loopVarName;
+        loopVar.type = loopType.array.arrayType.copy;
+        vars.stackVars ~= loopVar;
+        auto elemSize = loopType.array.arrayType.size;
+        vars.allocateStackSpace(8);
+        auto arrayLoc = vars.getTop.to!string;
+        vars.allocateStackSpace(8);
+        auto countLoc = vars.getTop.to!string;
+        auto foreachLoop = vars.getUniqLabel;
+        auto endForeach = vars.getUniqLabel;
+        // The array is in r8
+        // Initialize internal count variable
+        str ~= "    mov    r10, 0\n";
+        str ~= foreachLoop ~ ":\n";
+        // Get the array size
+        str ~= "    mov    r9, 0\n";
+        str ~= "    mov    r9d, dword [r8+4]\n";
+        str ~= "    cmp    r10, r9\n";
+        str ~= "    jge    " ~ endForeach
+                             ~ "\n";
+        str ~= "    mov    qword [rbp-" ~ countLoc
+                                        ~ "], r10\n";
+        // Multiply counter by size of the array elements to get the elem offset
+        str ~= "    imul   r10, " ~ elemSize.to!string
+                                  ~ "\n";
+        // Add 8 to get past the ref count and array length bytes
+        str ~= "    add    r10, 8\n";
+        // Actually add in the array pointer value
+        str ~= "    add    r10, r8\n";
+        // Get the element in r11
+        str ~= "    mov    r11" ~ getRRegSuffix(elemSize)
+                                ~ ", "
+                                ~ getWordSize(elemSize)
+                                ~ " [r10]\n";
+        // Preserve the array
+        str ~= "    mov    qword [rbp-" ~ arrayLoc
+                                        ~ "], r8\n";
+        str ~= "    mov    r8, r11\n";
+        str ~= vars.compileVarSet(loopVarName);
+        str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+        // Restore counter and array
+        str ~= "    mov    r8, qword [rbp-" ~ arrayLoc
+                                            ~ "]\n";
+        str ~= "    mov    r10, qword [rbp-" ~ countLoc
+                                             ~ "]\n";
+        str ~= "    add    r10, 1\n";
+        str ~= "    jmp    " ~ foreachLoop
+                             ~ "\n";
+        str ~= endForeach ~ ":\n";
+        vars.deallocateStackSpace(16);
+    }
+    else if (loopType.tag == TypeEnum.TUPLE)
+    {
+        // TODO After we've determined how tuples are handled, this is
+        // basically just the ARRAY case but for more than one variable. Also
+        // need to determine if it's a runtime error for the arrays to not all
+        // be the same length, or if it just ends after the first array is
+        // exhausted
+    }
+    return str;
 }
 
 string compileMatchStmt(MatchStmtNode node, Context* vars)

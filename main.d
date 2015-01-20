@@ -240,10 +240,13 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs)
     header ~= "    extern malloc\n"
             ~ "    extern free\n"
             ~ "    extern memcpy\n";
-    header ~= context.runtimeExterns
-                     .keys
-                     .map!(a => "    extern " ~ a ~ "\n")
-                     .reduce!((a, b) => a ~ b);
+    if (context.runtimeExterns.length > 0)
+    {
+        header ~= context.runtimeExterns
+                         .keys
+                         .map!(a => "    extern " ~ a ~ "\n")
+                         .reduce!((a, b) => a ~ b);
+    }
     if (funcs.getExternFuncSigs.length > 0)
     {
         header ~= funcs.getExternFuncSigs
