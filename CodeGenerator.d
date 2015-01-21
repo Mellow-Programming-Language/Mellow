@@ -992,20 +992,37 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         break;
     case TypeEnum.ARRAY:
         auto elemSize = pair.type.array.arrayType.size;
-        auto numElems = pair.type.array.prealloc;
-        auto allocLength = getAllocSize(numElems);
-        // The 8 is the ref count area and the array length area, each 4 bytes
-        auto totalAllocSize = allocLength * elemSize + REF_COUNT_SIZE
-                                                     + CLAM_STR_SIZE;
-        str ~= "    mov    rdi, " ~ totalAllocSize.to!string
-                                  ~ "\n";
-        str ~= "    call   malloc\n";
-        // Set the refcount to 1, as we're assigning this array to a variable
-        str ~= "    mov    dword [rax], 1\n";
-        // Set array length to number of elements
-        str ~= "    mov    dword [rax+4], " ~ numElems.to!string
-                                            ~ "\n";
-        str ~= "    mov    r8, rax\n";
+        auto typeIdNode = cast(TypeIdNode)node.children[1];
+        auto arrayTypeNode = cast(ArrayTypeNode)typeIdNode.children[0];
+        if (arrayTypeNode.children.length > 1)
+        {
+            auto allocBoolExpr = cast(BoolExprNode)arrayTypeNode.children[0];
+            str ~= compileBoolExpr(allocBoolExpr, vars);
+            vars.allocateStackSpace(8);
+            scope (exit) vars.deallocateStackSpace(8);
+            auto arrayLenLoc = vars.getTop.to!string;
+            str ~= "    mov    qword [rbp-" ~ arrayLenLoc ~ "], r8\n";
+            auto allocLength = getAllocSizeAsm("r8", "rdi");
+            str ~= "    imul   rdi, " ~ elemSize.to!string ~ "\n";
+            str ~= "    add    rdi, 8\n";
+            str ~= "    call   malloc\n";
+            // Set the refcount to 1, as we're assigning this array to a
+            // variable
+            str ~= "    mov    dword [rax], 1\n";
+            // Retrive the array length value
+            str ~= "    mov    r8, qword [rbp-" ~ arrayLenLoc ~ "]\n";
+            // Set array length to number of elements
+            str ~= "    mov    dword [rax+4], r8d\n";
+            str ~= "    mov    r8, rax\n";
+        }
+        else
+        {
+            str ~= "    mov    rdi, 8\n";
+            str ~= "    call   malloc\n";
+            str ~= "    mov    dword [rax], 1\n";
+            str ~= "    mov    dword [rax+4], 0\n";
+            str ~= "    mov    r8, rax\n";
+        }
         break;
     case TypeEnum.FUNCPTR:
         break;

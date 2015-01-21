@@ -266,7 +266,7 @@ TypeId :: ChanType
         | UserType
         ;
 ChanType :: #"chan" #"!" ((#"(" TypeId #")") | (TypeId));
-ArrayType :: #"[" IntNum? #"]" TypeId;
+ArrayType :: #"[" BoolExpr? #"]" TypeId;
 SetType :: #"<" #">" BasicType;
 HashType :: #"[" BasicType #"]" TypeId;
 TypeTuple :: #"(" TypeId (#"," TypeId)+ #")";

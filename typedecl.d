@@ -33,13 +33,11 @@ enum TypeEnum
 struct ArrayType
 {
     Type* arrayType;
-    uint prealloc;
 
     ArrayType* copy()
     {
         auto c = new ArrayType();
         c.arrayType = this.arrayType.copy;
-        c.prealloc = this.prealloc;
         return c;
     }
 
@@ -963,15 +961,17 @@ mixin template TypeVisitors()
         auto array = new ArrayType();
         if (node.children.length > 1)
         {
-            auto allocNum = (cast(ASTTerminal)
-                            (cast(ASTNonTerminal)node.children[0]).children[0])
-                            .token;
-            array.prealloc = allocNum.to!uint;
+            node.children[0].accept(this);
+            auto allocType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (!isIntegral(allocType))
+            {
+                throw new Exception("Can only use integral value to prealloc");
+            }
             node.children[1].accept(this);
         }
         else
         {
-            array.prealloc = 0;
             node.children[0].accept(this);
         }
         array.arrayType = builderStack[$-1][$-1];
