@@ -1097,15 +1097,22 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
     str ~= compileLorRValue(cast(LorRValueNode)node.children[0], vars);
     str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
     vars.deallocateStackSpace(8);
-    if (vars.isStackAligned)
+    switch (op)
     {
-        str ~= "    mov    qword [r8], r9\n";
-    }
-    else
-    {
-        str ~= "    mov    " ~ getWordSize(type.size)
-                             ~ " [r8], r9"
-                             ~ getRRegSuffix(type.size) ~ "\n";
+    case "=":
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    qword [r8], r9\n";
+        }
+        else
+        {
+            str ~= "    mov    " ~ getWordSize(type.size)
+                                 ~ " [r8], r9"
+                                 ~ getRRegSuffix(type.size) ~ "\n";
+        }
+        break;
+    default:
+        break;
     }
     return str;
 }
