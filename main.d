@@ -238,6 +238,7 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs)
         }
     }
     header ~= "    extern malloc\n"
+            ~ "    extern realloc\n"
             ~ "    extern free\n"
             ~ "    extern memcpy\n";
     if (context.runtimeExterns.length > 0)

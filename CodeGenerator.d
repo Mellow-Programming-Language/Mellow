@@ -1077,11 +1077,12 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     auto op = (cast(ASTTerminal)node.children[1]).token;
-    auto type = node.children[2].data["type"].get!(Type*);
+    auto leftType = node.children[0].data["type"].get!(Type*);
+    auto rightType = node.children[2].data["type"].get!(Type*);
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[2], vars);
     // Set the refcount for array and string temporaries to 1, since we're
     // actually storing the value now
-    if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING)
+    if (rightType.tag == TypeEnum.ARRAY || rightType.tag == TypeEnum.STRING)
     {
         auto label = vars.getUniqLabel();
         str ~= "    cmp    dword [r8], 0\n";
@@ -1097,7 +1098,7 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
     str ~= compileLorRValue(cast(LorRValueNode)node.children[0], vars);
     str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
     vars.deallocateStackSpace(8);
-    switch (op)
+    final switch (op)
     {
     case "=":
         if (vars.isStackAligned)
@@ -1106,14 +1107,149 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
         }
         else
         {
-            str ~= "    mov    " ~ getWordSize(type.size)
+            str ~= "    mov    " ~ getWordSize(rightType.size)
                                  ~ " [r8], r9"
-                                 ~ getRRegSuffix(type.size) ~ "\n";
+                                 ~ getRRegSuffix(rightType.size) ~ "\n";
         }
         break;
-    default:
+    case "+=":
+        assert(false, "Unimplemented");
+        break;
+    case "-=":
+        assert(false, "Unimplemented");
+        break;
+    case "/=":
+        assert(false, "Unimplemented");
+        break;
+    case "*=":
+        assert(false, "Unimplemented");
+        break;
+    case "%=":
+        assert(false, "Unimplemented");
+        break;
+    case "~=":
+        str ~= compileAppendEquals(leftType, rightType, vars);
         break;
     }
+    return str;
+}
+
+// The _address_ of the pointer is in r8, and the new element is in r9
+string compileAppendEquals(Type* leftType, Type* rightType, Context* vars)
+{
+    auto str = "";
+    if (leftType.tag == TypeEnum.STRING)
+    {
+        if (leftType.cmp(rightType))
+        {
+            str ~= compileStringStringAppendEquals(vars);
+        }
+        else
+        {
+            str ~= compileStringCharAppendEquals(vars);
+        }
+    }
+    else
+    {
+        if (leftType.cmp(rightType))
+        {
+            str ~= compileArrayArrayAppendEquals(
+                vars,
+                rightType.array.arrayType.size
+            );
+        }
+        else
+        {
+            str ~= compileArrayElemAppendEquals(vars, rightType.size);
+        }
+    }
+    return str;
+}
+
+string compileStringStringAppendEquals(Context* vars)
+{
+    auto str = "";
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileStringCharAppendEquals(Context* vars)
+{
+    auto str = "";
+    assert(false, "Unimplemented");
+    return str;
+}
+
+string compileArrayArrayAppendEquals(Context* vars, uint typeSize)
+{
+    auto str = "";
+    assert(false, "Unimplemented");
+    return str;
+}
+
+string compileArrayElemAppendEquals(Context* vars, uint typeSize)
+{
+    auto str = "";
+    // Get actual array pointer from the address of the pointer in r8
+    str ~= "    mov    r13, [r8]\n";
+    // Get array length
+    str ~= "    mov    r10, 0\n";
+    str ~= "    mov    r10d, dword [r13+4]\n";
+    // Get alloc size in r12
+    str ~= "    mov    r11, r10\n";
+    str ~= getAllocSizeAsm("r11", "r12");
+    // Restore array length in r11
+    str ~= "    mov    r11, r10\n";
+    // Get the total array size and the total array alloc size
+    str ~= "    imul   r11, " ~ typeSize.to!string ~ "\n";
+    str ~= "    imul   r12, " ~ typeSize.to!string ~ "\n";
+    // If they're the same size, the array is full and needs to be realloc'd,
+    // otherwise we can just stick the new element in the next available slot
+    str ~= "    cmp    r11, r12\n";
+    auto newAlloc = vars.getUniqLabel;
+    str ~= "    je     " ~ newAlloc ~ "\n";
+    // Move the new element in r9 into the next empty spot in the array in r13
+    str ~= "    add    r11, 8\n";
+    str ~= "    add    r11, r13\n";
+    str ~= "    mov    " ~ getWordSize(typeSize)
+                         ~ " [r11], r9"
+                         ~ getRRegSuffix(typeSize)
+                         ~ "\n";
+    // Increment array length
+    str ~= "    add    dword [r13+4], 1\n";
+    auto endAppend = vars.getUniqLabel;
+    str ~= "    jmp    " ~ endAppend ~ "\n";
+    str ~= newAlloc ~ ":\n";
+    // If we get here, the array is full, and needs to be realloc'd with more
+    // space. r11 and r12 are the same value, so if we just increment one of
+    // them by the size of one array element and then pass it through the
+    // alloc size algorithm, we'll get the new alloc size, one step larger.
+    // The array length is still in r10
+    str ~= "    add    r11, 1\n";
+    str ~= getAllocSizeAsm("r11", "rsi");
+    // Add back the ref count and array length portions
+    str ~= "    add    rsi, 8\n";
+    // r13 contains the original array pointer
+    str ~= "    mov    rdi, r13\n";
+    str ~= compileRegSave(["r8", "r9", "r12"], vars);
+    str ~= "    call   realloc\n";
+    str ~= compileRegRestore(["r8", "r9", "r12"], vars);
+    // r12 still contains the old array alloc length, which happens to be where
+    // the new element needs to go, minus the ref count and array length offset
+    str ~= "    add    r12, 8\n";
+    // Add in the actual array pointer
+    str ~= "    add    r12, rax\n";
+    // Mov the new element into its spot
+    str ~= "    mov    " ~ getWordSize(typeSize)
+                         ~ " [r12], r9"
+                         ~ getRRegSuffix(typeSize)
+                         ~ "\n";
+    // Increment realloc'd array length
+    str ~= "    add    dword [rax+4], 1\n";
+    // r8 contains the address within which the array pointer is stored, so
+    // we can just shove the new rax pointer back into [r8]
+    str ~= "    mov    qword [r8], rax\n";
+    str ~= endAppend ~ ":\n";
     return str;
 }
 
