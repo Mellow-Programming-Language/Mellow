@@ -464,8 +464,8 @@ string compileStringStringAppend(Context* vars)
     str ~= compileRegSave(["rax"], vars);
     str ~= "    call   free\n";
     str ~= compileRegRestore(["rax"], vars);
-    str ~= "    mov    r8, rax\n";
     str ~= endRealloc ~ ":\n";
+    str ~= "    mov    r8, rax\n";
     return str;
 }
 
