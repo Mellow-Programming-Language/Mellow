@@ -395,6 +395,8 @@ string compileArgvStringArray(Context* vars)
     shr    r8, 32
     or     rdi, r8
     add    rdi, 1
+    ; Multiply alloc'd space by the size of string ptrs
+    imul   rdi, 8
     ; Add space for ref count and array length
     add    rdi, 8
     call   malloc
