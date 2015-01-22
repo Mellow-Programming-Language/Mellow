@@ -1360,13 +1360,32 @@ class FunctionBuilder : Visitor
         {
             throw new Exception("Cannot loop over non-array types");
         }
-        if (foreachArgs.length != loopTypes.length)
+        if (foreachArgs.length != loopTypes.length
+            && foreachArgs.length - 1 != loopTypes.length)
         {
-            throw new Exception("Foreach args must match loop types in number");
+            throw new Exception(
+                "Foreach args must match loop types in number, plus optional "
+                "index counter"
+            );
         }
         // Add the loop variables to the scope
         funcScopes[$-1].syms.length++;
-        foreach (varName, type; lockstep(foreachArgs, loopTypes))
+        auto varUpdateArgs = foreachArgs;
+        bool hasIndex = false;
+        if (foreachArgs.length > loopTypes.length)
+        {
+            hasIndex = true;
+            auto indexVarName = foreachArgs[0];
+            // Skip the index arg for the following loop
+            varUpdateArgs = foreachArgs[1..$];
+            auto pair = new VarTypePair();
+            pair.varName = indexVarName;
+            auto indexType = new Type();
+            indexType.tag = TypeEnum.INT;
+            pair.type = indexType;
+            funcScopes[$-1].syms[$-1].decls[indexVarName] = pair;
+        }
+        foreach (varName, type; lockstep(varUpdateArgs, loopTypes))
         {
             auto pair = new VarTypePair();
             pair.varName = varName;
@@ -1378,6 +1397,7 @@ class FunctionBuilder : Visitor
         funcScopes[$-1].syms.length--;
         node.data["type"] = loopType;
         node.data["argnames"] = foreachArgs;
+        node.data["hasindex"] = hasIndex;
     }
 
     void visit(ForeachArgsNode node)

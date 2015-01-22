@@ -839,6 +839,19 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
     auto str = "";
     auto loopType = node.data["type"].get!(Type*);
     auto foreachArgs = node.data["argnames"].get!(string[]);
+    auto hasIndex = node.data["hasindex"].get!(bool);
+    auto indexVarName = "";
+    if (hasIndex)
+    {
+        indexVarName = foreachArgs[0];
+        foreachArgs = foreachArgs[1..$];
+        auto indexType = new Type();
+        indexType.tag = TypeEnum.INT;
+        auto indexVar = new VarTypePair();
+        indexVar.varName = indexVarName;
+        indexVar.type = indexType;
+        vars.stackVars ~= indexVar;
+    }
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
     if (loopType.tag == TypeEnum.ARRAY)
     {
@@ -852,12 +865,24 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         auto arrayLoc = vars.getTop.to!string;
         vars.allocateStackSpace(8);
         auto countLoc = vars.getTop.to!string;
+        scope (exit) vars.deallocateStackSpace(16);
         auto foreachLoop = vars.getUniqLabel;
         auto endForeach = vars.getUniqLabel;
         // The array is in r8
         // Initialize internal count variable
         str ~= "    mov    r10, 0\n";
         str ~= foreachLoop ~ ":\n";
+        // Set the index variable if there is one
+        if (hasIndex)
+        {
+            // Save value in r8
+            str ~= "    mov    r11, r8\n";
+            // Set index value with counter value
+            str ~= "    mov    r8, r10\n";
+            str ~= vars.compileVarSet(indexVarName);
+            // Restore value in r8
+            str ~= "    mov    r8, r11\n";
+        }
         // Get the array size
         str ~= "    mov    r9, 0\n";
         str ~= "    mov    r9d, dword [r8+4]\n";
@@ -881,6 +906,7 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         // Preserve the array
         str ~= "    mov    qword [rbp-" ~ arrayLoc
                                         ~ "], r8\n";
+        // Set the loop var
         str ~= "    mov    r8, r11\n";
         str ~= vars.compileVarSet(loopVarName);
         str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
@@ -893,7 +919,6 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         str ~= "    jmp    " ~ foreachLoop
                              ~ "\n";
         str ~= endForeach ~ ":\n";
-        vars.deallocateStackSpace(16);
     }
     else if (loopType.tag == TypeEnum.TUPLE)
     {
