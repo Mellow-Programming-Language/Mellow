@@ -951,7 +951,9 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception("Cannot index non-array type");
             }
+            insideSlice++;
             node.children[0].accept(this);
+            insideSlice--;
             lvalue = lvalue.array.arrayType.copy;
             node.data["type"] = lvalue.copy;
             if (node.children.length > 1)
