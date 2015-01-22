@@ -459,13 +459,15 @@ string compileStringStringAppend(Context* vars)
     str ~= noLeftFree ~ ":\n";
     // Deallocate right string if necessary
     str ~= "    cmp    dword [r9], 0\n";
-    str ~= "    jnz    " ~ endRealloc ~ "\n";
+    auto endFree = vars.getUniqLabel;
+    str ~= "    jnz    " ~ endFree ~ "\n";
     str ~= "    mov    rdi, r9\n";
     str ~= compileRegSave(["rax"], vars);
     str ~= "    call   free\n";
     str ~= compileRegRestore(["rax"], vars);
-    str ~= endRealloc ~ ":\n";
+    str ~= endFree ~ ":\n";
     str ~= "    mov    r8, rax\n";
+    str ~= endRealloc ~ ":\n";
     return str;
 }
 
