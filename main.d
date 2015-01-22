@@ -230,10 +230,11 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs)
     if (funcs.getCompilableFuncSigs.length > 0)
     {
         str ~= funcs.getCompilableFuncSigs
-                    .map!(a => a.compileFunction(context))
+                    .map!(a => compileFunction(a, context))
                     .reduce!((a, b) => a ~ "\n" ~ b);
         if (mainExists)
         {
+            str ~= "\n";
             str ~= compileEntryPoint(mainTakesArgv, context);
         }
     }
@@ -355,7 +356,8 @@ string compileEntryPoint(bool mainTakesArgv, Context* vars)
         str ~= "    call   __ZZmain\n";
     }
     str ~= "    mov    rax, 0\n";
-    str ~= "    leave\n";
+    str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+    str ~= "    pop    rbp\n";
     str ~= "    ret\n";
     return str;
 }

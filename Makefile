@@ -6,6 +6,12 @@ compiler: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
 		visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
 		ExprCodeGenerator.d
 
+compiler_debug: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
+		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d
+	dmd -ofcompiler_debug main.d Function.d FunctionSig.d Record.d parser.d\
+		visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
+		ExprCodeGenerator.d -debug=COMPILE_TRACE -debug=TRACE
+
 runtime/runtime.o:
 	make -C runtime
 

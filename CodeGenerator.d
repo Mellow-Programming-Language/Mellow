@@ -64,6 +64,7 @@ const VARIANT_TAG_SIZE = 4; // sizeof(uint32_t))
 const INT_REG = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 const FLOAT_REG = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
                    "xmm7"];
+const STACK_RESTORE_PLACEHOLDER = "\n____STACK_RESTORE_PLACEHOLDER____\n";
 
 debug (COMPILE_TRACE)
 {
@@ -293,9 +294,23 @@ struct Context
     // Set when calculating l-value addresses, to determine how the assignment
     // should be made
     bool isStackAligned;
+    uint reservedStackSpace;
+    uint maxTempSpaceUsed;
     private uint topOfStack;
     private uint uniqLabelCounter;
     private uint uniqDataCounter;
+
+    void resetState(FuncSig* sig)
+    {
+        closureVars = sig.closureVars;
+        funcArgs = [];
+        stackVars = [];
+        topOfStack = 0;
+        reservedStackSpace = sig.stackVarAllocSize;
+        maxTempSpaceUsed = 0;
+        retType = sig.returnType;
+        uniqLabelCounter = 0;
+    }
 
     auto getUniqDataLabel()
     {
@@ -307,29 +322,23 @@ struct Context
         return ".L" ~ (uniqLabelCounter++).to!string;
     }
 
-    void refreshLabelCounter()
-    {
-        uniqLabelCounter = 0;
-    }
-
     auto getTop()
     {
-        return (stackVars.length * 8) + topOfStack;
+        return reservedStackSpace + topOfStack;
     }
 
     void allocateStackSpace(uint bytes)
     {
         topOfStack += bytes;
+        if (topOfStack > maxTempSpaceUsed)
+        {
+            maxTempSpaceUsed = topOfStack;
+        }
     }
 
     void deallocateStackSpace(uint bytes)
     {
         topOfStack -= bytes;
-    }
-
-    void resetStack()
-    {
-        topOfStack = 0;
     }
 
     bool isStackAlignedVar(string varName)
@@ -353,14 +362,14 @@ struct Context
 
     bool isFuncName(string name)
     {
-        foreach (func; externFuncs)
+        foreach (func; externFuncs.values)
         {
             if (func.funcName == name)
             {
                 return true;
             }
         }
-        foreach (func; compileFuncs)
+        foreach (func; compileFuncs.values)
         {
             if (func.funcName == name)
             {
@@ -580,22 +589,14 @@ struct Context
 string compileFunction(FuncSig* sig, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    auto func = "";
-    func ~= sig.funcName ~ ":\n";
-    func ~= "    push   rbp         ; set up stack frame\n";
-    func ~= "    mov    rbp, rsp\n";
-
-    // TODO the following is temporary until a we have a function analyzer that
-    // tells us the maximum amount of stack space a function will allocate.
-    // Which will also be super important for once green threads are implemented
-
-    func ~= "    sub    rsp, 128    ; dirty dirty hack\n";
-    vars.closureVars = sig.closureVars;
+    auto funcHeader = "";
+    funcHeader ~= sig.funcName ~ ":\n";
+    funcHeader ~= "    push   rbp         ; set up stack frame\n";
+    funcHeader ~= "    mov    rbp, rsp\n";
+    auto funcHeader_2 = "";
     auto intRegIndex = 0;
     auto floatRegIndex = 0;
-    vars.funcArgs = [];
-    vars.stackVars = [];
-    vars.resetStack();
+    vars.resetState(sig);
     foreach (arg; sig.funcArgs)
     {
         if (arg.type.isFloat)
@@ -607,7 +608,8 @@ string compileFunction(FuncSig* sig, Context* vars)
             else
             {
                 vars.stackVars ~= arg;
-                func ~= "    movsd  qword [rbp-" ~ vars.getTop.to!string
+                funcHeader_2 ~= "    movsd  qword [rbp-" ~ vars.getTop
+                                                               .to!string
                                                  ~ "], "
                                                  ~ FLOAT_REG[floatRegIndex]
                                                  ~ "\n";
@@ -623,23 +625,32 @@ string compileFunction(FuncSig* sig, Context* vars)
             else
             {
                 vars.stackVars ~= arg;
-                func ~= "    mov    qword [rbp-" ~ vars.getTop.to!string
+                funcHeader_2 ~= "    mov    qword [rbp-" ~ vars.getTop
+                                                               .to!string
                                                  ~ "], "
-                                                 ~ INT_REG[intRegIndex] ~ "\n";
+                                                 ~ INT_REG[intRegIndex]
+                                                 ~ "\n";
                 intRegIndex++;
             }
         }
     }
-    vars.retType = sig.returnType;
-    vars.refreshLabelCounter();
-    func ~= compileBlock(
+    auto funcDef = compileBlock(
         cast(BareBlockNode)sig.funcBodyBlocks.children[0], vars
     );
-    func ~= "    add    rsp, 128    ; dirty dirty hack\n";
-    func ~= "    mov    rsp, rbp    ; takedown stack frame\n";
-    func ~= "    pop    rbp\n";
-    func ~= "    ret\n";
-    return func;
+    // Determine the total amount of stack space used by the function at max
+    auto totalStackSpaceUsed = sig.stackVarAllocSize + vars.maxTempSpaceUsed;
+    // Allocate space on the stack, keeping the stack in 16-byte alignment
+    auto stackAlignedAlloc = totalStackSpaceUsed + (totalStackSpaceUsed % 16);
+    auto stackRestoreStr = "    add    rsp, " ~ stackAlignedAlloc.to!string
+                                           ~ "\n";
+    funcHeader ~= "    sub    rsp, " ~ stackAlignedAlloc.to!string ~ "\n";
+    funcDef = replace(funcDef, STACK_RESTORE_PLACEHOLDER, stackRestoreStr);
+    auto funcFooter = "";
+    funcFooter ~= stackRestoreStr;
+    funcFooter ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+    funcFooter ~= "    pop    rbp\n";
+    funcFooter ~= "    ret\n";
+    return funcHeader ~ funcHeader_2 ~ funcDef ~ funcFooter;
 }
 
 string compileBlock(BareBlockNode block, Context* vars)
@@ -692,9 +703,10 @@ string compileReturn(ReturnStmtNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 0)
     {
-       return "    mov    rsp, rbp    ; takedown stack frame\n"
-              "    pop    rbp\n"
-              "    ret\n";
+       return STACK_RESTORE_PLACEHOLDER
+            ~ "    mov    rsp, rbp    ; takedown stack frame\n"
+            ~ "    pop    rbp\n"
+            ~ "    ret\n";
     }
     const environOffset = (vars.closureVars.length > 0)
                         ? ENVIRON_PTR_SIZE
@@ -715,7 +727,7 @@ string compileReturn(ReturnStmtNode node, Context* vars)
     {
 
     }
-    str ~= "    add    rsp, 128    ; dirty dirty hack\n";
+    str ~= STACK_RESTORE_PLACEHOLDER;
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
     str ~= "    ret\n";
@@ -1539,6 +1551,10 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     str ~= "    call   " ~ funcName ~ "\n";
     if (numArgs > 6)
     {
+
+        // TODO replace this with something that doesn't directly affect the
+        // stack
+
         str ~= "    add    rsp, " ~ ((numArgs - 6) * 8).to!string ~ "\n";
     }
     str ~= "    mov    r8, rax\n";

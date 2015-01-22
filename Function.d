@@ -149,6 +149,8 @@ class FunctionBuilder : Visitor
     private Type* matchType;
     private uint insideSlice;
     private string[] foreachArgs;
+    private uint[string] stackVarAllocSize;
+    private string curFuncName;
 
     mixin TypeVisitors;
 
@@ -164,6 +166,17 @@ class FunctionBuilder : Visitor
                             .array;
     }
 
+    void updateFuncSigStackVarAllocSize()
+    {
+        foreach (sig; toplevelFuncs)
+        {
+            if (sig.funcName == curFuncName)
+            {
+                sig.stackVarAllocSize = stackVarAllocSize[curFuncName];
+            }
+        }
+    }
+
     this (ProgramNode node, RecordBuilder records, FunctionSigBuilder sigs)
     {
         this.records = records;
@@ -175,6 +188,7 @@ class FunctionBuilder : Visitor
         foreach (funcDef; funcDefs)
         {
             funcDef.accept(this);
+            updateFuncSigStackVarAllocSize();
         }
         insideSlice = 0;
     }
@@ -196,6 +210,8 @@ class FunctionBuilder : Visitor
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         auto funcName = id;
+        this.curFuncName = funcName;
+        this.stackVarAllocSize[curFuncName] = 0;
         auto lookup = funcSigLookup(toplevelFuncs, funcName);
         if (lookup.success)
         {
@@ -275,13 +291,13 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (!resultType.tag != TypeEnum.BOOL
-                || !nextType.tag != TypeEnum.BOOL)
+            if (resultType.tag != TypeEnum.BOOL
+                || nextType.tag != TypeEnum.BOOL)
             {
                 throw new Exception("Non-bool type in LOGIC-OR.");
             }
@@ -295,13 +311,13 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (!resultType.tag != TypeEnum.BOOL
-                || !nextType.tag != TypeEnum.BOOL)
+            if (resultType.tag != TypeEnum.BOOL
+                || nextType.tag != TypeEnum.BOOL)
             {
                 throw new Exception("Non-bool type in LOGIC-AND.");
             }
@@ -393,7 +409,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
@@ -412,7 +428,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
@@ -431,7 +447,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
@@ -730,6 +746,8 @@ class FunctionBuilder : Visitor
         funcScopes[$-1].syms[$-1].decls[varName] = pair;
         decls ~= pair;
         node.data["pair"] = pair;
+        this.stackVarAllocSize[curFuncName] += varType.size
+                                                      .stackAlignSize;
     }
 
     void visit(VariableTypePairTupleNode node)
@@ -776,6 +794,12 @@ class FunctionBuilder : Visitor
                 writeln(varType.format);
                 throw new Exception("Type mismatch in decl assignment.");
             }
+        }
+        foreach (decl; decls)
+        {
+            this.stackVarAllocSize[curFuncName] += decl.type
+                                                       .size
+                                                       .stackAlignSize;
         }
     }
 
@@ -834,6 +858,7 @@ class FunctionBuilder : Visitor
     void visit(DeclTypeInferNode node)
     {
         node.children[0].accept(this);
+        Type*[] stackTypes;
         if (typeid(node.children[0]) == typeid(IdTupleNode))
         {
             string[] varNames = idTuple;
@@ -856,6 +881,7 @@ class FunctionBuilder : Visitor
                 pair.type = varType;
                 funcScopes[$-1].syms[$-1].decls[varName] = pair;
             }
+            stackTypes ~= tupleTypes;
         }
         else if (typeid(node.children[0]) == typeid(IdentifierNode))
         {
@@ -867,6 +893,12 @@ class FunctionBuilder : Visitor
             pair.varName = varName;
             pair.type = varType;
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
+            stackTypes ~= varType;
+        }
+        foreach (type; stackTypes)
+        {
+            this.stackVarAllocSize[curFuncName] += type.size
+                                                       .stackAlignSize;
         }
     }
 
@@ -951,7 +983,9 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception("Cannot index non-array type");
             }
+            insideSlice++;
             node.children[0].accept(this);
+            insideSlice--;
             lvalue = lvalue.array.arrayType.copy;
             node.data["type"] = lvalue.copy;
             if (node.children.length > 1)
@@ -1384,6 +1418,8 @@ class FunctionBuilder : Visitor
             indexType.tag = TypeEnum.INT;
             pair.type = indexType;
             funcScopes[$-1].syms[$-1].decls[indexVarName] = pair;
+            this.stackVarAllocSize[curFuncName] += indexType.size
+                                                            .stackAlignSize;
         }
         foreach (varName, type; lockstep(varUpdateArgs, loopTypes))
         {
@@ -1391,6 +1427,10 @@ class FunctionBuilder : Visitor
             pair.varName = varName;
             pair.type = type.array.arrayType;
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
+            this.stackVarAllocSize[curFuncName] += type.array
+                                                       .arrayType
+                                                       .size
+                                                       .stackAlignSize;
         }
         // BareBlockNode
         node.children[2].accept(this);
@@ -1719,6 +1759,9 @@ class FunctionBuilder : Visitor
     void visit(TemplateInstanceMaybeTrailerNode node) {}
 
     void visit(ASTTerminal node) {}
+    // Note that we must cater to the whims of updating
+    // this.stackVarAllocSize[curFuncName] with the stack sizes of each variable
+    // declared in this expression
     void visit(VariantIsMatchNode node) {}
     void visit(IdOrWildcardNode node) {}
     void visit(AssignExistingOpNode node) {}

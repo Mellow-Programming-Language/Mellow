@@ -687,6 +687,13 @@ auto getAlignedSize(int[] entries)
     return getAlignedIndexOffset(entries, entries.length);
 }
 
+// Return a value that is the next highest multiple of 8 of the input, or the
+// input if it's already a multiple of 8
+uint stackAlignSize(uint size)
+{
+    return size + (size % 8);
+}
+
 struct VarTypePair
 {
     string varName;
@@ -729,6 +736,8 @@ struct FuncSig
     Type* returnType;
     // Body blocks node, for expanding templates
     FuncBodyBlocksNode funcBodyBlocks;
+    // The total number of bytes named variables will use on the stack
+    uint stackVarAllocSize;
 
     auto format()
     {
