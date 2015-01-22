@@ -275,13 +275,13 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (!resultType.tag != TypeEnum.BOOL
-                || !nextType.tag != TypeEnum.BOOL)
+            if (resultType.tag != TypeEnum.BOOL
+                || nextType.tag != TypeEnum.BOOL)
             {
                 throw new Exception("Non-bool type in LOGIC-OR.");
             }
@@ -295,13 +295,13 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (!resultType.tag != TypeEnum.BOOL
-                || !nextType.tag != TypeEnum.BOOL)
+            if (resultType.tag != TypeEnum.BOOL
+                || nextType.tag != TypeEnum.BOOL)
             {
                 throw new Exception("Non-bool type in LOGIC-AND.");
             }
@@ -393,7 +393,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
@@ -412,7 +412,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
@@ -431,7 +431,7 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        for (auto i = 2; i < node.children.length; i += 2)
+        for (auto i = 1; i < node.children.length; i++)
         {
             node.children[i].accept(this);
             auto nextType = builderStack[$-1][$-1];
