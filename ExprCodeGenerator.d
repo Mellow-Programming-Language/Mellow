@@ -601,11 +601,13 @@ string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
     str ~= noLeftFree ~ ":\n";
     // Deallocate right array if necessary
     str ~= "    cmp    dword [r9], 0\n";
-    str ~= "    jnz    " ~ endRealloc ~ "\n";
+    auto endFree = vars.getUniqLabel;
+    str ~= "    jnz    " ~ endFree ~ "\n";
     str ~= "    mov    rdi, r9\n";
     str ~= compileRegSave(["rax"], vars);
     str ~= "    call   free\n";
     str ~= compileRegRestore(["rax"], vars);
+    str ~= endFree ~ ":\n";
     str ~= "    mov    r8, rax\n";
     str ~= endRealloc ~ ":\n";
     vars.deallocateStackSpace(16);
