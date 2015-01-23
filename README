@@ -5,6 +5,8 @@ which is necessary to build the compiler.
 
 `./compiler --help` will provide a summary of options.
 
+Note that the docs/ directory is woefully out of date.
+
 Programs under examples/ not guaranteed to compile, as some demonstrate
 features that aren't implemented yet.
 
