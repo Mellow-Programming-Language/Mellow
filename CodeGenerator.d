@@ -608,11 +608,14 @@ string compileFunction(FuncSig* sig, Context* vars)
             else
             {
                 vars.stackVars ~= arg;
-                funcHeader_2 ~= "    movsd  qword [rbp-" ~ vars.getTop
-                                                               .to!string
-                                                 ~ "], "
-                                                 ~ FLOAT_REG[floatRegIndex]
-                                                 ~ "\n";
+                // r8 is one of the potential func arg input registers, so store
+                // it temporarily in a free register while we use it to put the
+                // arg on the stack
+                funcHeader_2 ~= "    mov    r10, r8\n";
+                funcHeader_2 ~= "    movsd  r8, " ~ FLOAT_REG[intRegIndex]
+                                                   ~ "\n";
+                funcHeader_2 ~= vars.compileVarSet(arg.varName);
+                funcHeader_2 ~= "    mov    r8, r10\n";
                 floatRegIndex++;
             }
         }
@@ -625,11 +628,14 @@ string compileFunction(FuncSig* sig, Context* vars)
             else
             {
                 vars.stackVars ~= arg;
-                funcHeader_2 ~= "    mov    qword [rbp-" ~ vars.getTop
-                                                               .to!string
-                                                 ~ "], "
-                                                 ~ INT_REG[intRegIndex]
-                                                 ~ "\n";
+                // r8 is one of the potential func arg input registers, so store
+                // it temporarily in a free register while we use it to put the
+                // arg on the stack
+                funcHeader_2 ~= "    mov    r10, r8\n";
+                funcHeader_2 ~= "    mov    r8, " ~ INT_REG[intRegIndex]
+                                                   ~ "\n";
+                funcHeader_2 ~= vars.compileVarSet(arg.varName);
+                funcHeader_2 ~= "    mov    r8, r10\n";
                 intRegIndex++;
             }
         }

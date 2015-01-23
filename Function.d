@@ -218,6 +218,9 @@ class FunctionBuilder : Visitor
             funcSigs ~= lookup.sig;
             foreach (arg; lookup.sig.funcArgs)
             {
+                stackVarAllocSize[curFuncName] += arg.type
+                                                     .size
+                                                     .stackAlignSize;
                 funcScopes[$-1].syms[$-1].decls[arg.varName] = arg;
             }
         }
