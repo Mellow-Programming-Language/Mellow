@@ -798,6 +798,24 @@ bool isNumeric(Type* type)
     }
 }
 
+bool isRefType(Type* type)
+{
+    switch (type.tag)
+    {
+    case TypeEnum.ARRAY:
+    case TypeEnum.STRING:
+    case TypeEnum.HASH:
+    case TypeEnum.SET:
+    case TypeEnum.FUNCPTR:
+    case TypeEnum.STRUCT:
+    case TypeEnum.VARIANT:
+    case TypeEnum.CHAN:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // Return as a result the larger of the two numeric types
 Type* promoteNumeric(Type* left, Type* right)
 {

@@ -613,7 +613,7 @@ string compileFunction(FuncSig* sig, Context* vars)
                 // arg on the stack
                 funcHeader_2 ~= "    mov    r10, r8\n";
                 funcHeader_2 ~= "    movsd  r8, " ~ FLOAT_REG[intRegIndex]
-                                                   ~ "\n";
+                                                  ~ "\n";
                 funcHeader_2 ~= vars.compileVarSet(arg.varName);
                 funcHeader_2 ~= "    mov    r8, r10\n";
                 floatRegIndex++;
@@ -623,6 +623,9 @@ string compileFunction(FuncSig* sig, Context* vars)
         {
             if (intRegIndex >= INT_REG.length)
             {
+
+                // TODO increase the refcount of any reftype passed as an arg
+
                 vars.funcArgs ~= arg;
             }
             else
@@ -633,7 +636,12 @@ string compileFunction(FuncSig* sig, Context* vars)
                 // arg on the stack
                 funcHeader_2 ~= "    mov    r10, r8\n";
                 funcHeader_2 ~= "    mov    r8, " ~ INT_REG[intRegIndex]
-                                                   ~ "\n";
+                                                  ~ "\n";
+                if (arg.type.isRefType)
+                {
+                    // Increase refcount of ref type as argument to function
+                    funcHeader_2 ~= "    add    dword [r8], 1\n";
+                }
                 funcHeader_2 ~= vars.compileVarSet(arg.varName);
                 funcHeader_2 ~= "    mov    r8, r10\n";
                 intRegIndex++;
