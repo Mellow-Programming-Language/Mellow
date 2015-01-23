@@ -240,14 +240,12 @@ string compileSumExpr(SumExprNode node, Context* vars)
             && leftType.tag != TypeEnum.ARRAY
             && rightType.tag != TypeEnum.ARRAY)
         {
+            assert(false, "Unimplemented");
             final switch (op)
             {
             case "+":
-                str ~= "    add    r8, r9\n";
                 break;
             case "-":
-                str ~= "    sub    r9, r8\n";
-                str ~= "    mov    r8, r9\n";
                 break;
             }
         }

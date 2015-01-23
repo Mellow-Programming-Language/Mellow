@@ -4,3 +4,65 @@ parser generator project at https://github.com/CollinReeser/ParserGenerator),
 which is necessary to build the compiler.
 
 `./compiler --help` will provide a summary of options.
+
+Programs under examples/ not guaranteed to compile, as some demonstrate
+features that aren't implemented yet.
+
+Interesting compilable examples:
+- features.clam
+- mergesort.clam
+
+Incomplete list of working features:
+- variables
+- functions
+- function arguments
+- function return values
+- if/else if/else statements with optional variable declarations
+- while loops with optional variable declarations
+- foreach loops with optional index variable
+- strings
+- bools
+- integers
+- floats can be declared
+- array literals
+- array slice ranges
+- array-element append
+- array-array append
+- string-string append
+- array-element append-equals
+- green threads (spawn(), yield)
+- channels (both read and write, with implicit yield)
+- expressions
+- extern func semantics
+- integer comparison operators
+- logical operators (&&, ||, !)
+- array .length property
+
+
+Incomplete list of unimplemented or broken features:
+- array-array append-equals
+- string-string append-equals
+- string-char append-equals
+- string-char append
+- closures
+- meaningful ref-counting
+- structs
+- variants
+- match statements
+- all op-equals operators besides aforementioned append-equals exceptions
+- in blocks
+- out blocks
+- return blocks
+- const semantics
+- interface semantics (pending removal from language)
+- for statement
+- sets
+- hashes
+- function pointers
+- tuples
+- string comparison operators
+- float comparison operators
+- float arithmetic
+- lambdas
+- function templating
+- 'is' expressions
