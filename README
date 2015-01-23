@@ -1,3 +1,7 @@
+This is a work-in-progress compiler for an imperative language that draws
+influence from D, Go, and functional languages, among others. The compiler
+exclusively targets x86-64 Linux.
+
 To build the compiler, run `make` in the toplevel project directory. Note that
 the `make` process will attempt to `git clone` a secondary repository (the
 parser generator project at https://github.com/CollinReeser/ParserGenerator),
