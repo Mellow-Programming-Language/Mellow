@@ -9,6 +9,7 @@ Programs under examples/ not guaranteed to compile, as some demonstrate
 features that aren't implemented yet.
 
 Interesting compilable examples:
+- intToString.clam
 - features.clam
 - mergesort.clam
 

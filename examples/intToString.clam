@@ -1,48 +1,17 @@
 
+extern func writeln(str: string);
 
 func intToString(val: int): string {
-    conv := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-
-    func _intToStringPos(posVal: int): string {
-        match (posVal) {
-            when 0..9 :: return conv[posVal];
-            when _    :: return _intToStringPos(posVal / 10)
-                              ~ _intToStringPos(posVal % 10);
-        }
-    }
-
     if (val < 0) {
-        return "-" ~ _intToStringPos(val * -1);
+        return "-" ~ intToString(val * -1);
     }
-    return _intToStringPos(val);
-}
-
-func intToStringNotDumb(val: int): string {
-    if (val < 0) {
-        return "-" ~ intToStringPos(val * -1);
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
     }
-    return intToStringPos(val);
-}
-
-func intToStringPos(val: int): string {
-    match (val) {
-        when 0 :: return "0";
-        when 1 :: return "1";
-        when 2 :: return "2";
-        when 3 :: return "3";
-        when 4 :: return "4";
-        when 5 :: return "5";
-        when 6 :: return "6";
-        when 7 :: return "7";
-        when 8 :: return "8";
-        when 9 :: return "9";
-        when _ :: return intToStringPos(val / 10)
-                       ~ intToStringPos(val % 10);
-    }
+    return intToString(val / 10) ~ intToString(val % 10);
 }
 
 func main() {
-    if (str := intToStringNotDumb(4321); str == "4321") {
-        writeln("It worked! str == " ~ str);
-    }
+    writeln("intToString: " ~ intToString(12345));
 }
