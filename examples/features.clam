@@ -1,0 +1,40 @@
+
+extern func writeln(str: string);
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+func hailstone(start: int, result: chan!([]int)) {
+    arr := [start];
+    while (start != 1) {
+        if (start % 2 == 0) {
+            start = start / 2;
+        }
+        else {
+            start = start * 3 + 1;
+        }
+        arr ~= start;
+    }
+    result <-= arr;
+}
+
+func main(argv: []string) {
+    writeln(argv[0]);
+    result: chan!([]int);
+    startVal := 20;
+    writeln(
+        "Spawning thread to calculate hailstone of " ~ intToString(startVal)
+    );
+    spawn hailstone(startVal, result);
+    foreach (x; <-result) {
+        writeln(intToString(x));
+    }
+}

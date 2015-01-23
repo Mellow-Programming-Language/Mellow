@@ -1,0 +1,55 @@
+
+extern func writeln(str: string);
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+func mergesort(vals: []int): []int {
+    if (vals.length <= 1) {
+        return vals;
+    }
+    left := mergesort(vals[..$/2]);
+    right := mergesort(vals[$/2..]);
+    if (left[$-1] <= right[0]) {
+        return left ~ right;
+    }
+    return merge(left, right);
+}
+
+func merge(left: []int, right: []int): []int {
+    result: [left.length + right.length]int;
+    while (resIndex := 0; left.length > 0 && right.length > 0) {
+        if (left[0] <= right[0]) {
+            result[resIndex] = left[0];
+            left = left[1..];
+        }
+        else {
+            result[resIndex] = right[0];
+            right = right[1..];
+        }
+        resIndex = resIndex + 1;
+    }
+    if (left.length > 0) {
+        result[$-1] = left[0];
+    }
+    else if (right.length > 0) {
+        result[$-1] = right[0];
+    }
+    return result;
+}
+
+func main() {
+    arr := [1, 5, 2, 6, 4];
+    arr = mergesort(arr);
+    foreach (x; arr) {
+        writeln(intToString(x));
+    }
+}
