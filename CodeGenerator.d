@@ -1341,6 +1341,19 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
         assert(false, "Unimplemented");
     }
     else if (cast(SingleIndexNode)child) {
+
+        // TODO this doesn't hold up to recursive array accesses. An array
+        // index access inside of an array index access will overwrite the
+        // length sentinel for the parent access, and then it will be invalid
+        // for the rest of the calculation once the inner access is exited.
+        // As in: arr[$-arr2[$-1]+$/2], the second arr $ (the third $ overall)
+        // is now invalid
+
+        // Populate length sentinel
+        str ~= "    mov    r9, [r8]\n";
+        str ~= "    mov    r10, 0\n";
+        str ~= "    mov    r10d, dword [r9+4]\n";
+        str ~= "    mov    qword [__ZZlengthSentinel], r10\n";
         str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
         str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
         // [r9] is the actual variable we're indexing, so

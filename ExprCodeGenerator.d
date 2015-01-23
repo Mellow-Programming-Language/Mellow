@@ -1066,6 +1066,14 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
     auto indexType = node.data["type"].get!(Type*);
     auto str = "";
     vars.bssQWordAllocs["__ZZlengthSentinel"] = true;
+
+    // TODO this doesn't hold up to recursive array accesses. An array
+    // index access inside of an array index access will overwrite the
+    // length sentinel for the parent access, and then it will be invalid
+    // for the rest of the calculation once the inner access is exited.
+    // As in: arr[$-arr2[$-1]+$/2], the second arr $ (the third $ overall)
+    // is now invalid
+
     // Get length of array in r9, and store it in the bss __ZZlengthSentinel loc
     str ~= "    mov    r9, 0\n";
     str ~= "    mov    r9d, dword [r8+4]\n";
@@ -1193,6 +1201,7 @@ string compileSlicing(SlicingNode node, Context* vars)
 string compileSingleIndex(SingleIndexNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    vars.bssQWordAllocs["__ZZlengthSentinel"] = true;
     return compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
 }
 
