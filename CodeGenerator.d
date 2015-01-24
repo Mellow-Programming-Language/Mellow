@@ -1077,7 +1077,7 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
             scope (exit) vars.deallocateStackSpace(8);
             auto arrayLenLoc = vars.getTop.to!string;
             str ~= "    mov    qword [rbp-" ~ arrayLenLoc ~ "], r8\n";
-            auto allocLength = getAllocSizeAsm("r8", "rdi");
+            str ~= getAllocSizeAsm("r8", "rdi");
             str ~= "    imul   rdi, " ~ elemSize.to!string ~ "\n";
             str ~= "    add    rdi, 8\n";
             str ~= "    call   malloc\n";
