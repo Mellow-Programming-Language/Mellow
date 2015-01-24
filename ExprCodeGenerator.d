@@ -336,10 +336,8 @@ string compileStringStringAppend(Context* vars)
     auto str = "";
     auto endRealloc = vars.getUniqLabel();
     // Get size of left string
-    str ~= "    mov    r10, 0\n";
     str ~= "    mov    r10d, dword [r8+4]\n";
     // Get size of right string
-    str ~= "    mov    r11, 0\n";
     str ~= "    mov    r11d, dword [r9+4]\n";
     vars.allocateStackSpace(8);
     auto r10Save = vars.getTop.to!string;
@@ -474,10 +472,8 @@ string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
     auto str = "";
     auto endRealloc = vars.getUniqLabel();
     // Get size of left array
-    str ~= "    mov    r10, 0\n";
     str ~= "    mov    r10d, dword [r8+4]\n";
     // Get size of right array
-    str ~= "    mov    r11, 0\n";
     str ~= "    mov    r11d, dword [r9+4]\n";
     vars.allocateStackSpace(8);
     auto r10Save = vars.getTop.to!string;
@@ -617,7 +613,6 @@ string compileArrayElemAppend(Context* vars, uint arrayTypeSize)
     auto str = "";
     auto endRealloc = vars.getUniqLabel();
     // Get size of left array
-    str ~= "    mov    r10, 0\n";
     str ~= "    mov    r10d, dword [r8+4]\n";
     vars.allocateStackSpace(8);
     scope (exit) vars.deallocateStackSpace(8);
@@ -1073,7 +1068,6 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
     // is now invalid
 
     // Get length of array in r9, and store it in the bss __ZZlengthSentinel loc
-    str ~= "    mov    r9, 0\n";
     str ~= "    mov    r9d, dword [r8+4]\n";
     str ~= "    mov    qword [__ZZlengthSentinel], r9\n";
     // Put the indexed-into variable on the stack
@@ -1282,7 +1276,6 @@ string compileDotAccess(DotAccessNode node, Context* vars)
         {
             // Grab the length of the string or array and throw it back into r8
             str ~= "    mov    r9, r8\n";
-            str ~= "    mov    r8, 0\n";
             str ~= "    mov    r8d, dword [r9+4]\n";
         }
     }

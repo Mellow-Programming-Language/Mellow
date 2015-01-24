@@ -926,7 +926,6 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
             str ~= "    mov    r8, r11\n";
         }
         // Get the array size
-        str ~= "    mov    r9, 0\n";
         str ~= "    mov    r9d, dword [r8+4]\n";
         str ~= "    cmp    r10, r9\n";
         str ~= "    jge    " ~ endForeach
@@ -1269,7 +1268,6 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
     // Get actual array pointer from the address of the pointer in r8
     str ~= "    mov    r13, [r8]\n";
     // Get array length
-    str ~= "    mov    r10, 0\n";
     str ~= "    mov    r10d, dword [r13+4]\n";
     // Get alloc size in r12
     str ~= "    mov    r11, r10\n";
@@ -1376,7 +1374,6 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
 
         // Populate length sentinel
         str ~= "    mov    r9, [r8]\n";
-        str ~= "    mov    r10, 0\n";
         str ~= "    mov    r10d, dword [r9+4]\n";
         str ~= "    mov    qword [__ZZlengthSentinel], r10\n";
         str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
