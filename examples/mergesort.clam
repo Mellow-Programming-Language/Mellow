@@ -12,6 +12,19 @@ func intToString(val: int): string {
     return intToString(val / 10) ~ intToString(val % 10);
 }
 
+func formatArray(vals: []int): string {
+    str := "[";
+    if (vals.length > 0) {
+        str = str ~ intToString(vals[0]);
+    }
+    if (vals.length > 1) {
+        foreach (x; vals[1..]) {
+            str = str ~ ", " ~ intToString(x);
+        }
+    }
+    return str ~ "]";
+}
+
 func mergesort(vals: []int): []int {
     if (vals.length <= 1) {
         return vals;
@@ -26,8 +39,8 @@ func mergesort(vals: []int): []int {
 
 func merge(left: []int, right: []int): []int {
     result: [left.length + right.length]int;
-    while (resIndex := 0; left.length > 0 && right.length > 0) {
-        if (left[0] <= right[0]) {
+    while (resIndex := 0; left.length > 0 || right.length > 0) {
+        if (right.length == 0 || left[0] <= right[0]) {
             result[resIndex] = left[0];
             left = left[1..];
         }
@@ -37,19 +50,10 @@ func merge(left: []int, right: []int): []int {
         }
         resIndex = resIndex + 1;
     }
-    if (left.length > 0) {
-        result[$-1] = left[0];
-    }
-    else if (right.length > 0) {
-        result[$-1] = right[0];
-    }
     return result;
 }
 
 func main() {
-    arr := [1, 5, 2, 6, 4];
-    arr = mergesort(arr);
-    foreach (x; arr) {
-        writeln(intToString(x));
-    }
+    arr := [1, 9, 2, 8, 3, 7, 4, 6, 5];
+    writeln(formatArray(mergesort(arr)));
 }
