@@ -816,6 +816,19 @@ bool isRefType(Type* type)
     }
 }
 
+bool needsSignExtend(Type* type)
+{
+    switch (type.tag)
+    {
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // Return as a result the larger of the two numeric types
 Type* promoteNumeric(Type* left, Type* right)
 {

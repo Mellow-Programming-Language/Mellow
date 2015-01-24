@@ -390,17 +390,24 @@ struct Context
                            ? ENVIRON_PTR_SIZE
                            : 0;
         const retValOffset = retType.size;
+        auto str = "";
         foreach (i, var; funcArgs)
         {
             if (varName == var.varName)
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov    r8, qword [rbp+"
+                    str ~= "    mov    r8, qword [rbp+"
                         ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                            getOffset(funcArgs, i)).to!string ~ "]\n";
+                    if (var.type.needsSignExtend)
+                    {
+                        str ~= "    movsx  r8, r8"
+                            ~ getRRegSuffix(var.type.size)
+                            ~ "\n";
+                    }
                 }
-                return "    mov    r8, qword [rbp+"
+                str ~= "    mov    r8, qword [rbp+"
                     ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
                        getOffset(funcArgs, i)).to!string ~ "]\n"
                     ~ "    mov    r9, qword [rbp+"
@@ -412,18 +419,22 @@ struct Context
         {
             if (varName == var.varName)
             {
-                auto str = "    mov    r10, [rbp+8]\n";
+                str ~= "    mov    r10, [rbp+8]\n";
                 if (var.type.size <= 8)
                 {
                     str ~= "    mov    r8, qword [r10+"
                         ~ getOffset(closureVars, i).to!string ~ "]\n";
-                    return str;
+                    if (var.type.needsSignExtend)
+                    {
+                        str ~= "    movsx  r8, r8"
+                            ~ getRRegSuffix(var.type.size)
+                            ~ "\n";
+                    }
                 }
                 str ~= "    mov    r8, qword [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "]\n"
                     ~ "    mov    r9, qword [r10+"
                     ~ getOffset(funcArgs, i).to!string ~ "]\n";
-                return str;
             }
         }
         foreach (i, var; stackVars)
@@ -432,17 +443,22 @@ struct Context
             {
                 if (var.type.size <= 8)
                 {
-                    return "    mov    r8, qword [rbp-"
+                    str ~= "    mov    r8, qword [rbp-"
                         ~ ((i + 1) * 8).to!string ~ "]\n";
+                    if (var.type.needsSignExtend)
+                    {
+                        str ~= "    movsx  r8, r8"
+                            ~ getRRegSuffix(var.type.size)
+                            ~ "\n";
+                    }
                 }
-                return "    mov    r8, qword [rbp-"
+                str ~= "    mov    r8, qword [rbp-"
                     ~ ((i + 1) * 8).to!string ~ "]\n"
                     ~ "    mov    r9, qword [rbp-"
                     ~ ((i + 1) * 8 + 8).to!string ~ "]\n";
             }
         }
-        assert(false);
-        return "";
+        return str;
     }
 
     string compileVarAddress(string varName)
@@ -924,11 +940,20 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         str ~= "    add    r10, 8\n";
         // Actually add in the array pointer value
         str ~= "    add    r10, r8\n";
-        // Get the element in r11
-        str ~= "    mov    r11" ~ getRRegSuffix(elemSize)
-                                ~ ", "
-                                ~ getWordSize(elemSize)
-                                ~ " [r10]\n";
+        if (loopType.array.arrayType.needsSignExtend)
+        {
+            // Get the element in r11
+            str ~= "    movsx  r11, " ~ getWordSize(elemSize)
+                                      ~ " [r10]\n";
+        }
+        else
+        {
+            // Get the element in r11
+            str ~= "    mov    r11" ~ getRRegSuffix(elemSize)
+                                    ~ ", "
+                                    ~ getWordSize(elemSize)
+                                    ~ " [r10]\n";
+        }
         // Preserve the array
         str ~= "    mov    qword [rbp-" ~ arrayLoc
                                         ~ "], r8\n";

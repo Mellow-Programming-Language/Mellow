@@ -1149,10 +1149,18 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         // Clear r10 because we might not be moving eight bytes into the reg
         str ~= "    mov    r10, 0\n";
         // Actually grab the value
-        str ~= "    mov    r10" ~ getRRegSuffix(resultType.size)
-                               ~ ", "
-                               ~ getWordSize(resultType.size)
-                               ~ " [r8]\n";
+        if (resultType.needsSignExtend)
+        {
+            str ~= "    movsx  r10, " ~ getWordSize(resultType.size)
+                                      ~ " [r8]\n";
+        }
+        else
+        {
+            str ~= "    mov    r10" ~ getRRegSuffix(resultType.size)
+                                    ~ ", "
+                                    ~ getWordSize(resultType.size)
+                                    ~ " [r8]\n";
+        }
         str ~= "    mov    r8, r10\n";
         if (node.children.length > 1)
         {
