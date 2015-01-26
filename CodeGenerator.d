@@ -56,6 +56,9 @@ const ENVIRON_PTR_SIZE = 8;
 
 const CLAM_PTR_SIZE = 8; // sizeof(char*))
 const REF_COUNT_SIZE = 4; // sizeof(uint32_t))
+// THe struct buffer bytes are simply so that the elements of the struct are
+// aligned on an eight-byte boundary to begin with
+const STRUCT_BUFFER_SIZE = 4; // sizeof(uint32_t))
 const CLAM_STR_SIZE = 4; // sizeof(uint32_t))
 const CHAN_VALID_SIZE = 4; // sizeof(uint32_t))
 const STR_START_OFFSET = REF_COUNT_SIZE + CLAM_STR_SIZE;
@@ -165,20 +168,15 @@ auto getAllocSize(ulong requestedSize)
 auto getStructAllocSize(StructType* type)
 {
     return REF_COUNT_SIZE
-        + type.members
-              .map!(a => a.type.size)
-              .array
-              .getAlignedSize;
+        + STRUCT_BUFFER_SIZE
+        + type.size;
 }
 
 auto getVariantAllocSize(VariantType* type)
 {
     return REF_COUNT_SIZE
          + VARIANT_TAG_SIZE
-         + type.members
-               .map!(a => a.constructorElems.size)
-               .array
-               .reduce!((a, b) => max(a, b));
+         + type.size;
 }
 
 // Derived from "gcc -S -O2" on:
@@ -1358,10 +1356,22 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
     auto str = "";
     vars.allocateStackSpace(8);
     auto valLoc = vars.getTop.to!string;
+    scope (exit) vars.deallocateStackSpace(8);
     str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
     auto child = node.children[0];
     if (cast(IdentifierNode)child) {
-        assert(false, "Unimplemented");
+        auto memberName = getIdentifier(cast(IdentifierNode)child);
+        auto memberOffset = parentType.structDef
+                                      .getOffsetOfMember(memberName);
+        // Get the struct pointer. Since this is an L-or-R-value calculation,
+        // and UFCS is not allowed syntactically, then the only thing that can
+        // be doing a dot access is a pointer with elements.
+        str ~= "    mov    r8, qword [r8]\n";
+        // r8 is now a pointer to the beginning of the member of the struct
+        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+                                  + STRUCT_BUFFER_SIZE
+                                  + memberOffset).to!string
+                                 ~ "\n";
     }
     else if (cast(SingleIndexNode)child) {
 
@@ -1395,7 +1405,6 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
             );
         }
     }
-    vars.deallocateStackSpace(8);
     return str;
 }
 

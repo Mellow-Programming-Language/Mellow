@@ -941,6 +941,10 @@ class FunctionBuilder : Visitor
                                                    .decls[varName]
                                                    .type;
         lvalue = varType.copy;
+        if (lvalue.tag == TypeEnum.AGGREGATE)
+        {
+            lvalue = instantiateAggregate(records, lvalue.aggregate);
+        }
         node.data["type"] = lvalue.copy;
         if (node.children.length > 1)
         {
@@ -950,10 +954,6 @@ class FunctionBuilder : Visitor
 
     void visit(LorRTrailerNode node)
     {
-        if (lvalue.tag == TypeEnum.AGGREGATE)
-        {
-            lvalue = instantiateAggregate(records, lvalue.aggregate);
-        }
         node.data["parenttype"] = lvalue;
         if (cast(IdentifierNode)node.children[0]) {
             if (lvalue.tag != TypeEnum.STRUCT)
@@ -969,7 +969,14 @@ class FunctionBuilder : Visitor
                 {
                     found = true;
                     lvalue = member.type.copy;
-                    node.data["type"] = member.type.copy;
+                    if (lvalue.tag == TypeEnum.AGGREGATE)
+                    {
+                        lvalue = instantiateAggregate(
+                            records,
+                            lvalue.aggregate
+                        );
+                    }
+                    node.data["type"] = lvalue.copy;
                 }
             }
             if (!found)
@@ -990,6 +997,10 @@ class FunctionBuilder : Visitor
             node.children[0].accept(this);
             insideSlice--;
             lvalue = lvalue.array.arrayType.copy;
+            if (lvalue.tag == TypeEnum.AGGREGATE)
+            {
+                lvalue = instantiateAggregate(records, lvalue.aggregate);
+            }
             node.data["type"] = lvalue.copy;
             if (node.children.length > 1)
             {

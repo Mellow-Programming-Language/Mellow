@@ -2,6 +2,8 @@ import std.stdio;
 import std.algorithm;
 import std.range;
 import std.conv;
+import Record;
+import utils;
 import parser;
 
 const PTR_SIZE = 8;
@@ -308,6 +310,32 @@ struct StructType
                       .array
                       .getAlignedSize;
     }
+
+    auto getMember(string memberName)
+    {
+        foreach (i, member; members)
+        {
+            if (member.name == memberName)
+            {
+                return member;
+            }
+        }
+        assert(false, "Unreachable");
+    }
+
+    auto getOffsetOfMember(string memberName)
+    {
+        int[] memberSizes;
+        foreach (i, member; members)
+        {
+            memberSizes ~= member.type.size;
+            if (member.name == memberName)
+            {
+                return getAlignedIndexOffset(memberSizes, i);
+            }
+        }
+        assert(false, "Unreachable");
+    }
 }
 
 struct VariantMember
@@ -452,6 +480,7 @@ struct ChanType
 
 struct Type
 {
+    static RecordBuilder records;
     TypeEnum tag;
     bool constType;
     union {
@@ -638,11 +667,18 @@ struct Type
                                               .map!(a => a.size)
                                               .array
                                               .getAlignedSize;
-        // Aggregate types are simply placeholders for instantiated struct and
-        // variant types. If we are comparing against an aggregate, we failed
-        // to perform an instantiation somewhere
         case TypeEnum.AGGREGATE :
-            throw new Exception("Aggregate type was not instantiated");
+            if (Type.records is null)
+            {
+                throw new Exception(
+                    "Aggregate type was not instantiated and cannot "
+                    "auto-instantiate"
+                );
+            }
+            return instantiateAggregate(
+                Type.records,
+                this.copy.aggregate
+            ).size;
         }
     }
 }

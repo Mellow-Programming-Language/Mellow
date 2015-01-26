@@ -1279,6 +1279,30 @@ string compileDotAccess(DotAccessNode node, Context* vars)
             str ~= "    mov    r8d, dword [r9+4]\n";
         }
     }
+    else if (accessedType.tag == TypeEnum.STRUCT)
+    {
+        auto member = accessedType.structDef
+                                  .getMember(id);
+        auto memberOffset = accessedType.structDef
+                                        .getOffsetOfMember(id);
+        auto memberSize = member.type.size;
+        // r8 is now a pointer to the beginning of the member of the struct
+        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+                                  + STRUCT_BUFFER_SIZE
+                                  + memberOffset).to!string
+                                 ~ "\n";
+        // If it's not an 8-byte or 4-byte mov, we need to zero the target
+        // register
+        if (memberSize < 4)
+        {
+            str ~= "    mov    r9, 0\n";
+        }
+        str ~= "    mov    r9" ~ getRRegSuffix(memberSize)
+                               ~ ", "
+                               ~ getWordSize(memberSize)
+                               ~ "[r8]\n";
+        str ~= "    mov    r8, r9\n";
+    }
     else
     {
         assert(false, "Unimplemented");
