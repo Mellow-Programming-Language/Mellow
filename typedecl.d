@@ -2,8 +2,6 @@ import std.stdio;
 import std.algorithm;
 import std.range;
 import std.conv;
-import Record;
-import utils;
 import parser;
 
 const PTR_SIZE = 8;
@@ -480,7 +478,6 @@ struct ChanType
 
 struct Type
 {
-    static RecordBuilder records;
     TypeEnum tag;
     bool constType;
     union {
@@ -668,17 +665,7 @@ struct Type
                                               .array
                                               .getAlignedSize;
         case TypeEnum.AGGREGATE :
-            if (Type.records is null)
-            {
-                throw new Exception(
-                    "Aggregate type was not instantiated and cannot "
-                    "auto-instantiate"
-                );
-            }
-            return instantiateAggregate(
-                Type.records,
-                this.copy.aggregate
-            ).size;
+            throw new Exception("Aggregate type was not instantiated");
         }
     }
 }

@@ -940,11 +940,7 @@ class FunctionBuilder : Visitor
         auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
                                                    .decls[varName]
                                                    .type;
-        lvalue = varType.copy;
-        if (lvalue.tag == TypeEnum.AGGREGATE)
-        {
-            lvalue = instantiateAggregate(records, lvalue.aggregate);
-        }
+        lvalue = varType.normalize(records);
         node.data["type"] = lvalue.copy;
         if (node.children.length > 1)
         {
@@ -968,14 +964,7 @@ class FunctionBuilder : Visitor
                 if (memberName == member.name)
                 {
                     found = true;
-                    lvalue = member.type.copy;
-                    if (lvalue.tag == TypeEnum.AGGREGATE)
-                    {
-                        lvalue = instantiateAggregate(
-                            records,
-                            lvalue.aggregate
-                        );
-                    }
+                    lvalue = member.type.normalize(records);
                     node.data["type"] = lvalue.copy;
                 }
             }
@@ -996,11 +985,7 @@ class FunctionBuilder : Visitor
             insideSlice++;
             node.children[0].accept(this);
             insideSlice--;
-            lvalue = lvalue.array.arrayType.copy;
-            if (lvalue.tag == TypeEnum.AGGREGATE)
-            {
-                lvalue = instantiateAggregate(records, lvalue.aggregate);
-            }
+            lvalue = lvalue.array.arrayType.normalize(records);
             node.data["type"] = lvalue.copy;
             if (node.children.length > 1)
             {
@@ -1155,7 +1140,10 @@ class FunctionBuilder : Visitor
             aggregate.templateInstantiations = builderStack[$-1];
             builderStack.length--;
         }
-        builderStack[$-1] ~= instantiateAggregate(records, aggregate);
+        auto wrap = new Type();
+        wrap.tag = TypeEnum.AGGREGATE;
+        wrap.aggregate = aggregate;
+        builderStack[$-1] ~= normalize(wrap, records);
     }
 
     void visit(FuncCallTrailerNode node)
@@ -1225,10 +1213,7 @@ class FunctionBuilder : Visitor
         auto curType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         node.data["type"] = curType.copy;
-        if (curType.tag == TypeEnum.AGGREGATE)
-        {
-            curType = instantiateAggregate(records, curType.aggregate);
-        }
+        curType = normalize(curType, records);
         // If the dot-access is with a struct, then we need to check if this is
         // any of all three of member method, member value, or UFCS (if the
         // function isn't a member function, but still takes the struct type

@@ -23,7 +23,6 @@ int main(string[] argv)
     if (topNode !is null)
     {
         auto records = new RecordBuilder(cast(ProgramNode)topNode);
-        Type.records = records;
         auto funcSigs = new FunctionSigBuilder(cast(ProgramNode)topNode,
             records);
         auto funcs = new FunctionBuilder(cast(ProgramNode)topNode, records,

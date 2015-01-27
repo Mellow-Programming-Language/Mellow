@@ -134,6 +134,24 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
     return type;
 }
 
+Type* normalize(Type* type, RecordBuilder records)
+{
+    type = type.copy;
+    if (type.tag == TypeEnum.AGGREGATE)
+    {
+        type = instantiateAggregate(records, type.aggregate);
+    }
+    if (type.tag == TypeEnum.STRUCT)
+    {
+        type = normalizeStructDefs(records, type.structDef);
+    }
+    if (type.tag == TypeEnum.VARIANT)
+    {
+        type = normalizeVariantDefs(records, type.variantDef);
+    }
+    return type;
+}
+
 VariantType* variantFromConstructor(RecordBuilder records, string constructor)
 {
     auto variantDefs = records.variantDefs;
