@@ -151,6 +151,8 @@ class FunctionBuilder : Visitor
     private string[] foreachArgs;
     private uint[string] stackVarAllocSize;
     private string curFuncName;
+    private VariantType* curVariant;
+    private VariantMember curConstructor;
 
     mixin TypeVisitors;
 
@@ -261,6 +263,7 @@ class FunctionBuilder : Visitor
         {
             child.accept(this);
         }
+        funcScopes[$-1].syms.format.writeln;
         funcScopes[$-1].syms.length--;
     }
 
@@ -622,9 +625,13 @@ class FunctionBuilder : Visitor
             auto name = id;
             auto varLookup = funcScopes.scopeLookup(name);
             auto funcLookup = funcSigLookup(toplevelFuncs, name);
-            if (!varLookup.success && !funcLookup.success)
+            auto variant = variantFromConstructor(records, name);
+            if (!varLookup.success && !funcLookup.success && variant is null)
             {
-                throw new Exception("No variable or function[" ~ name ~ "].");
+                throw new Exception(
+                    "No variable, function, or variant constructor [" ~ name
+                                                                      ~ "]."
+                );
             }
             else if (varLookup.success)
             {
@@ -634,6 +641,11 @@ class FunctionBuilder : Visitor
                                     .decls[name]
                                     .type;
                 builderStack[$-1] ~= varType;
+            }
+            else if (variant !is null)
+            {
+                curVariant = variant;
+                curConstructor = variant.getMember(name);
             }
             else if (funcLookup.success)
             {
@@ -1116,6 +1128,37 @@ class FunctionBuilder : Visitor
         node.data["type"] = builderStack[$-1][$-1];
     }
 
+    void visit(TemplateInstanceMaybeTrailerNode node)
+    {
+        if (curFuncCallSig !is null)
+        {
+            assert(false, "Unimplemented");
+        }
+        else if (curVariant !is null)
+        {
+            builderStack.length++;
+            node.children[0].accept(this);
+            auto templateInstantiations = builderStack[$-1];
+            builderStack.length--;
+            Type*[string] mappings;
+            foreach (name, type; lockstep(curVariant.templateParams,
+                                          templateInstantiations))
+            {
+                mappings[name] = type;
+            }
+            curVariant.instantiate(mappings);
+        }
+
+        // TODO struct case of template instantiation
+
+        //else if () {}
+
+        if (node.children.length > 1)
+        {
+            node.children[1].accept(this);
+        }
+    }
+
     void visit(SliceLengthSentinelNode node)
     {
         if (insideSlice < 1)
@@ -1180,6 +1223,34 @@ class FunctionBuilder : Visitor
                 }
             }
             builderStack[$-1] ~= funcSig.returnType;
+        }
+        else if (curVariant !is null)
+        {
+            auto variant = curVariant;
+            curVariant = null;
+            auto expectedTypes = curConstructor.constructorElems
+                                                  .tuple
+                                                  .types;
+            foreach (child, typeExpected; lockstep(node.children,
+                                                   expectedTypes))
+            {
+                child.accept(this);
+                auto typeGot = builderStack[$-1][$-1];
+                builderStack[$-1] = builderStack[$-1][0..$-1];
+                if (!typeExpected.cmp(typeGot))
+                {
+                    throw new Exception(
+                        "Mismatch between expected and passed variant "
+                        "constructor instantiation type: \n"
+                      ~ "  Expected: " ~ typeExpected.format ~ "\n"
+                      ~ "  Got:      " ~ typeGot.format
+                    );
+                }
+            }
+            auto wrap = new Type();
+            wrap.tag = TypeEnum.VARIANT;
+            wrap.variantDef = variant;
+            builderStack[$-1] ~= wrap;
         }
     }
 
@@ -1755,7 +1826,6 @@ class FunctionBuilder : Visitor
     void visit(InterfaceDefNode node) {}
     void visit(InterfaceBodyNode node) {}
     void visit(InterfaceEntryNode node) {}
-    void visit(TemplateInstanceMaybeTrailerNode node) {}
 
     void visit(ASTTerminal node) {}
     // Note that we must cater to the whims of updating

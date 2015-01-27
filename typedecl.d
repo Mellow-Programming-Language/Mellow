@@ -432,14 +432,16 @@ struct VariantType
         auto missing = mappings.keys.setSymmetricDifference(templateParams);
         if (missing.walkLength > 0)
         {
-            "VariantType.instantiate(): The passed mapping does not contain\n"
-            "  keys that correspond exactly with the known template parameter\n"
-            "  names. Not attempting to instantiate.\n"
-            "  The missing mappings are: ".writeln;
+            auto str = q"EOF
+VariantType.instantiate(): The passed mapping does not contain keys that
+correspond exactly with the known template parameter names. Not attempting to
+instantiate. The missing mappings are:
+EOF";
             foreach (name; missing)
             {
-                writeln("  ", name);
+                str ~= "  " ~ name ~ "\n";
             }
+            throw new Exception(str);
         }
         foreach (ref member; members)
         {
@@ -456,6 +458,18 @@ struct VariantType
     {
         return members.map!(a => a.size)
                       .reduce!(max);
+    }
+
+    auto getMember(string memberName)
+    {
+        foreach (i, member; members)
+        {
+            if (member.constructorName == memberName)
+            {
+                return member;
+            }
+        }
+        assert(false, "Unreachable");
     }
 }
 
