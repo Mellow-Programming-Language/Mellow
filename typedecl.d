@@ -583,72 +583,6 @@ struct Type
         }
     }
 
-    bool cmp(const Type* o) const
-    {
-        if (constType != o.constType || tag != o.tag)
-        {
-            return false;
-        }
-        final switch (tag)
-        {
-        case TypeEnum.VOID:
-        case TypeEnum.LONG:
-        case TypeEnum.INT:
-        case TypeEnum.SHORT:
-        case TypeEnum.BYTE:
-        case TypeEnum.FLOAT:
-        case TypeEnum.DOUBLE:
-        case TypeEnum.CHAR:
-        case TypeEnum.BOOL:
-        case TypeEnum.STRING:
-            return true;
-        case TypeEnum.SET:
-            return set.setType.cmp(o.set.setType);
-        case TypeEnum.HASH:
-            return hash.keyType.cmp(o.hash.keyType)
-                && hash.valueType.cmp(o.hash.valueType);
-        case TypeEnum.ARRAY:
-            return array.arrayType.cmp(o.array.arrayType);
-        case TypeEnum.TUPLE:
-            return tuple.types.length == o.tuple.types.length
-                && zip(tuple.types, o.tuple.types)
-                  .map!(a => a[0].cmp(a[1]))
-                  .reduce!((a, b) => true == a && a == b);
-        case TypeEnum.FUNCPTR:
-            return funcPtr.returnType.cmp(o.funcPtr.returnType)
-                && funcPtr.funcArgs.length == o.funcPtr.funcArgs.length
-                && zip(funcPtr.funcArgs,
-                       o.funcPtr.funcArgs)
-                  .map!(a => a[0].cmp(a[1]))
-                  .reduce!((a, b) => true == a && a == b);
-        case TypeEnum.STRUCT:
-            return structDef.name == o.structDef.name
-                && structDef.members.length == o.structDef.members.length
-                && zip(structDef.members,
-                       o.structDef.members)
-                  .map!(a => a[0].type.cmp(a[1].type))
-                  .reduce!((a, b) => true == a && a == b);
-        case TypeEnum.VARIANT:
-            return variantDef.name == o.variantDef.name
-                && zip(variantDef.members,
-                       o.variantDef.members)
-                  .map!(a => a[0].constructorName == a[1].constructorName
-                          && a[0].constructorElems.cmp(a[1].constructorElems))
-                  .reduce!((a, b) => true == a && a == b);
-        case TypeEnum.AGGREGATE:
-            return aggregate.typeName == o.aggregate.typeName
-                && aggregate.templateInstantiations.length ==
-                 o.aggregate.templateInstantiations.length
-                && reduce!((a, b) => true == a && a == b)(
-                        true,
-                        zip(aggregate.templateInstantiations,
-                          o.aggregate.templateInstantiations)
-                        .map!(a => a[0].cmp(a[1])));
-        case TypeEnum.CHAN:
-            return chan.chanType.cmp(o.chan.chanType);
-        }
-    }
-
     auto size()
     {
         final switch (tag)
@@ -678,6 +612,77 @@ struct Type
         case TypeEnum.AGGREGATE :
             throw new Exception("Aggregate type was not instantiated");
         }
+    }
+}
+
+bool cmp(const Type* me, const Type* o)
+{
+    // Pointer comparison
+    if (me == o)
+    {
+        return true;
+    }
+    if (me.constType != o.constType || me.tag != o.tag)
+    {
+        return false;
+    }
+    final switch (me.tag)
+    {
+    case TypeEnum.VOID:
+    case TypeEnum.LONG:
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+    case TypeEnum.FLOAT:
+    case TypeEnum.DOUBLE:
+    case TypeEnum.CHAR:
+    case TypeEnum.BOOL:
+    case TypeEnum.STRING:
+        return true;
+    case TypeEnum.SET:
+        return me.set.setType.cmp(o.set.setType);
+    case TypeEnum.HASH:
+        return me.hash.keyType.cmp(o.hash.keyType)
+            && me.hash.valueType.cmp(o.hash.valueType);
+    case TypeEnum.ARRAY:
+        return me.array.arrayType.cmp(o.array.arrayType);
+    case TypeEnum.TUPLE:
+        return me.tuple.types.length == o.tuple.types.length
+            && zip(me.tuple.types, o.tuple.types)
+              .map!(a => a[0].cmp(a[1]))
+              .reduce!((a, b) => true == a && a == b);
+    case TypeEnum.FUNCPTR:
+        return me.funcPtr.returnType.cmp(o.funcPtr.returnType)
+            && me.funcPtr.funcArgs.length == o.funcPtr.funcArgs.length
+            && zip(me.funcPtr.funcArgs,
+                   o.funcPtr.funcArgs)
+              .map!(a => a[0].cmp(a[1]))
+              .reduce!((a, b) => true == a && a == b);
+    case TypeEnum.STRUCT:
+        return me.structDef.name == o.structDef.name
+            && me.structDef.members.length == o.structDef.members.length
+            && zip(me.structDef.members,
+                   o.structDef.members)
+              .map!(a => a[0].type.cmp(a[1].type))
+              .reduce!((a, b) => true == a && a == b);
+    case TypeEnum.VARIANT:
+        return me.variantDef.name == o.variantDef.name
+            && zip(me.variantDef.members,
+                   o.variantDef.members)
+              .map!(a => a[0].constructorName == a[1].constructorName
+                      && a[0].constructorElems.cmp(a[1].constructorElems))
+              .reduce!((a, b) => true == a && a == b);
+    case TypeEnum.AGGREGATE:
+        return me.aggregate.typeName == o.aggregate.typeName
+            && me.aggregate.templateInstantiations.length ==
+             o.aggregate.templateInstantiations.length
+            && reduce!((a, b) => true == a && a == b)(
+                    true,
+                    zip(me.aggregate.templateInstantiations,
+                      o.aggregate.templateInstantiations)
+                    .map!(a => a[0].cmp(a[1])));
+    case TypeEnum.CHAN:
+        return me.chan.chanType.cmp(o.chan.chanType);
     }
 }
 

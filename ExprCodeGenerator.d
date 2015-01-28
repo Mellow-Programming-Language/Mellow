@@ -768,6 +768,7 @@ string compileProductExpr(ProductExprNode node, Context* vars)
 string compileValue(ValueNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto type = node.data["type"].get!(Type*);
     auto child = node.children[0];
     auto str = "";
     if (cast(BooleanLiteralNode)child) {
@@ -791,14 +792,18 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(IdentifierNode)child) {
         auto idNode = cast(IdentifierNode)child;
         auto name = getIdentifier(idNode);
-        if (vars.isFuncName(name))
-        {
-            str ~= "    mov    r8, " ~ name ~ "\n";
-        }
-        else
+        if (vars.isVarName(name))
         {
             str ~= "    ; getting " ~ name ~ "\n";
             str ~= vars.compileVarGet(name);
+        }
+        else if (type.tag == TypeEnum.VARIANT)
+        {
+            "Variant Def".writeln;
+        }
+        else if (vars.isFuncName(name))
+        {
+            str ~= "    mov    r8, " ~ name ~ "\n";
         }
         if (node.children.length > 1)
         {

@@ -20,6 +20,24 @@ import FunctionSig;
 // each is the same, and perhaps building the datastructures for handling them
 // in the compiler can be the same as well
 
+debug (FUNCTION_TYPECHECK_TRACE)
+{
+    string traceIndent;
+    string tracer(string funcName)
+    {
+        return `
+            string mixin_funcName = "` ~ funcName ~ `";
+            writeln(traceIndent, "Entered: ", mixin_funcName);
+            traceIndent ~= "  ";
+            scope(success)
+            {
+                traceIndent = traceIndent[0..$-2];
+                writeln(traceIndent, "Exiting: ", mixin_funcName);
+            }
+        `;
+    }
+}
+
 struct SymbolScope
 {
     VarTypePair*[string] decls;
@@ -197,6 +215,7 @@ class FunctionBuilder : Visitor
 
     void visit(FuncDefNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefNode"));
         funcScopes.length++;
         funcScopes[$-1].syms.length++;
         // Visit FuncSignatureNode
@@ -209,6 +228,7 @@ class FunctionBuilder : Visitor
 
     void visit(FuncSignatureNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncSignatureNode"));
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         auto funcName = id;
@@ -235,11 +255,13 @@ class FunctionBuilder : Visitor
 
     void visit(IdentifierNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IdentifierNode"));
         id = (cast(ASTTerminal)node.children[0]).token;
     }
 
     void visit(IdTupleNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IdTupleNode"));
         idTuple = [];
         foreach (child; node.children)
         {
@@ -250,6 +272,7 @@ class FunctionBuilder : Visitor
 
     void visit(FuncBodyBlocksNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncBodyBlocksNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -258,6 +281,7 @@ class FunctionBuilder : Visitor
 
     void visit(BareBlockNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BareBlockNode"));
         funcScopes[$-1].syms.length++;
         foreach (child; node.children)
         {
@@ -269,11 +293,13 @@ class FunctionBuilder : Visitor
 
     void visit(StatementNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StatementNode"));
         node.children[0].accept(this);
     }
 
     void visit(ReturnStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ReturnStmtNode"));
         if (node.children.length > 0)
         {
             node.children[0].accept(this);
@@ -288,12 +314,14 @@ class FunctionBuilder : Visitor
 
     void visit(BoolExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BoolExprNode"));
         node.children[0].accept(this);
         node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(OrTestNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("OrTestNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -314,6 +342,7 @@ class FunctionBuilder : Visitor
 
     void visit(AndTestNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AndTestNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -334,6 +363,7 @@ class FunctionBuilder : Visitor
 
     void visit(NotTestNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("NotTestNode"));
         node.children[0].accept(this);
         if (typeid(node.children[0]) == typeid(NotTestNode))
         {
@@ -347,6 +377,7 @@ class FunctionBuilder : Visitor
 
     void visit(ComparisonNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ComparisonNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -406,12 +437,14 @@ class FunctionBuilder : Visitor
 
     void visit(ExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ExprNode"));
         node.children[0].accept(this);
         node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(OrExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("OrExprNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -431,6 +464,7 @@ class FunctionBuilder : Visitor
 
     void visit(XorExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("XorExprNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -450,6 +484,7 @@ class FunctionBuilder : Visitor
 
     void visit(AndExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AndExprNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -469,6 +504,7 @@ class FunctionBuilder : Visitor
 
     void visit(ShiftExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ShiftExprNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -488,6 +524,7 @@ class FunctionBuilder : Visitor
 
     void visit(SumExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SumExprNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -594,6 +631,7 @@ class FunctionBuilder : Visitor
 
     void visit(ProductExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ProductExprNode"));
         node.children[0].accept(this);
         auto resultType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -619,6 +657,7 @@ class FunctionBuilder : Visitor
 
     void visit(ValueNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ValueNode"));
         if (typeid(node.children[0]) == typeid(IdentifierNode))
         {
             node.children[0].accept(this);
@@ -679,18 +718,21 @@ class FunctionBuilder : Visitor
 
     void visit(ParenExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ParenExprNode"));
         node.children[0].accept(this);
         node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(NumberNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("NumberNode"));
         node.children[0].accept(this);
         node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(IntNumNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IntNumNode"));
         auto valType = new Type();
         valType.tag = TypeEnum.INT;
         builderStack[$-1] ~= valType;
@@ -698,6 +740,7 @@ class FunctionBuilder : Visitor
 
     void visit(FloatNumNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FloatNumNode"));
         auto valType = new Type();
         valType.tag = TypeEnum.FLOAT;
         builderStack[$-1] ~= valType;
@@ -705,6 +748,7 @@ class FunctionBuilder : Visitor
 
     void visit(CharLitNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CharLitNode"));
         auto valType = new Type();
         valType.tag = TypeEnum.CHAR;
         builderStack[$-1] ~= valType;
@@ -712,6 +756,7 @@ class FunctionBuilder : Visitor
 
     void visit(StringLitNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StringLitNode"));
         auto valType = new Type();
         valType.tag = TypeEnum.STRING;
         builderStack[$-1] ~= valType;
@@ -719,6 +764,7 @@ class FunctionBuilder : Visitor
 
     void visit(BooleanLiteralNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BooleanLiteralNode"));
         auto valType = new Type();
         valType.tag = TypeEnum.BOOL;
         builderStack[$-1] ~= valType;
@@ -726,6 +772,7 @@ class FunctionBuilder : Visitor
 
     void visit(ArrayLiteralNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayLiteralNode"));
         node.children[0].accept(this);
         auto valType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -750,6 +797,7 @@ class FunctionBuilder : Visitor
 
     void visit(VariableTypePairNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VariableTypePairNode"));
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         auto varName = id;
@@ -769,6 +817,7 @@ class FunctionBuilder : Visitor
 
     void visit(VariableTypePairTupleNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VariableTypePairTupleNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -777,12 +826,14 @@ class FunctionBuilder : Visitor
 
     void visit(DeclarationNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DeclarationNode"));
         node.children[0].accept(this);
         decls = [];
     }
 
     void visit(DeclAssignmentNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DeclAssignmentNode"));
         node.children[0].accept(this);
         node.children[1].accept(this);
         auto varType = builderStack[$-1][$-1];
@@ -822,6 +873,7 @@ class FunctionBuilder : Visitor
 
     void visit(AssignExistingNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssignExistingNode"));
         node.children[0].accept(this);
         auto left = lvalue;
         auto op = (cast(ASTTerminal)node.children[1]).token;
@@ -874,6 +926,7 @@ class FunctionBuilder : Visitor
 
     void visit(DeclTypeInferNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DeclTypeInferNode"));
         node.children[0].accept(this);
         Type*[] stackTypes;
         if (typeid(node.children[0]) == typeid(IdTupleNode))
@@ -921,11 +974,13 @@ class FunctionBuilder : Visitor
 
     void visit(AssignmentNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssignmentNode"));
         node.children[0].accept(this);
     }
 
     void visit(ValueTupleNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ValueTupleNode"));
         Type*[] types;
         foreach (child; node.children)
         {
@@ -943,6 +998,7 @@ class FunctionBuilder : Visitor
 
     void visit(LorRValueNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("LorRValueNode"));
         node.children[0].accept(this);
         string varName = id;
         funcScopes.updateIfClosedOver(varName);
@@ -964,6 +1020,7 @@ class FunctionBuilder : Visitor
 
     void visit(LorRTrailerNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("LorRTrailerNode"));
         node.data["parenttype"] = lvalue;
         if (cast(IdentifierNode)node.children[0]) {
             if (lvalue.tag != TypeEnum.STRUCT)
@@ -1010,6 +1067,7 @@ class FunctionBuilder : Visitor
 
     void visit(SlicingNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SlicingNode"));
         insideSlice++;
         auto arrayType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1037,6 +1095,7 @@ class FunctionBuilder : Visitor
 
     void visit(SingleIndexNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SingleIndexNode"));
         node.children[0].accept(this);
         auto indexType = builderStack[$-1][$-1];
         if (!indexType.isIntegral)
@@ -1047,11 +1106,13 @@ class FunctionBuilder : Visitor
 
     void visit(IndexRangeNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IndexRangeNode"));
         node.children[0].accept(this);
     }
 
     void visit(StartToIndexRangeNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StartToIndexRangeNode"));
         node.children[0].accept(this);
         auto indexType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1071,6 +1132,7 @@ class FunctionBuilder : Visitor
 
     void visit(IndexToEndRangeNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IndexToEndRangeNode"));
         node.children[0].accept(this);
         auto indexType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1090,6 +1152,7 @@ class FunctionBuilder : Visitor
 
     void visit(IndexToIndexRangeNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IndexToIndexRangeNode"));
         node.children[0].accept(this);
         auto indexStart = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1114,11 +1177,13 @@ class FunctionBuilder : Visitor
 
     void visit(TrailerNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TrailerNode"));
         node.children[0].accept(this);
     }
 
     void visit(DynArrAccessNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DynArrAccessNode"));
         // The type of the array we're indexing
         node.data["parenttype"] = builderStack[$-1][$-1];
         node.children[0].accept(this);
@@ -1132,6 +1197,7 @@ class FunctionBuilder : Visitor
 
     void visit(TemplateInstanceMaybeTrailerNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateInstanceMaybeTrailerNode"));
         if (curFuncCallSig !is null)
         {
             assert(false, "Unimplemented");
@@ -1163,6 +1229,7 @@ class FunctionBuilder : Visitor
 
     void visit(SliceLengthSentinelNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SliceLengthSentinelNode"));
         if (insideSlice < 1)
         {
             throw new Exception("$ operator only valid inside slice");
@@ -1174,6 +1241,7 @@ class FunctionBuilder : Visitor
 
     void visit(UserTypeNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UserTypeNode"));
         node.children[0].accept(this);
         string userTypeName = id;
         auto aggregate = new AggregateType();
@@ -1194,6 +1262,7 @@ class FunctionBuilder : Visitor
 
     void visit(FuncCallTrailerNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallTrailerNode"));
         node.children[0].accept(this);
         if (node.children.length > 1)
         {
@@ -1203,6 +1272,7 @@ class FunctionBuilder : Visitor
 
     void visit(FuncCallArgListNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallArgListNode"));
         // If we get here, then either curFuncCallSig is valid, or the top type
         // in the builder stack is using UFCS.
         if (curFuncCallSig !is null)
@@ -1229,21 +1299,30 @@ class FunctionBuilder : Visitor
         }
         else if (curVariant !is null)
         {
+            "got here".writeln;
             auto variant = curVariant;
             curVariant = null;
+            "  checking in 1".writeln;
             auto expectedTypes = variant.variantDef
                                         .getMember(curConstructor)
                                         .constructorElems
                                         .tuple
                                         .types;
+            "  checking in 2".writeln;
             foreach (child, typeExpected; lockstep(node.children,
                                                    expectedTypes))
             {
+                "    checking in x".writeln;
                 child.accept(this);
+                "    checking in y".writeln;
                 auto typeGot = builderStack[$-1][$-1];
+                "    checking in z".writeln;
                 builderStack[$-1] = builderStack[$-1][0..$-1];
+                "    checking in a".writeln;
                 typeExpected = normalize(typeExpected, records);
+                "    checking in b".writeln;
                 typeGot = normalize(typeGot, records);
+                "    checking in c".writeln;
                 if (!typeExpected.cmp(typeGot))
                 {
                     throw new Exception(
@@ -1255,11 +1334,13 @@ class FunctionBuilder : Visitor
                 }
             }
             builderStack[$-1] ~= variant;
+            "but died before here".writeln;
         }
     }
 
     void visit(FuncCallNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallNode"));
         node.children[0].accept(this);
         auto name = id;
         auto funcLookup = funcSigLookup(toplevelFuncs, name);
@@ -1276,6 +1357,7 @@ class FunctionBuilder : Visitor
 
     void visit(DotAccessNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DotAccessNode"));
         // Need to cover four cases:
         // First is handling the case of simply accessing a member value of the
         // type we're dot-accessing into.
@@ -1354,6 +1436,7 @@ class FunctionBuilder : Visitor
 
     void visit(IfStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IfStmtNode"));
         funcScopes[$-1].syms.length++;
         // CondAssignmentsNode
         node.children[0].accept(this);
@@ -1376,6 +1459,7 @@ class FunctionBuilder : Visitor
 
     void visit(ElseIfsNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseIfsNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -1384,6 +1468,7 @@ class FunctionBuilder : Visitor
 
     void visit(ElseIfStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseIfStmtNode"));
         funcScopes[$-1].syms.length++;
         // CondAssignmentsNode
         node.children[0].accept(this);
@@ -1402,6 +1487,7 @@ class FunctionBuilder : Visitor
 
     void visit(ElseStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseStmtNode"));
         if (node.children.length > 0)
         {
             node.children[0].accept(this);
@@ -1410,6 +1496,7 @@ class FunctionBuilder : Visitor
 
     void visit(WhileStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("WhileStmtNode"));
         funcScopes[$-1].syms.length++;
         // CondAssignmentsNode
         node.children[0].accept(this);
@@ -1428,6 +1515,7 @@ class FunctionBuilder : Visitor
 
     void visit(CondAssignmentsNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CondAssignmentsNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -1436,11 +1524,13 @@ class FunctionBuilder : Visitor
 
     void visit(CondAssignNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CondAssignNode"));
         node.children[0].accept(this);
     }
 
     void visit(ForeachStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForeachStmtNode"));
         // ForeachArgsNode
         node.children[0].accept(this);
         // BoolExprNode
@@ -1516,6 +1606,7 @@ class FunctionBuilder : Visitor
 
     void visit(ForeachArgsNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForeachArgsNode"));
         foreachArgs = [];
         foreach (child; node.children)
         {
@@ -1526,6 +1617,7 @@ class FunctionBuilder : Visitor
 
     void visit(MatchStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("MatchStmtNode"));
         funcScopes[$-1].syms.length++;
         // CondAssignmentsNode
         node.children[0].accept(this);
@@ -1546,6 +1638,7 @@ class FunctionBuilder : Visitor
 
     void visit(MatchWhenNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("MatchWhenNode"));
         // PatternNode
         node.children[0].accept(this);
         // StatementNode*
@@ -1557,11 +1650,13 @@ class FunctionBuilder : Visitor
 
     void visit(PatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("PatternNode"));
         node.children[0].accept(this);
     }
 
     void visit(DestructVariantPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DestructVariantPatternNode"));
         if (matchType.tag != TypeEnum.VARIANT)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1598,6 +1693,7 @@ class FunctionBuilder : Visitor
 
     void visit(StructPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StructPatternNode"));
         if (matchType.tag != TypeEnum.STRUCT)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1607,6 +1703,7 @@ class FunctionBuilder : Visitor
 
     void visit(BoolPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BoolPatternNode"));
         if (matchType.tag != TypeEnum.BOOL)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1616,6 +1713,7 @@ class FunctionBuilder : Visitor
 
     void visit(StringPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StringPatternNode"));
         if (matchType.tag != TypeEnum.STRING)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1625,6 +1723,7 @@ class FunctionBuilder : Visitor
 
     void visit(CharPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CharPatternNode"));
         if (matchType.tag != TypeEnum.CHAR)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1634,6 +1733,7 @@ class FunctionBuilder : Visitor
 
     void visit(IntPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IntPatternNode"));
         if (!isIntegral(matchType))
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1643,6 +1743,7 @@ class FunctionBuilder : Visitor
 
     void visit(FloatPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FloatPatternNode"));
         if (!isFloat(matchType))
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1652,6 +1753,7 @@ class FunctionBuilder : Visitor
 
     void visit(TuplePatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TuplePatternNode"));
         if (matchType.tag != TypeEnum.TUPLE)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1661,6 +1763,7 @@ class FunctionBuilder : Visitor
 
     void visit(ArrayPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayPatternNode"));
         if (matchType.tag != TypeEnum.ARRAY)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1670,6 +1773,7 @@ class FunctionBuilder : Visitor
 
     void visit(ArrayTailPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayTailPatternNode"));
         if (matchType.tag != TypeEnum.ARRAY)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1679,11 +1783,13 @@ class FunctionBuilder : Visitor
 
     void visit(WildcardPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("WildcardPatternNode"));
 
     }
 
     void visit(VarOrBareVariantPatternNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VarOrBareVariantPatternNode"));
         // IdentifierNode
         node.children[0].accept(this);
         auto var = id;
@@ -1710,6 +1816,7 @@ class FunctionBuilder : Visitor
 
     void visit(IsExprNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IsExprNode"));
         // BoolExprNode
         node.children[0].accept(this);
         // IdentifierNode
@@ -1764,6 +1871,7 @@ class FunctionBuilder : Visitor
     // expression
     void visit(ChanWriteNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ChanWriteNode"));
         // BoolExprNode
         node.children[0].accept(this);
         auto leftType = builderStack[$-1][$-1];
@@ -1784,6 +1892,7 @@ class FunctionBuilder : Visitor
 
     void visit(ChanReadNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ChanReadNode"));
         node.children[0].accept(this);
         auto type = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1797,6 +1906,7 @@ class FunctionBuilder : Visitor
 
     void visit(SpawnStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SpawnStmtNode"));
         node.children[0].accept(this);
         auto name = id;
         auto funcLookup = funcSigLookup(toplevelFuncs, name);
@@ -1814,7 +1924,9 @@ class FunctionBuilder : Visitor
     }
 
     void visit(YieldStmtNode node)
-    {}
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("YieldStmtNode"));
+    }
 
     void visit(ForStmtNode node) {}
     void visit(ForInitNode node) {}

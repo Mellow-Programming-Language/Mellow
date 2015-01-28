@@ -377,6 +377,32 @@ struct Context
         return false;
     }
 
+    bool isVarName(string name)
+    {
+        foreach (var; closureVars)
+        {
+            if (var.varName == name)
+            {
+                return true;
+            }
+        }
+        foreach (var; funcArgs)
+        {
+            if (var.varName == name)
+            {
+                return true;
+            }
+        }
+        foreach (var; stackVars)
+        {
+            if (var.varName == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Either the value of the variable is in r8, implying that the type is
     // either 1, 2, 4, or 8 bytes, or it is split between r8 and r9, where
     // r8 is the environment portion of a fat pointer, and r9 is the function

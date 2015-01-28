@@ -61,8 +61,7 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
 Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
 {
     auto structCopy = structType.copy;
-    auto type = new Type();
-    type.tag = TypeEnum.STRUCT;
+    structCopy.formatFull.writeln;
     foreach (ref member; structCopy.members)
     {
         if (member.type.tag == TypeEnum.AGGREGATE)
@@ -85,20 +84,21 @@ Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
             }
             else
             {
+                member.type.formatFull.writeln;
                 throw new Exception("Cannot normalize struct def");
             }
         }
     }
+    auto type = new Type();
+    type.tag = TypeEnum.STRUCT;
     type.structDef = structCopy;
     return type;
 }
 
 Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
 {
-    auto variantCopy = variantType.copy;
-    auto type = new Type();
-    type.tag = TypeEnum.VARIANT;
-    foreach (ref member; variantCopy.members)
+    "normalizeVariantDefs()".writeln;
+    foreach (ref member; variantType.members)
     {
         if (member.constructorElems.tag != TypeEnum.TUPLE)
         {
@@ -106,10 +106,20 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
         }
         foreach (ref elemType; member.constructorElems.tuple.types)
         {
+            "loop".writeln;
             if (elemType.tag == TypeEnum.AGGREGATE)
             {
-                if (elemType.aggregate.typeName in records.structDefs)
+                if (elemType.aggregate.typeName == variantType.name)
                 {
+                    "hit this guy".writeln;
+                    auto wrap = new Type();
+                    wrap.tag = TypeEnum.VARIANT;
+                    wrap.variantDef = variantType;
+                    elemType = wrap;
+                }
+                else if (elemType.aggregate.typeName in records.structDefs)
+                {
+                    "nah this one".writeln;
                     auto instance = new Type();
                     instance.tag = TypeEnum.STRUCT;
                     instance.structDef =
@@ -118,6 +128,7 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
                 }
                 else if (elemType.aggregate.typeName in records.variantDefs)
                 {
+                    "nah THIS guy".writeln;
                     auto wrap = new Type();
                     wrap.tag = TypeEnum.VARIANT;
                     wrap.variantDef =
@@ -131,7 +142,9 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
             }
         }
     }
-    type.variantDef = variantCopy;
+    auto type = new Type();
+    type.tag = TypeEnum.VARIANT;
+    type.variantDef = variantType;
     return type;
 }
 
@@ -140,14 +153,17 @@ Type* normalize(Type* type, RecordBuilder records)
     type = type.copy;
     if (type.tag == TypeEnum.AGGREGATE)
     {
+        "      normalizing aggregate".writeln;
         type = instantiateAggregate(records, type.aggregate);
     }
     if (type.tag == TypeEnum.STRUCT)
     {
+        "      normalizing struct".writeln;
         type = normalizeStructDefs(records, type.structDef);
     }
     if (type.tag == TypeEnum.VARIANT)
     {
+        "      normalizing variant".writeln;
         type = normalizeVariantDefs(records, type.variantDef);
     }
     return type;
@@ -156,6 +172,26 @@ Type* normalize(Type* type, RecordBuilder records)
 Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                               RecordBuilder records)
 {
+    Type*[] instantiatedTypes;
+
+    Type* findExistingInstantiation(AggregateType* dummyType)
+    {
+        foreach (type; instantiatedTypes)
+        {
+            switch (type.tag)
+            {
+            case TypeEnum.STRUCT:
+                if (type.structDef.name == dummyType.typeName)
+                {
+
+                }
+                break;
+            default:
+                break;
+            }
+        }
+        return null;
+    }
 
     Type* _instantiateTypeTemplate(Type* type)
     {
@@ -183,6 +219,45 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                     t = mappings[t.aggregate.typeName];
                 }
             }
+            "_instantiateTypeTemplate() AGGREGATE".writeln;
+            ("  BEFORE: " ~ type.formatFull).writeln;
+
+            //if (type.aggregate.typeName in records.structDefs)
+            //{
+            //    auto structDef = records.structDefs[type.aggregate.typeName]
+            //                            .copy;
+            //    if (type.aggregate.templateInstantiations.length
+            //        != structDef.templateParams.length)
+            //    {
+            //        throw new Exception(
+            //            "Template instantiation count mismatch."
+            //        );
+            //    }
+            //    type.tag = TypeEnum.STRUCT;
+            //    type.structDef = structDef;
+            //    type = type.instantiateTypeTemplate(mappings, records);
+            //}
+            //else if (type.aggregate.typeName in records.variantDefs)
+            //{
+            //    auto variantDef = records.variantDefs[type.aggregate.typeName]
+            //                             .copy;
+            //    if (type.aggregate.templateInstantiations.length
+            //        != variantDef.templateParams.length)
+            //    {
+            //        throw new Exception(
+            //            "Template instantiation count mismatch."
+            //        );
+            //    }
+            //    type.tag = TypeEnum.VARIANT;
+            //    type.variantDef = variantDef;
+            //    type = type.instantiateTypeTemplate(mappings, records);
+            //}
+            //else
+            //{
+            //    throw new Exception("Instantiation of non-existent type.");
+            //}
+
+            ("  AFTER : " ~ type.formatFull).writeln;
             return type.normalize(records);
         case TypeEnum.SET:
             if (type.set.setType.tag == TypeEnum.AGGREGATE
@@ -226,23 +301,23 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
             {
                 auto typeTuple = member.constructorElems
                                        .copy;
-                Type*[] instantiatedTypes;
+                Type*[] instantiations;
                 foreach (memberType; typeTuple.tuple.types)
                 {
                     if (memberType.tag == TypeEnum.AGGREGATE
                         && memberType.aggregate.typeName in mappings)
                     {
-                        instantiatedTypes
+                        instantiations
                             ~= mappings[memberType.aggregate.typeName];
                     }
                     else
                     {
-                        instantiatedTypes ~= _instantiateTypeTemplate(
+                        instantiations ~= _instantiateTypeTemplate(
                             memberType
                         );
                     }
                 }
-                typeTuple.tuple.types = instantiatedTypes;
+                typeTuple.tuple.types = instantiations;
                 member.constructorElems = typeTuple;
             }
             type.variantDef.instantiated = true;
@@ -303,7 +378,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
         if (missing.walkLength > 0)
         {
             auto str = q"EOF
-instantiateTemplate(): The passed mapping does not contain keys that
+instantiateTypeTemplate(): The passed mapping does not contain keys that
 correspond exactly with the known template parameter names. Not attempting to
 instantiate. The missing mappings are:
 EOF";
@@ -313,11 +388,12 @@ EOF";
             }
             throw new Exception(str);
         }
+        "start loop".writeln;
         foreach (ref member; type.variantDef.members)
         {
-            auto typeTuple = member.constructorElems
-                                   .copy;
-            Type*[] instantiatedTypes;
+            "loop".writeln;
+            auto typeTuple = member.constructorElems;
+            Type*[] instantiations;
             if (typeTuple.tag == TypeEnum.TUPLE)
             {
                 foreach (memberType; typeTuple.tuple.types)
@@ -325,20 +401,26 @@ EOF";
                     if (memberType.tag == TypeEnum.AGGREGATE
                         && memberType.aggregate.typeName in mappings)
                     {
-                        instantiatedTypes
+                        instantiations
                             ~= mappings[memberType.aggregate.typeName];
+                    }
+                    else if (memberType.tag == TypeEnum.AGGREGATE
+                        && memberType.aggregate.typeName == type.variantDef.name)
+                    {
+                        instantiations ~= type;
                     }
                     else
                     {
-                        instantiatedTypes ~= _instantiateTypeTemplate(
+                        instantiations ~= _instantiateTypeTemplate(
                             memberType
                         );
                     }
                 }
-                typeTuple.tuple.types = instantiatedTypes;
+                typeTuple.tuple.types = instantiations;
             }
             member.constructorElems = typeTuple;
         }
+        "end loop".writeln;
         type.variantDef.instantiated = true;
         return type;
     case TypeEnum.STRUCT:
@@ -349,7 +431,7 @@ EOF";
         if (missing.walkLength > 0)
         {
             auto str = q"EOF
-instantiateTemplate(): The passed mapping does not contain keys that
+instantiateTypeTemplate(): The passed mapping does not contain keys that
 correspond exactly with the known template parameter names. Not attempting to
 instantiate. The missing mappings are:
 EOF";
@@ -361,11 +443,21 @@ EOF";
         }
         foreach (ref member; type.structDef.members)
         {
-            auto memberType = member.type.copy;
+            auto memberType = member.type;
             if (memberType.tag == TypeEnum.AGGREGATE
                 && memberType.aggregate.typeName in mappings)
             {
                 memberType = mappings[memberType.aggregate.typeName];
+            }
+            else if (memberType.tag == TypeEnum.AGGREGATE
+                && memberType.aggregate.typeName == type.structDef.name)
+            {
+                auto str = "";
+                str ~= "struct definition ["
+                    ~ type.structDef.name
+                    ~ "] contains an illegal self-reference in member "
+                    ~ member.name;
+                throw new Exception(str);
             }
             else
             {
