@@ -151,8 +151,8 @@ class FunctionBuilder : Visitor
     private string[] foreachArgs;
     private uint[string] stackVarAllocSize;
     private string curFuncName;
-    private VariantType* curVariant;
-    private VariantMember curConstructor;
+    private Type* curVariant;
+    private string curConstructor;
 
     mixin TypeVisitors;
 
@@ -263,7 +263,7 @@ class FunctionBuilder : Visitor
         {
             child.accept(this);
         }
-        funcScopes[$-1].syms.format.writeln;
+        debug (TYPECHECK) funcScopes[$-1].syms.format.writeln;
         funcScopes[$-1].syms.length--;
     }
 
@@ -644,8 +644,10 @@ class FunctionBuilder : Visitor
             }
             else if (variant !is null)
             {
-                curVariant = variant;
-                curConstructor = variant.getMember(name);
+                curVariant = new Type();
+                curVariant.tag = TypeEnum.VARIANT;
+                curVariant.variantDef = variant;
+                curConstructor = name;
             }
             else if (funcLookup.success)
             {
@@ -1141,12 +1143,12 @@ class FunctionBuilder : Visitor
             auto templateInstantiations = builderStack[$-1];
             builderStack.length--;
             Type*[string] mappings;
-            foreach (name, type; lockstep(curVariant.templateParams,
+            foreach (name, type; lockstep(curVariant.variantDef.templateParams,
                                           templateInstantiations))
             {
                 mappings[name] = type;
             }
-            curVariant.instantiate(mappings);
+            curVariant = curVariant.instantiateTypeTemplate(mappings, records);
         }
 
         // TODO struct case of template instantiation
@@ -1186,7 +1188,8 @@ class FunctionBuilder : Visitor
         auto wrap = new Type();
         wrap.tag = TypeEnum.AGGREGATE;
         wrap.aggregate = aggregate;
-        builderStack[$-1] ~= normalize(wrap, records);
+        auto normalized = normalize(wrap, records);
+        builderStack[$-1] ~= normalized;
     }
 
     void visit(FuncCallTrailerNode node)
@@ -1228,15 +1231,19 @@ class FunctionBuilder : Visitor
         {
             auto variant = curVariant;
             curVariant = null;
-            auto expectedTypes = curConstructor.constructorElems
-                                                  .tuple
-                                                  .types;
+            auto expectedTypes = variant.variantDef
+                                        .getMember(curConstructor)
+                                        .constructorElems
+                                        .tuple
+                                        .types;
             foreach (child, typeExpected; lockstep(node.children,
                                                    expectedTypes))
             {
                 child.accept(this);
                 auto typeGot = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
+                typeExpected = normalize(typeExpected, records);
+                typeGot = normalize(typeGot, records);
                 if (!typeExpected.cmp(typeGot))
                 {
                     throw new Exception(
@@ -1247,10 +1254,7 @@ class FunctionBuilder : Visitor
                     );
                 }
             }
-            auto wrap = new Type();
-            wrap.tag = TypeEnum.VARIANT;
-            wrap.variantDef = variant;
-            builderStack[$-1] ~= wrap;
+            builderStack[$-1] ~= variant;
         }
     }
 

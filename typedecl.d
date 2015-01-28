@@ -203,8 +203,8 @@ struct StructType
     string[] templateParams;
     StructMember[] members;
     bool isExtern;
-    private bool instantiated;
-    private Type*[string] mappings;
+    bool instantiated;
+    Type*[string] mappings;
 
     StructType* copy()
     {
@@ -214,6 +214,9 @@ struct StructType
         c.members = this.members
                         .map!(a => a.copy)
                         .array;
+        c.isExtern = this.isExtern;
+        c.instantiated = this.instantiated;
+        c.mappings = this.mappings;
         return c;
     }
 
@@ -230,7 +233,8 @@ struct StructType
             if (instantiated)
             {
                 str ~= "!(";
-                str ~= templateParams.map!(a => mappings[a].format).join(", ");
+                str ~= templateParams.map!(a => a ~ "=" ~ mappings[a].format)
+                                     .join(", ");
                 str ~= ")";
             }
             else
@@ -263,7 +267,8 @@ struct StructType
             if (instantiated)
             {
                 str ~= "!(";
-                str ~= templateParams.map!(a => mappings[a].format).join(", ");
+                str ~= templateParams.map!(a => a ~ "=" ~ mappings[a].format)
+                                     .join(", ");
                 str ~= ")";
             }
             else
@@ -272,32 +277,6 @@ struct StructType
             }
         }
         return str;
-    }
-
-    // Attempt to replace the template name placeholders with actual types
-    // using a passed name: string -> concrete-type: Type* map
-    void instantiate(Type*[string] mappings)
-    {
-        mixin descend;
-
-        auto missing = mappings.keys.setSymmetricDifference(templateParams);
-        if (missing.walkLength > 0)
-        {
-            "StructType.instantiate(): The passed mapping does not contain\n"
-            "  keys that correspond exactly with the known template parameter\n"
-            "  names. Not attempting to instantiate.\n"
-            "  The missing mappings are: ".writeln;
-            foreach (name; missing)
-            {
-                writeln("  ", name);
-            }
-        }
-        foreach (ref member; members)
-        {
-            descend(member.type);
-        }
-        instantiated = true;
-        this.mappings = mappings;
     }
 
     // The size of the struct on the heap is the total aligned size of all the
@@ -372,8 +351,8 @@ struct VariantType
     string name;
     string[] templateParams;
     VariantMember[] members;
-    private bool instantiated;
-    private Type*[string] mappings;
+    bool instantiated;
+    Type*[string] mappings;
 
     VariantType* copy()
     {
@@ -383,6 +362,8 @@ struct VariantType
         c.members = this.members
                         .map!(a => a.copy)
                         .array;
+        c.instantiated = this.instantiated;
+        c.mappings = this.mappings;
         return c;
     }
 
@@ -392,7 +373,17 @@ struct VariantType
         str ~= "variant " ~ name;
         if (templateParams.length > 0)
         {
-            str ~= "(" ~ templateParams.join(", ") ~ ")";
+            if (instantiated)
+            {
+                str ~= "!(";
+                str ~= templateParams.map!(a => a ~ "=" ~ mappings[a].format)
+                                     .join(", ");
+                str ~= ")";
+            }
+            else
+            {
+                str ~= "(" ~ templateParams.join(", ") ~ ")";
+            }
         }
         str ~= " {\n";
         foreach (member; members)
@@ -412,7 +403,8 @@ struct VariantType
             if (instantiated)
             {
                 str ~= "!(";
-                str ~= templateParams.map!(a => mappings[a].format).join(", ");
+                str ~= templateParams.map!(a => a ~ "=" ~ mappings[a].format)
+                                     .join(", ");
                 str ~= ")";
             }
             else
@@ -421,35 +413,6 @@ struct VariantType
             }
         }
         return str;
-    }
-
-    // Attempt to replace the template name placeholders with actual types
-    // using a passed name: string -> concrete-type: Type* map
-    void instantiate(Type*[string] mappings)
-    {
-        mixin descend;
-
-        auto missing = mappings.keys.setSymmetricDifference(templateParams);
-        if (missing.walkLength > 0)
-        {
-            auto str = q"EOF
-VariantType.instantiate(): The passed mapping does not contain keys that
-correspond exactly with the known template parameter names. Not attempting to
-instantiate. The missing mappings are:
-EOF";
-            foreach (name; missing)
-            {
-                str ~= "  " ~ name ~ "\n";
-            }
-            throw new Exception(str);
-        }
-        foreach (ref member; members)
-        {
-            descend(member.constructorElems);
-        }
-        instantiated = true;
-        templateParams = [];
-        this.mappings = mappings;
     }
 
     // The total size of a variant value on the heap is the size of the largest
@@ -583,6 +546,40 @@ struct Type
         case TypeEnum.STRUCT    : return str ~ structDef.format();
         case TypeEnum.VARIANT   : return str ~ variantDef.format();
         case TypeEnum.CHAN      : return str ~ chan.format();
+        }
+    }
+
+    string formatFull() const
+    {
+        string str = "";
+        if (constType)
+        {
+            str ~= "const ";
+        }
+        final switch (tag)
+        {
+        case TypeEnum.VOID:
+        case TypeEnum.LONG:
+        case TypeEnum.INT:
+        case TypeEnum.SHORT:
+        case TypeEnum.BYTE:
+        case TypeEnum.FLOAT:
+        case TypeEnum.DOUBLE:
+        case TypeEnum.CHAR:
+        case TypeEnum.BOOL:
+        case TypeEnum.STRING:
+        case TypeEnum.SET:
+        case TypeEnum.HASH:
+        case TypeEnum.ARRAY:
+        case TypeEnum.AGGREGATE:
+        case TypeEnum.TUPLE:
+        case TypeEnum.FUNCPTR:
+        case TypeEnum.CHAN:
+            return this.format();
+        case TypeEnum.STRUCT:
+            return str ~ this.structDef.formatFull();
+        case TypeEnum.VARIANT:
+            return str ~ this.variantDef.formatFull();
         }
     }
 
@@ -910,97 +907,6 @@ Type* promoteNumeric(Type* left, Type* right)
     case TypeEnum.DOUBLE   : promote.tag = left.tag;  return promote;
     default:
         assert(false, "Unreachable in promoteNumeric.");
-    }
-}
-
-// This is mixed into the StructType and VariantType instantiate() definitions,
-// as the code is exactly the same for both, but they each need closure access
-// to the "mappings" argument of the instantiate() function, and passing
-// the "mappings" as an argument to this function is silly since it would never
-// change on each recursion, and there doesn't seem to be a way to pass the
-// argument as a const variable without having to cast the constness off when
-// trying to assign pointer values in the mappings back to the member types,
-// which is gross
-mixin template descend()
-{
-    // Recursively descend the type, looking for aggregate entries that
-    // are in the mapping. An aggregate type is defined simply as a string
-    // referring to its actual type, which means it is either referring to
-    // a struct or variant definition, or is a template placeholder.
-    // Even though the parent is null, the case of the top level type
-    // being an aggregate is handled correctly
-    void descend(ref Type* typeMember, Type* typeParent = null)
-    {
-        // Used to know which of the two sides of a hash type we're dealing
-        // with after a descension
-        static index = 0;
-        switch (typeMember.tag)
-        {
-        // If the type is an aggregate, it is either a template placeholder
-        // or not. If it is, and this is the top level call of descend, then
-        // simply update the type member with its new type. If we're in
-        // a recursion of descend, then update the parent's pointer to this
-        // type with the new type
-        case TypeEnum.AGGREGATE:
-            if (typeMember.aggregate.typeName in mappings)
-            {
-                if (typeParent is null)
-                {
-                    typeMember = mappings[typeMember.aggregate.typeName];
-                }
-                else
-                {
-                    switch(typeParent.tag)
-                    {
-                    case TypeEnum.SET:
-                        typeParent.set.setType =
-                            mappings[typeMember.aggregate.typeName];
-                        break;
-                    case TypeEnum.HASH:
-                        switch (index)
-                        {
-                        case 0:
-                            typeParent.hash.keyType =
-                                mappings[typeMember.aggregate.typeName];
-                            break;
-                        default:
-                            typeParent.hash.valueType =
-                                mappings[typeMember.aggregate.typeName];
-                            break;
-                        }
-                        break;
-                    case TypeEnum.ARRAY:
-                        typeParent.array.arrayType =
-                            mappings[typeMember.aggregate.typeName];
-                        break;
-                    default:
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                foreach (ref inner; typeMember.aggregate.templateInstantiations)
-                {
-                    descend(inner);
-                }
-            }
-            break;
-        case TypeEnum.SET:
-            descend(typeMember.set.setType, typeMember);
-            break;
-        case TypeEnum.HASH:
-            index = 0;
-            descend(typeMember.hash.keyType, typeMember);
-            index = 1;
-            descend(typeMember.hash.valueType, typeMember);
-            break;
-        case TypeEnum.ARRAY:
-            descend(typeMember.array.arrayType, typeMember);
-            break;
-        default:
-            break;
-        }
     }
 }
 
