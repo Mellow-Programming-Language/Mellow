@@ -405,12 +405,15 @@ struct Context
                             ~ "\n";
                     }
                 }
-                str ~= "    mov    r8, qword [rbp+"
-                    ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
-                       getOffset(funcArgs, i)).to!string ~ "]\n"
-                    ~ "    mov    r9, qword [rbp+"
-                    ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
-                       getOffset(funcArgs, i) + 8).to!string ~ "]\n";
+                else
+                {
+                    str ~= "    mov    r8, qword [rbp+"
+                        ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
+                           getOffset(funcArgs, i)).to!string ~ "]\n"
+                        ~ "    mov    r9, qword [rbp+"
+                        ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
+                           getOffset(funcArgs, i) + 8).to!string ~ "]\n";
+                }
             }
         }
         foreach (i, var; closureVars)
@@ -429,10 +432,13 @@ struct Context
                             ~ "\n";
                     }
                 }
-                str ~= "    mov    r8, qword [r10+"
-                    ~ getOffset(funcArgs, i).to!string ~ "]\n"
-                    ~ "    mov    r9, qword [r10+"
-                    ~ getOffset(funcArgs, i).to!string ~ "]\n";
+                else
+                {
+                    str ~= "    mov    r8, qword [r10+"
+                        ~ getOffset(funcArgs, i).to!string ~ "]\n"
+                        ~ "    mov    r9, qword [r10+"
+                        ~ getOffset(funcArgs, i).to!string ~ "]\n";
+                }
             }
         }
         foreach (i, var; stackVars)
@@ -450,10 +456,13 @@ struct Context
                             ~ "\n";
                     }
                 }
-                str ~= "    mov    r8, qword [rbp-"
-                    ~ ((i + 1) * 8).to!string ~ "]\n"
-                    ~ "    mov    r9, qword [rbp-"
-                    ~ ((i + 1) * 8 + 8).to!string ~ "]\n";
+                else
+                {
+                    str ~= "    mov    r8, qword [rbp-"
+                        ~ ((i + 1) * 8).to!string ~ "]\n"
+                        ~ "    mov    r9, qword [rbp-"
+                        ~ ((i + 1) * 8 + 8).to!string ~ "]\n";
+                }
             }
         }
         return str;
