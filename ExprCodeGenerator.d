@@ -1269,6 +1269,10 @@ string compileDotAccess(DotAccessNode node, Context* vars)
     auto accessedType = node.data["type"].get!(Type*);
     auto id = getIdentifier(cast(IdentifierNode)node.children[0]);
     auto str = "";
+    str ~= "    ; dot access on type [" ~ accessedType.format
+                                       ~ "]: "
+                                       ~ id
+                                       ~ "\n";
     if (accessedType.tag == TypeEnum.ARRAY
         || accessedType.tag == TypeEnum.STRING)
     {
@@ -1302,6 +1306,10 @@ string compileDotAccess(DotAccessNode node, Context* vars)
                                ~ getWordSize(memberSize)
                                ~ "[r8]\n";
         str ~= "    mov    r8, r9\n";
+        if (node.children.length > 1)
+        {
+            str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
+        }
     }
     else
     {

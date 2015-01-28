@@ -1363,6 +1363,10 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
         auto memberName = getIdentifier(cast(IdentifierNode)child);
         auto memberOffset = parentType.structDef
                                       .getOffsetOfMember(memberName);
+        str ~= "    ; l-value dot access  on type [" ~ parentType.format
+                                                     ~ "]: "
+                                                     ~ memberName
+                                                     ~ "\n";
         // Get the struct pointer. Since this is an L-or-R-value calculation,
         // and UFCS is not allowed syntactically, then the only thing that can
         // be doing a dot access is a pointer with elements.
@@ -1372,6 +1376,13 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
                                   + STRUCT_BUFFER_SIZE
                                   + memberOffset).to!string
                                  ~ "\n";
+        if (node.children.length > 1)
+        {
+            str ~= compileLorRTrailer(
+                cast(LorRTrailerNode)node.children[1],
+                vars
+            );
+        }
     }
     else if (cast(SingleIndexNode)child) {
 
