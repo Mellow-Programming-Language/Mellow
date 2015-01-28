@@ -44,6 +44,7 @@ Incomplete list of working features:
 - integer comparison operators
 - logical operators (&&, ||, !)
 - array .length property
+- templated structs
 
 
 Incomplete list of unimplemented or broken features:
@@ -53,7 +54,6 @@ Incomplete list of unimplemented or broken features:
 - string-char append
 - closures
 - meaningful ref-counting
-- structs
 - variants
 - match statements
 - all op-equals operators besides aforementioned append-equals exceptions
