@@ -1850,6 +1850,9 @@ class FunctionBuilder : Visitor
         }
     }
 
+    // Note that we must cater to the whims of updating
+    // this.stackVarAllocSize[curFuncName] with the stack sizes of each variable
+    // declared in this expression
     void visit(IsExprNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IsExprNode"));
@@ -1907,6 +1910,9 @@ class FunctionBuilder : Visitor
                         auto pair = new VarTypePair();
                         pair.varName = varBind;
                         pair.type = subtype.copy;
+                        stackVarAllocSize[curFuncName]
+                            += subtype.size
+                                      .stackAlignSize;
                         funcScopes[$-1].syms[$-1].decls[varBind] = pair;
                     }
                 }
@@ -1919,11 +1925,10 @@ class FunctionBuilder : Visitor
         {
             throw new Exception("Variant constructor does not exist");
         }
+        node.data["type"] = exprType;
+        node.data["constructor"] = constructorName;
     }
 
-    // Note that we must cater to the whims of updating
-    // this.stackVarAllocSize[curFuncName] with the stack sizes of each variable
-    // declared in this expression
     void visit(VariantIsMatchNode node) {}
     void visit(IdOrWildcardNode node) {}
 

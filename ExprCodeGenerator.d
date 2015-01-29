@@ -1357,6 +1357,24 @@ string compileDotAccess(DotAccessNode node, Context* vars)
 string compileIsExpr(IsExprNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-
+    auto variantType = node.data["type"].get!(Type*);
+    auto constructorName = node.data["constructor"].get!(string);
+    auto member = variantType.variantDef
+                             .getMember(constructorName);
+    auto memberTypes = member.constructorElems.tuple.types;
+    auto memberTypeSizes = memberTypes.map!(a => a.size)
+                                      .array;
+    auto str = "";
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
+    // We now have the variant pointer in hand in r8
+    foreach (i, child; node.children[2..$])
+    {
+        if (cast(IdentifierNode)child)
+        {
+            auto varName = getIdentifier(cast(IdentifierNode)child);
+            auto memberOffset = memberTypeSizes.getAlignedIndexOffset(i);
+            str ~= "    "
+        }
+    }
     return "";
 }
