@@ -7,6 +7,9 @@ the `make` process will attempt to `git clone` a secondary repository (the
 parser generator project at https://github.com/CollinReeser/ParserGenerator),
 which is necessary to build the compiler.
 
+The build process assumes that the D Language compiler `dmd`, `gcc`, and the
+Netwide Assembler `nasm` are installed.
+
 `./compiler --help` will provide a summary of options.
 
 Note that the docs/ directory is woefully out of date.
