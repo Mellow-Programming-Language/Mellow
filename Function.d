@@ -683,10 +683,28 @@ class FunctionBuilder : Visitor
             }
             else if (variant !is null)
             {
+                if (variant.templateParams.length > 0)
+                {
+                    if (node.children.length == 1
+                        || cast(TemplateInstanceMaybeTrailerNode)
+                          (cast(TrailerNode)node.children[1]).children[0]
+                           is null)
+                    {
+                        auto str = "";
+                        str ~= "Cannot instantiate templated variant "
+                            ~ "constructor ["
+                            ~ name
+                            ~ "] of variant ["
+                            ~ variant.format
+                            ~ "] without a template instantiation";
+                        throw new Exception(str);
+                    }
+                }
                 curVariant = new Type();
                 curVariant.tag = TypeEnum.VARIANT;
                 curVariant.variantDef = variant;
                 curConstructor = name;
+                builderStack[$-1] ~= curVariant;
             }
             else if (funcLookup.success)
             {
@@ -1215,6 +1233,16 @@ class FunctionBuilder : Visitor
                 mappings[name] = type;
             }
             curVariant = curVariant.instantiateTypeTemplate(mappings, records);
+            // If this is a template instantation of a templated constructor
+            // that contains no member values, add the type to the stack
+            if (node.children.length == 1)
+            {
+                // Take off the preliminary variant from the type stack, that
+                // was placed there in the ValueNode visit() function in case
+                // it was a value-less variant constructor
+                builderStack[$-1] = builderStack[$-1][0..$-1];
+                builderStack[$-1] ~= curVariant;
+            }
         }
 
         // TODO struct case of template instantiation
@@ -1299,42 +1327,38 @@ class FunctionBuilder : Visitor
         }
         else if (curVariant !is null)
         {
-            "got here".writeln;
             auto variant = curVariant;
             curVariant = null;
-            "  checking in 1".writeln;
             auto expectedTypes = variant.variantDef
                                         .getMember(curConstructor)
                                         .constructorElems
                                         .tuple
                                         .types;
-            "  checking in 2".writeln;
             foreach (child, typeExpected; lockstep(node.children,
                                                    expectedTypes))
             {
-                "    checking in x".writeln;
                 child.accept(this);
-                "    checking in y".writeln;
                 auto typeGot = builderStack[$-1][$-1];
-                "    checking in z".writeln;
                 builderStack[$-1] = builderStack[$-1][0..$-1];
-                "    checking in a".writeln;
-                typeExpected = normalize(typeExpected, records);
-                "    checking in b".writeln;
-                typeGot = normalize(typeGot, records);
-                "    checking in c".writeln;
+                if (typeExpected.isUninstantiated)
+                {
+                    typeExpected = normalize(typeExpected, records);
+                }
                 if (!typeExpected.cmp(typeGot))
                 {
                     throw new Exception(
                         "Mismatch between expected and passed variant "
                         "constructor instantiation type: \n"
-                      ~ "  Expected: " ~ typeExpected.format ~ "\n"
-                      ~ "  Got:      " ~ typeGot.format
+                      ~ "  Expected:\n" ~ typeExpected.formatFull ~ "\n"
+                      ~ "  Got:\n" ~ typeGot.formatFull
                     );
                 }
             }
+            // Take off the preliminary variant from the type stack, that
+            // was placed there in the ValueNode visit() function in case
+            // it was a value-less variant constructor
+            builderStack[$-1] = builderStack[$-1][0..$-1];
             builderStack[$-1] ~= variant;
-            "but died before here".writeln;
         }
     }
 

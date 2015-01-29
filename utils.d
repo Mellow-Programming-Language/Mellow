@@ -61,7 +61,6 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
 Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
 {
     auto structCopy = structType.copy;
-    structCopy.formatFull.writeln;
     foreach (ref member; structCopy.members)
     {
         if (member.type.tag == TypeEnum.AGGREGATE)
@@ -84,7 +83,6 @@ Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
             }
             else
             {
-                member.type.formatFull.writeln;
                 throw new Exception("Cannot normalize struct def");
             }
         }
@@ -97,7 +95,6 @@ Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
 
 Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
 {
-    "normalizeVariantDefs()".writeln;
     foreach (ref member; variantType.members)
     {
         if (member.constructorElems.tag != TypeEnum.TUPLE)
@@ -106,12 +103,12 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
         }
         foreach (ref elemType; member.constructorElems.tuple.types)
         {
-            "loop".writeln;
             if (elemType.tag == TypeEnum.AGGREGATE)
             {
-                if (elemType.aggregate.typeName == variantType.name)
+                if (elemType.aggregate.typeName == variantType.name
+                    && compareAggregateToVariant(elemType.aggregate,
+                                                 variantType))
                 {
-                    "hit this guy".writeln;
                     auto wrap = new Type();
                     wrap.tag = TypeEnum.VARIANT;
                     wrap.variantDef = variantType;
@@ -119,7 +116,6 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
                 }
                 else if (elemType.aggregate.typeName in records.structDefs)
                 {
-                    "nah this one".writeln;
                     auto instance = new Type();
                     instance.tag = TypeEnum.STRUCT;
                     instance.structDef =
@@ -128,7 +124,6 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
                 }
                 else if (elemType.aggregate.typeName in records.variantDefs)
                 {
-                    "nah THIS guy".writeln;
                     auto wrap = new Type();
                     wrap.tag = TypeEnum.VARIANT;
                     wrap.variantDef =
@@ -137,7 +132,7 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
                 }
                 else
                 {
-                    throw new Exception("Cannot normalize struct def");
+                    throw new Exception("Cannot normalize variant def");
                 }
             }
         }
@@ -153,17 +148,14 @@ Type* normalize(Type* type, RecordBuilder records)
     type = type.copy;
     if (type.tag == TypeEnum.AGGREGATE)
     {
-        "      normalizing aggregate".writeln;
         type = instantiateAggregate(records, type.aggregate);
     }
     if (type.tag == TypeEnum.STRUCT)
     {
-        "      normalizing struct".writeln;
         type = normalizeStructDefs(records, type.structDef);
     }
     if (type.tag == TypeEnum.VARIANT)
     {
-        "      normalizing variant".writeln;
         type = normalizeVariantDefs(records, type.variantDef);
     }
     return type;
@@ -219,45 +211,6 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                     t = mappings[t.aggregate.typeName];
                 }
             }
-            "_instantiateTypeTemplate() AGGREGATE".writeln;
-            ("  BEFORE: " ~ type.formatFull).writeln;
-
-            //if (type.aggregate.typeName in records.structDefs)
-            //{
-            //    auto structDef = records.structDefs[type.aggregate.typeName]
-            //                            .copy;
-            //    if (type.aggregate.templateInstantiations.length
-            //        != structDef.templateParams.length)
-            //    {
-            //        throw new Exception(
-            //            "Template instantiation count mismatch."
-            //        );
-            //    }
-            //    type.tag = TypeEnum.STRUCT;
-            //    type.structDef = structDef;
-            //    type = type.instantiateTypeTemplate(mappings, records);
-            //}
-            //else if (type.aggregate.typeName in records.variantDefs)
-            //{
-            //    auto variantDef = records.variantDefs[type.aggregate.typeName]
-            //                             .copy;
-            //    if (type.aggregate.templateInstantiations.length
-            //        != variantDef.templateParams.length)
-            //    {
-            //        throw new Exception(
-            //            "Template instantiation count mismatch."
-            //        );
-            //    }
-            //    type.tag = TypeEnum.VARIANT;
-            //    type.variantDef = variantDef;
-            //    type = type.instantiateTypeTemplate(mappings, records);
-            //}
-            //else
-            //{
-            //    throw new Exception("Instantiation of non-existent type.");
-            //}
-
-            ("  AFTER : " ~ type.formatFull).writeln;
             return type.normalize(records);
         case TypeEnum.SET:
             if (type.set.setType.tag == TypeEnum.AGGREGATE
@@ -388,10 +341,8 @@ EOF";
             }
             throw new Exception(str);
         }
-        "start loop".writeln;
         foreach (ref member; type.variantDef.members)
         {
-            "loop".writeln;
             auto typeTuple = member.constructorElems;
             Type*[] instantiations;
             if (typeTuple.tag == TypeEnum.TUPLE)
@@ -420,7 +371,6 @@ EOF";
             }
             member.constructorElems = typeTuple;
         }
-        "end loop".writeln;
         type.variantDef.instantiated = true;
         return type;
     case TypeEnum.STRUCT:
@@ -513,4 +463,52 @@ auto funcSigLookup(FuncSig*[] sigs, string name)
         }
     }
     return FuncSigLookupResult();
+}
+
+bool compareAggregateToVariant(AggregateType* aggregate, VariantType* variant)
+{
+    if (aggregate.typeName != variant.name)
+    {
+        return false;
+    }
+    // Check if they have the same number of template arguments. If the name
+    // check passed, something is terribly wrong for this to fail
+    if (aggregate.templateInstantiations.length
+        != variant.templateParams.length)
+    {
+        return false;
+    }
+    // Same number of template arguments, so if it's zero, then they're the same
+    if (aggregate.templateInstantiations.length == 0)
+    {
+        return true;
+    }
+    foreach (aggTemplateType, varTemplateName;
+             lockstep(aggregate.templateInstantiations,
+                      variant.templateParams))
+    {
+        if (!aggTemplateType.cmp(variant.mappings[varTemplateName]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// If the type is an aggregate, return true. If the type is a templated struct
+// or variant definition, but has not been instantiated, return true.
+// Otherwise, return false
+bool isUninstantiated(Type* type)
+{
+    if (   (   type.tag == TypeEnum.VARIANT
+           &&  type.variantDef.templateParams.length > 0
+           && !type.variantDef.instantiated)
+        || (   type.tag == TypeEnum.STRUCT
+           &&  type.structDef.templateParams.length > 0
+           && !type.structDef.instantiated)
+        || (   type.tag == TypeEnum.AGGREGATE))
+    {
+        return true;
+    }
+    return false;
 }

@@ -800,6 +800,13 @@ string compileValue(ValueNode node, Context* vars)
         else if (type.tag == TypeEnum.VARIANT)
         {
             "Variant Def".writeln;
+            ("  " ~ type.formatFull).writeln;
+            ("  " ~ type.size.to!string).writeln;
+            foreach (member; type.variantDef.members)
+            {
+                ("  " ~ member.constructorName).writeln;
+                ("    " ~ member.constructorElems.size.to!string).writeln;
+            }
         }
         else if (vars.isFuncName(name))
         {

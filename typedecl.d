@@ -609,19 +609,21 @@ struct Type
                                               .map!(a => a.size)
                                               .array
                                               .getAlignedSize;
-        case TypeEnum.AGGREGATE :
-            throw new Exception("Aggregate type was not instantiated");
+        // Any remaining aggregate placeholders in a type, after the
+        // typechecker approved the code (which should be the only time
+        // we care about the size of the types), must be placeholders for
+        // struct or variant pointers, meaning any remaining aggregate
+        // placeholder must be of size PTR_SIZE
+        case TypeEnum.AGGREGATE : return PTR_SIZE;
         }
     }
 }
 
+// This function assumes that there is only a single definition of variants and
+// structs, and that therefore if they have the same name and the same template
+// instantiation parameters, if any, then they must be identical
 bool cmp(const Type* me, const Type* o)
 {
-    // Pointer comparison
-    if (me == o)
-    {
-        return true;
-    }
     if (me.constType != o.constType || me.tag != o.tag)
     {
         return false;
@@ -660,18 +662,28 @@ bool cmp(const Type* me, const Type* o)
               .reduce!((a, b) => true == a && a == b);
     case TypeEnum.STRUCT:
         return me.structDef.name == o.structDef.name
-            && me.structDef.members.length == o.structDef.members.length
-            && zip(me.structDef.members,
-                   o.structDef.members)
-              .map!(a => a[0].type.cmp(a[1].type))
-              .reduce!((a, b) => true == a && a == b);
+            && (  me.structDef.templateParams.length
+                == o.structDef.templateParams.length
+                && (me.structDef.templateParams.length == 0
+                 || (me.structDef.instantiated == o.structDef.instantiated
+                     && zip(me.structDef.templateParams
+                                         .map!(a => me.structDef.mappings[a]),
+                             o.structDef.templateParams
+                                         .map!(a =>  o.structDef.mappings[a]))
+                       .map!(a => a[0].cmp(a[1]))
+                       .reduce!((a, b) => true == a && a == b))));
     case TypeEnum.VARIANT:
         return me.variantDef.name == o.variantDef.name
-            && zip(me.variantDef.members,
-                   o.variantDef.members)
-              .map!(a => a[0].constructorName == a[1].constructorName
-                      && a[0].constructorElems.cmp(a[1].constructorElems))
-              .reduce!((a, b) => true == a && a == b);
+            && (  me.variantDef.templateParams.length
+                == o.variantDef.templateParams.length
+                && (me.variantDef.templateParams.length == 0
+                 || (me.variantDef.instantiated == o.variantDef.instantiated
+                     && zip(me.variantDef.templateParams
+                                         .map!(a => me.variantDef.mappings[a]),
+                             o.variantDef.templateParams
+                                         .map!(a =>  o.variantDef.mappings[a]))
+                       .map!(a => a[0].cmp(a[1]))
+                       .reduce!((a, b) => true == a && a == b))));
     case TypeEnum.AGGREGATE:
         return me.aggregate.typeName == o.aggregate.typeName
             && me.aggregate.templateInstantiations.length ==

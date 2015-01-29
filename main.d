@@ -89,15 +89,11 @@ EOF".write;
         writeln("Error: Could not parse program in file [" ~ infileName ~ "].");
         return 0;
     }
-    "Record building".writeln;
     auto records = new RecordBuilder(cast(ProgramNode)topNode);
-    "funcsig building".writeln;
     auto funcSigs = new FunctionSigBuilder(cast(ProgramNode)topNode,
         records);
-    "func building".writeln;
     auto funcs = new FunctionBuilder(cast(ProgramNode)topNode, records,
         funcSigs);
-    "building done".writeln;
     if (dump)
     {
         foreach (structDef; records.structDefs.values)
