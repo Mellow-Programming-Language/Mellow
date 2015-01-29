@@ -423,6 +423,18 @@ struct VariantType
                       .reduce!(max);
     }
 
+    auto isMember(string memberName)
+    {
+        foreach (member; members)
+        {
+            if (member.constructorName == memberName)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     auto getMember(string memberName)
     {
         foreach (member; members)

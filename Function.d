@@ -1855,17 +1855,36 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IsExprNode"));
         // BoolExprNode
         node.children[0].accept(this);
+        auto exprType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
         // IdentifierNode
         node.children[1].accept(this);
         auto constructorName = id;
         auto variantDef = variantFromConstructor(records, constructorName);
+        if (exprType.tag != TypeEnum.VARIANT)
+        {
+            throw new Exception(
+                "Left side of `is` expression must be a variant type"
+            );
+        }
         if (variantDef !is null)
         {
-            auto members = variantDef.members
-                                     .filter!(a => a.constructorName
-                                                  == constructorName)
-                                     .array;
-            auto member = members[0];
+            if (!exprType.variantDef.isMember(constructorName))
+            {
+                throw new Exception(
+                    "Right side of `is` expression must be a valid constructor"
+                    " for the left side variant type"
+                );
+            }
+            auto member = exprType.variantDef
+                                  .getMember(constructorName);
+            if (member.constructorElems.tag == TypeEnum.VOID
+                && node.children[2..$].length > 0)
+            {
+                throw new Exception(
+                    "Cannot bind variables in empty constructor"
+                );
+            }
             if (member.constructorElems.tag != TypeEnum.VOID)
             {
                 if (member.constructorElems.tuple.types.length
@@ -1901,6 +1920,12 @@ class FunctionBuilder : Visitor
             throw new Exception("Variant constructor does not exist");
         }
     }
+
+    // Note that we must cater to the whims of updating
+    // this.stackVarAllocSize[curFuncName] with the stack sizes of each variable
+    // declared in this expression
+    void visit(VariantIsMatchNode node) {}
+    void visit(IdOrWildcardNode node) {}
 
     // Note that in the syntax BoolExpr <-= BoolExpr, the left expression must
     // yield a chan-type that contains the same type as the type of the right
@@ -1980,11 +2005,6 @@ class FunctionBuilder : Visitor
     void visit(InterfaceEntryNode node) {}
 
     void visit(ASTTerminal node) {}
-    // Note that we must cater to the whims of updating
-    // this.stackVarAllocSize[curFuncName] with the stack sizes of each variable
-    // declared in this expression
-    void visit(VariantIsMatchNode node) {}
-    void visit(IdOrWildcardNode node) {}
     void visit(AssignExistingOpNode node) {}
     void visit(StorageClassNode node) {}
     void visit(ConstClassNode node) {}

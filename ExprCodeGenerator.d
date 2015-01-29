@@ -1357,5 +1357,6 @@ string compileDotAccess(DotAccessNode node, Context* vars)
 string compileIsExpr(IsExprNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+
     return "";
 }
