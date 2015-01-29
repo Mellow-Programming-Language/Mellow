@@ -799,14 +799,19 @@ string compileValue(ValueNode node, Context* vars)
         }
         else if (type.tag == TypeEnum.VARIANT)
         {
-            "Variant Def".writeln;
-            ("  " ~ type.formatFull).writeln;
-            ("  " ~ type.size.to!string).writeln;
-            foreach (member; type.variantDef.members)
-            {
-                ("  " ~ member.constructorName).writeln;
-                ("    " ~ member.constructorElems.size.to!string).writeln;
-            }
+            str ~= "    ; instantiating constructor " ~ name
+                                                      ~ "\n";
+            str ~= "    mov    rdi, " ~ type.variantDef
+                                            .getVariantAllocSize
+                                            .to!string
+                                      ~ "\n";
+            str ~= "    call   malloc\n";
+            // Set the variant tag
+            str ~= "    mov    dword [rax+4], " ~ type.variantDef
+                                                      .getMemberIndex(name)
+                                                      .to!string
+                                                ~ "\n";
+            str ~= "    mov    r8, rax\n";
         }
         else if (vars.isFuncName(name))
         {
@@ -1052,7 +1057,10 @@ string compileTrailer(TrailerNode node, Context* vars)
         str ~= compileDynArrAccess(cast(DynArrAccessNode)child, vars);
     }
     else if (cast(TemplateInstanceMaybeTrailerNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileTemplateInstanceMaybeTrailer(
+            cast(TemplateInstanceMaybeTrailerNode)child,
+            vars
+        );
     }
     else if (cast(FuncCallTrailerNode)child) {
         str ~= compileFuncCallTrailer(cast(FuncCallTrailerNode)child, vars);
@@ -1176,23 +1184,39 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
     return str;
 }
 
-string compileTemplateInstanceMaybeTrailer(TemplateInstanceMaybeTrailerNode node, Context* vars)
+string compileTemplateInstanceMaybeTrailer(
+    TemplateInstanceMaybeTrailerNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    // The template instantiation is a purely typechecking issue, so just jump
+    // straight to the trailer if there is one
+    if (node.children.length > 1)
+    {
+        str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
+    }
+    return str;
 }
 
 string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
-    vars.allocateStackSpace(8);
-    auto valLoc = vars.getTop.to!string;
-    str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
-    str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
-    str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
-    vars.deallocateStackSpace(8);
-    str ~= "    call   r10\n";
+    auto caseStr = node.data["case"].get!(string);
+    final switch (caseStr)
+    {
+    case "funccall":
+        vars.allocateStackSpace(8);
+        auto valLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
+        str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
+        str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
+        vars.deallocateStackSpace(8);
+        str ~= "    call   r10\n";
+        break;
+    case "variant":
+        str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
+    }
     return str;
 }
 

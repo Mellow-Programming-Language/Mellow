@@ -1668,6 +1668,17 @@ string compileFuncCall(FuncCallNode node, Context* vars)
 string compileArgList(FuncCallArgListNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto caseStr = node.data["case"].get!(string);
+    final switch (caseStr)
+    {
+    case "funccall": return compileFuncCallArgList(node, vars);
+    case "variant" : return compileVariantArgList(node, vars);
+    }
+}
+
+string compileFuncCallArgList(FuncCallArgListNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
 
     // If there are more than 6 args, then after we pop off the top 48 bytes,
     // the remaining arguments are on the top of the stack.
@@ -1770,5 +1781,56 @@ string compileArgList(FuncCallArgListNode node, Context* vars)
             break;
         }
     }
+    return str;
+}
+
+string compileVariantArgList(FuncCallArgListNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    // The pointer to the allocated space for the new variant is in r8, set
+    // to the correct tag
+    auto variantType = node.data["parenttype"].get!(Type*).variantDef;
+    auto constructor = node.data["constructor"].get!(string);
+    auto member = variantType.getMember(constructor);
+    auto memberTypes = member.constructorElems.tuple.types;
+    auto memberTypeSizes = memberTypes.map!(a => a.size)
+                                      .array;
+    auto str = "";
+    vars.allocateStackSpace(8);
+    auto variantLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ variantLoc
+                                    ~ "], r8\n";
+    scope (exit) vars.deallocateStackSpace(8);
+    foreach (i, child; node.children)
+    {
+        auto type = child.data["type"].get!(Type*);
+        str ~= compileExpression(child, vars);
+        switch (type.size)
+        {
+        case 16:
+            assert(false, "Unimplemented");
+            break;
+        case 1:
+        case 2:
+        case 4:
+        case 8:
+        default:
+            auto memberOffset = memberTypeSizes.getAlignedIndexOffset(i);
+            str ~= "    mov    r10, qword [rbp-" ~ variantLoc
+                                                 ~ "]\n";
+            str ~= "    add    r10, " ~ (REF_COUNT_SIZE
+                                       + VARIANT_TAG_SIZE
+                                       + memberOffset).to!string
+                                      ~ "\n";
+            str ~= "    mov    " ~ getWordSize(type.size)
+                                 ~ " [r10], "
+                                 ~ "r8"
+                                 ~ getRRegSuffix(type.size)
+                                 ~ "\n";
+            break;
+        }
+    }
+    str ~= "    mov    r8, qword [rbp-" ~ variantLoc
+                                        ~ "]\n";
     return str;
 }

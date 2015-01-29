@@ -1,0 +1,21 @@
+
+variant Expr {
+    Add (Expr, Expr),
+    Val (int)
+}
+
+variant Tree(T) {
+    Branch (Tree!T, T, Tree!T),
+    Leaf
+}
+
+variant Maybe(T) {
+    Some (T),
+    None
+}
+
+func main() {
+    a := Add(Val(1), Val(2));
+    b := Branch!int(Leaf!int, 1, Leaf!int);
+    c := Some!int(1);
+}

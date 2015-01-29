@@ -1291,6 +1291,14 @@ class FunctionBuilder : Visitor
     void visit(FuncCallTrailerNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallTrailerNode"));
+        if (curVariant !is null)
+        {
+            node.data["case"] = "variant";
+        }
+        else
+        {
+            node.data["case"] = "funccall";
+        }
         node.children[0].accept(this);
         if (node.children.length > 1)
         {
@@ -1305,6 +1313,7 @@ class FunctionBuilder : Visitor
         // in the builder stack is using UFCS.
         if (curFuncCallSig !is null)
         {
+            node.data["case"] = "funccall";
             auto funcSig = curFuncCallSig;
             curFuncCallSig = null;
             auto funcArgs = funcSig.funcArgs;
@@ -1327,6 +1336,9 @@ class FunctionBuilder : Visitor
         }
         else if (curVariant !is null)
         {
+            node.data["case"] = "variant";
+            node.data["parenttype"] = curVariant;
+            node.data["constructor"] = curConstructor;
             auto variant = curVariant;
             curVariant = null;
             auto expectedTypes = variant.variantDef

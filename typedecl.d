@@ -425,11 +425,23 @@ struct VariantType
 
     auto getMember(string memberName)
     {
-        foreach (i, member; members)
+        foreach (member; members)
         {
             if (member.constructorName == memberName)
             {
                 return member;
+            }
+        }
+        assert(false, "Unreachable");
+    }
+
+    auto getMemberIndex(string memberName)
+    {
+        foreach (i, member; members)
+        {
+            if (member.constructorName == memberName)
+            {
+                return i;
             }
         }
         assert(false, "Unreachable");
