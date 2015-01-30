@@ -287,7 +287,7 @@ struct Context
     VariantType*[string] variantDefs;
     VarTypePair*[] closureVars;
     VarTypePair*[] funcArgs;
-    VarTypePair*[] stackVars;
+    private VarTypePair*[] stackVars;
     Type* retType;
     // Set when calculating l-value addresses, to determine how the assignment
     // should be made
@@ -337,6 +337,29 @@ struct Context
     void deallocateStackSpace(uint bytes)
     {
         topOfStack -= bytes;
+    }
+
+    // Since the typechecker guarantees that no variable is ever shadowing
+    // another, we are free to replace variables with the same name
+    void addStackVar(VarTypePair* newVar)
+    {
+        long replaceIndex = -1;
+        foreach (i, var; stackVars)
+        {
+            if (var.varName == newVar.varName)
+            {
+                replaceIndex = i.to!long;
+                break;
+            }
+        }
+        if (replaceIndex >= 0)
+        {
+            stackVars[replaceIndex] = newVar;
+        }
+        else
+        {
+            stackVars ~= newVar;
+        }
     }
 
     bool isStackAlignedVar(string varName)
@@ -656,7 +679,7 @@ string compileFunction(FuncSig* sig, Context* vars)
             }
             else
             {
-                vars.stackVars ~= arg;
+                vars.addStackVar(arg);
                 // r8 is one of the potential func arg input registers, so store
                 // it temporarily in a free register while we use it to put the
                 // arg on the stack
@@ -679,7 +702,7 @@ string compileFunction(FuncSig* sig, Context* vars)
             }
             else
             {
-                vars.stackVars ~= arg;
+                vars.addStackVar(arg);
                 // r8 is one of the potential func arg input registers, so store
                 // it temporarily in a free register while we use it to put the
                 // arg on the stack
@@ -925,7 +948,7 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         auto indexVar = new VarTypePair();
         indexVar.varName = indexVarName;
         indexVar.type = indexType;
-        vars.stackVars ~= indexVar;
+        vars.addStackVar(indexVar);
     }
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
     if (loopType.tag == TypeEnum.ARRAY)
@@ -934,7 +957,7 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         auto loopVar = new VarTypePair();
         loopVar.varName = loopVarName;
         loopVar.type = loopType.array.arrayType.copy;
-        vars.stackVars ~= loopVar;
+        vars.addStackVar(loopVar);
         auto elemSize = loopType.array.arrayType.size;
         vars.allocateStackSpace(8);
         auto arrayLoc = vars.getTop.to!string;
@@ -1049,7 +1072,7 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
         auto var = new VarTypePair;
         var.varName = varName;
         var.type = type;
-        vars.stackVars ~= var;
+        vars.addStackVar(var);
         // Increase the ref-count by 1 for dynamically allocated types
         if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING
             || type.tag == TypeEnum.VARIANT || type.tag == TypeEnum.STRUCT
@@ -1075,7 +1098,7 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     auto pair = node.data["pair"].get!(VarTypePair*);
-    vars.stackVars ~= pair;
+    vars.addStackVar(pair);
     final switch (pair.type.tag)
     {
     case TypeEnum.STRING:

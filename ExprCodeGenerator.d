@@ -1394,7 +1394,7 @@ string compileIsExpr(IsExprNode node, Context* vars)
                 auto pair = new VarTypePair();
                 pair.varName = varName;
                 pair.type = memberTypes[i];
-                vars.stackVars ~= pair;
+                vars.addStackVar(pair);
                 switch (valueSize)
                 {
                 case 16:
