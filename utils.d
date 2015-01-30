@@ -145,7 +145,6 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
 
 Type* normalize(Type* type, RecordBuilder records)
 {
-    type = type.copy;
     if (type.tag == TypeEnum.AGGREGATE)
     {
         type = instantiateAggregate(records, type.aggregate);
@@ -165,25 +164,6 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                               RecordBuilder records)
 {
     Type*[] instantiatedTypes;
-
-    Type* findExistingInstantiation(AggregateType* dummyType)
-    {
-        foreach (type; instantiatedTypes)
-        {
-            switch (type.tag)
-            {
-            case TypeEnum.STRUCT:
-                if (type.structDef.name == dummyType.typeName)
-                {
-
-                }
-                break;
-            default:
-                break;
-            }
-        }
-        return null;
-    }
 
     Type* _instantiateTypeTemplate(Type* type)
     {

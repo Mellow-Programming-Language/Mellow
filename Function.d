@@ -1029,7 +1029,7 @@ class FunctionBuilder : Visitor
                                                    .decls[varName]
                                                    .type;
         lvalue = varType.normalize(records);
-        node.data["type"] = lvalue.copy;
+        node.data["type"] = lvalue;
         if (node.children.length > 1)
         {
             node.children[1].accept(this);
@@ -1054,7 +1054,7 @@ class FunctionBuilder : Visitor
                 {
                     found = true;
                     lvalue = member.type.normalize(records);
-                    node.data["type"] = lvalue.copy;
+                    node.data["type"] = lvalue;
                 }
             }
             if (!found)
@@ -1075,7 +1075,7 @@ class FunctionBuilder : Visitor
             node.children[0].accept(this);
             insideSlice--;
             lvalue = lvalue.array.arrayType.normalize(records);
-            node.data["type"] = lvalue.copy;
+            node.data["type"] = lvalue;
             if (node.children.length > 1)
             {
                 node.children[1].accept(this);
@@ -1917,7 +1917,7 @@ class FunctionBuilder : Visitor
                         auto varBind = id;
                         auto pair = new VarTypePair();
                         pair.varName = varBind;
-                        pair.type = subtype.copy;
+                        pair.type = subtype;
                         stackVarAllocSize[curFuncName]
                             += subtype.size
                                       .stackAlignSize;
