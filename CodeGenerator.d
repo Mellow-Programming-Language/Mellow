@@ -287,13 +287,14 @@ struct Context
     VariantType*[string] variantDefs;
     VarTypePair*[] closureVars;
     VarTypePair*[] funcArgs;
-    private VarTypePair*[] stackVars;
     Type* retType;
     // Set when calculating l-value addresses, to determine how the assignment
     // should be made
     bool isStackAligned;
     uint reservedStackSpace;
     uint maxTempSpaceUsed;
+    string valueTag;
+    private VarTypePair*[] stackVars;
     private uint topOfStack;
     private uint uniqLabelCounter;
     private uint uniqDataCounter;

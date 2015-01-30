@@ -779,6 +779,11 @@ struct VarTypePair
     {
         return varName ~ ": " ~ type.format();
     }
+
+    auto formatFull()
+    {
+        return varName ~ ": " ~ type.formatFull();
+    }
 }
 
 // The 'header' for a function type. Note that a function can be any of the

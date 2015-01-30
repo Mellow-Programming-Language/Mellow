@@ -794,11 +794,18 @@ string compileValue(ValueNode node, Context* vars)
         auto name = getIdentifier(idNode);
         if (vars.isVarName(name))
         {
+            vars.valueTag = "var";
             str ~= "    ; getting " ~ name ~ "\n";
             str ~= vars.compileVarGet(name);
         }
+        else if (vars.isFuncName(name))
+        {
+            vars.valueTag = "func";
+            str ~= "    mov    r8, " ~ name ~ "\n";
+        }
         else if (type.tag == TypeEnum.VARIANT)
         {
+            vars.valueTag = "variant";
             str ~= "    ; instantiating constructor " ~ name
                                                       ~ "\n";
             str ~= "    mov    rdi, " ~ type.variantDef
@@ -812,10 +819,6 @@ string compileValue(ValueNode node, Context* vars)
                                                       .to!string
                                                 ~ "\n";
             str ~= "    mov    r8, rax\n";
-        }
-        else if (vars.isFuncName(name))
-        {
-            str ~= "    mov    r8, " ~ name ~ "\n";
         }
         if (node.children.length > 1)
         {
@@ -1202,10 +1205,9 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
-    auto caseStr = node.data["case"].get!(string);
-    final switch (caseStr)
+    final switch (vars.valueTag)
     {
-    case "funccall":
+    case "func":
         vars.allocateStackSpace(8);
         auto valLoc = vars.getTop.to!string;
         str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";

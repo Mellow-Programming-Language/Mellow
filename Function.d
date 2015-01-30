@@ -681,6 +681,19 @@ class FunctionBuilder : Visitor
                                     .type;
                 builderStack[$-1] ~= varType;
             }
+            else if (funcLookup.success)
+            {
+                curFuncCallSig = funcLookup.sig;
+                auto funcPtr = new FuncPtrType();
+                funcPtr.funcArgs = funcLookup.sig.funcArgs
+                                                 .map!(a => a.type)
+                                                 .array;
+                funcPtr.returnType = funcLookup.sig.returnType;
+                auto wrap = new Type;
+                wrap.tag = TypeEnum.FUNCPTR;
+                wrap.funcPtr = funcPtr;
+                builderStack[$-1] ~= wrap;
+            }
             else if (variant !is null)
             {
                 if (variant.templateParams.length > 0)
@@ -705,19 +718,6 @@ class FunctionBuilder : Visitor
                 curVariant.variantDef = variant;
                 curConstructor = name;
                 builderStack[$-1] ~= curVariant;
-            }
-            else if (funcLookup.success)
-            {
-                curFuncCallSig = funcLookup.sig;
-                auto funcPtr = new FuncPtrType();
-                funcPtr.funcArgs = funcLookup.sig.funcArgs
-                                                 .map!(a => a.type)
-                                                 .array;
-                funcPtr.returnType = funcLookup.sig.returnType;
-                auto wrap = new Type;
-                wrap.tag = TypeEnum.FUNCPTR;
-                wrap.funcPtr = funcPtr;
-                builderStack[$-1] ~= wrap;
             }
             if (node.children.length > 1)
             {
@@ -1291,14 +1291,6 @@ class FunctionBuilder : Visitor
     void visit(FuncCallTrailerNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallTrailerNode"));
-        if (curVariant !is null)
-        {
-            node.data["case"] = "variant";
-        }
-        else
-        {
-            node.data["case"] = "funccall";
-        }
         node.children[0].accept(this);
         if (node.children.length > 1)
         {
@@ -1931,7 +1923,9 @@ class FunctionBuilder : Visitor
         }
         else
         {
-            throw new Exception("Variant constructor does not exist");
+            throw new Exception(
+                "Variant constructor " ~ constructorName ~ " does not exist"
+            );
         }
         node.data["type"] = exprType;
         node.data["constructor"] = constructorName;
