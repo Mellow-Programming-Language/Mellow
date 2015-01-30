@@ -1341,11 +1341,19 @@ class FunctionBuilder : Visitor
             node.data["constructor"] = curConstructor;
             auto variant = curVariant;
             curVariant = null;
-            auto expectedTypes = variant.variantDef
-                                        .getMember(curConstructor)
-                                        .constructorElems
-                                        .tuple
-                                        .types;
+            auto member = variant.variantDef.getMember(curConstructor);
+            if (member.constructorElems.tag == TypeEnum.VOID)
+            {
+                throw new Exception(
+                    "Constructor [" ~ curConstructor
+                                   ~ "] of variant ["
+                                   ~ variant.variantDef.format
+                                   ~ "] cannot have value arguments"
+                );
+            }
+            auto expectedTypes = member.constructorElems
+                                       .tuple
+                                       .types;
             foreach (child, typeExpected; lockstep(node.children,
                                                    expectedTypes))
             {

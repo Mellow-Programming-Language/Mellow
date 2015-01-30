@@ -1361,20 +1361,79 @@ string compileIsExpr(IsExprNode node, Context* vars)
     auto constructorName = node.data["constructor"].get!(string);
     auto member = variantType.variantDef
                              .getMember(constructorName);
-    auto memberTypes = member.constructorElems.tuple.types;
-    auto memberTypeSizes = memberTypes.map!(a => a.size)
-                                      .array;
+    auto memberTag = variantType.variantDef
+                                .getMemberIndex(constructorName);
     auto str = "";
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
     // We now have the variant pointer in hand in r8
-    foreach (i, child; node.children[2..$])
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto variantLoc = vars.getTop.to!string;
+    str ~= "    mov    [rbp-" ~ variantLoc
+                              ~ "], r8\n";
+    auto wrongTag = vars.getUniqLabel;
+    auto end = vars.getUniqLabel;
+    // Get the variant tag
+    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    cmp    r9, " ~ memberTag.to!string
+                             ~ "\n";
+    str ~= "    jne    " ~ wrongTag
+                         ~ "\n";
+    if (node.children.length > 2)
     {
-        if (cast(IdentifierNode)child)
+        auto memberTypes = member.constructorElems.tuple.types;
+        auto memberTypeSizes = memberTypes.map!(a => a.size)
+                                          .array;
+        foreach (i, child; node.children[2..$])
         {
-            auto varName = getIdentifier(cast(IdentifierNode)child);
-            auto memberOffset = memberTypeSizes.getAlignedIndexOffset(i);
-            str ~= "    "
+            if (cast(IdentifierNode)child)
+            {
+                auto varName = getIdentifier(cast(IdentifierNode)child);
+                auto memberOffset = memberTypeSizes.getAlignedIndexOffset(i);
+                auto valueSize = memberTypeSizes[i];
+                auto pair = new VarTypePair();
+                pair.varName = varName;
+                pair.type = memberTypes[i];
+                vars.stackVars ~= pair;
+                switch (valueSize)
+                {
+                case 16:
+                    assert(false, "Unimplemented");
+                    break;
+                case 1:
+                case 2:
+                    // mov's of size 4 automatically zero the upper 4 bytes of
+                    // the register, but smaller mov sizes don't
+                    str ~= "    mov    r9, 0\n";
+                case 4:
+                case 8:
+                default:
+                    str ~= "    mov    r8, [rbp-" ~ variantLoc
+                                                  ~ "]\n";
+                    str ~= "    mov    r9" ~ getRRegSuffix(valueSize)
+                                           ~ ", "
+                                           ~ getWordSize(valueSize)
+                                           ~ " [r8+"
+                                           ~ (REF_COUNT_SIZE
+                                            + VARIANT_TAG_SIZE
+                                            + memberOffset).to!string
+                                           ~ "]\n";
+                    str ~= "    mov    [rbp-" ~ variantLoc
+                                              ~ "], r8\n";
+                    str ~= "    mov    r8, r9\n";
+                    str ~= vars.compileVarSet(varName);
+                    break;
+                }
+            }
         }
     }
-    return "";
+    // The is expression succeeded, so set a true bool in r8
+    str ~= "    mov    r8, 1\n";
+    str ~= "    jmp    " ~ end
+                         ~ "\n";
+    str ~= wrongTag ~ ":\n";
+    // The is expression failed, so set a false bool in r8
+    str ~= "    mov    r8, 0\n";
+    str ~= end ~ ":\n";
+    return str;
 }

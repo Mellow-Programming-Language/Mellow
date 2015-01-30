@@ -7,8 +7,8 @@ the `make` process will attempt to `git clone` a secondary repository (the
 parser generator project at https://github.com/CollinReeser/ParserGenerator),
 which is necessary to build the compiler.
 
-The build process assumes that the D Language compiler `dmd`, `gcc`, and the
-Netwide Assembler `nasm` are installed.
+The build process assumes that the D Language compiler `dmd`, `gcc`, `git`, and
+the Netwide Assembler `nasm` are installed.
 
 `./compiler --help` will provide a summary of options.
 
@@ -48,7 +48,8 @@ Incomplete list of working features:
 - logical operators (&&, ||, !)
 - array .length property
 - templated structs
-- instantiating recursively-defined, templated variants
+- templated, recursively-defined variants
+- 'is' expressions
 
 
 Incomplete list of unimplemented or broken features:
@@ -75,5 +76,4 @@ Incomplete list of unimplemented or broken features:
 - float arithmetic
 - lambdas
 - function templating
-- 'is' expressions
 - any sort of module system whatsoever
