@@ -1,0 +1,100 @@
+
+extern func writeln(str: string);
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant Tree(T) {
+    Branch (Tree!T, T, Tree!T),
+    Leaf
+}
+
+func addNode(val: int, tree: Tree!int): Tree!int {
+    if (tree is Leaf) {
+        return Branch!int(Leaf!int, val, Leaf!int);
+    }
+    else if (tree is Branch(left, nodeVal, right)) {
+        if (val < nodeVal) {
+            return Branch!int(addNode(val, left), nodeVal, right);
+        }
+        else {
+            return Branch!int(left, nodeVal, addNode(val, right));
+        }
+    }
+}
+
+func createTree(vals: []int): Tree!int {
+    if (vals.length == 0) {
+        return Leaf!int;
+    }
+    root := Leaf!int;
+    foreach (val; vals) {
+        root = addNode(val, root);
+    }
+    return root;
+}
+
+func printTree(tree: Tree!int, indent: string) {
+    if (tree is Branch(left, val, right)) {
+        str := intToString(val);
+        writeln(indent ~ intToString(val));
+        printTree(left, indent ~ "  ");
+        printTree(right, indent ~ "  ");
+    }
+}
+
+func isMember(checkVal: int, tree: Tree!int): bool {
+    if (tree is Leaf) {
+        return false;
+    }
+    else if (tree is Branch (left, nodeVal, right)) {
+        if (checkVal == nodeVal) {
+            return true;
+        }
+        else if (checkVal < nodeVal) {
+            return isMember(checkVal, left);
+        }
+        else {
+            return isMember(checkVal, right);
+        }
+    }
+}
+
+func main() {
+    tree := Branch!int(
+        Branch!int(
+            Leaf!int,
+            4,
+            Leaf!int
+        ),
+        5,
+        Branch!int(
+            Leaf!int,
+            6,
+            Leaf!int
+        )
+    );
+    printTree(tree, "");
+    binTree := createTree([5, 1, 10, 3, 7, 0, 12]);
+    printTree(binTree, "");
+    if (isMember(4, binTree)) {
+        writeln("Found!");
+    }
+    else {
+        writeln("Not Found!");
+    }
+    if (isMember(7, binTree)) {
+        writeln("Found!");
+    }
+    else {
+        writeln("Not Found!");
+    }
+}

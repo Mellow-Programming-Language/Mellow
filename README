@@ -21,6 +21,9 @@ Interesting compilable examples:
 - intToString.clam
 - features.clam
 - mergesort.clam
+- quicksort.clam
+- isExpr.clam
+- tree.clam
 
 Incomplete list of working features:
 - variables

@@ -1,0 +1,51 @@
+
+extern func writeln(str: string);
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+func formatArray(vals: []int): string {
+    str := "[";
+    if (vals.length > 0) {
+        str = str ~ intToString(vals[0]);
+    }
+    if (vals.length > 1) {
+        foreach (x; vals[1..]) {
+            str = str ~ ", " ~ intToString(x);
+        }
+    }
+    return str ~ "]";
+}
+
+func quicksort(list: []int): []int {
+    if (list.length <= 1) {
+        return list;
+    }
+    pivot := list[0];
+    left: []int;
+    right: []int;
+    foreach (val; list[1..]) {
+        if (val < pivot) {
+            left ~= val;
+        }
+        else {
+            right ~= val;
+        }
+    }
+    return quicksort(left) ~ pivot ~ quicksort(right);
+}
+
+func main() {
+    vals := [5, 2, 7, 3, 9, 8, 1, 4, 6];
+    writeln(formatArray(vals));
+    vals = quicksort(vals);
+    writeln(formatArray(vals));
+}
