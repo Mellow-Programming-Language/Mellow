@@ -307,7 +307,12 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!returnType.cmp(funcSigs[$-1].returnType))
             {
-                throw new Exception("Wrong type for return.");
+                throw new Exception(
+                    "Wrong type for return in function ["
+                    ~ funcSigs[$-1].funcName ~ "]:\n"
+                    ~ "  Expects: " ~ funcSigs[$-1].returnType.format ~ "\n"
+                    ~ "  But got: " ~ returnType.format
+                );
             }
         }
     }
@@ -333,7 +338,10 @@ class FunctionBuilder : Visitor
             if (resultType.tag != TypeEnum.BOOL
                 || nextType.tag != TypeEnum.BOOL)
             {
-                throw new Exception("Non-bool type in LOGIC-OR.");
+                throw new Exception(
+                    "Non-bool type in LOGIC-OR in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         builderStack[$-1] ~= resultType;
@@ -354,7 +362,10 @@ class FunctionBuilder : Visitor
             if (resultType.tag != TypeEnum.BOOL
                 || nextType.tag != TypeEnum.BOOL)
             {
-                throw new Exception("Non-bool type in LOGIC-AND.");
+                throw new Exception(
+                    "Non-bool type in LOGIC-AND in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         builderStack[$-1] ~= resultType;
@@ -369,7 +380,10 @@ class FunctionBuilder : Visitor
         {
             if (builderStack[$-1][$-1].tag != TypeEnum.BOOL)
             {
-                throw new Exception("Cannot negate non-bool type.");
+                throw new Exception(
+                    "Cannot negate non-bool type in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         node.data["type"] = builderStack[$-1][$-1];
@@ -396,7 +410,10 @@ class FunctionBuilder : Visitor
             case ">":
                 if (!resultType.isNumeric || !nextType.isNumeric)
                 {
-                    throw new Exception("Cannot compare non-integral types.");
+                    throw new Exception(
+                        "Cannot compare non-integral types in function ["
+                        ~ funcSigs[$-1].funcName ~ "]"
+                    );
                 }
                 break;
             case "==":
@@ -408,7 +425,10 @@ class FunctionBuilder : Visitor
                     || resultType.tag == TypeEnum.STRING)) {}
                 else
                 {
-                    throw new Exception("Mismatched types for equality cmp.");
+                    throw new Exception(
+                        "Mismatched types for equality cmp in function ["
+                        ~ funcSigs[$-1].funcName ~ "]"
+                    );
                 }
                 break;
             case "<in>":
@@ -416,14 +436,20 @@ class FunctionBuilder : Visitor
                     || nextType.tag != TypeEnum.SET
                     || !resultType.set.setType.cmp(nextType.set.setType))
                 {
-                    throw new Exception("Mismatched types in <in> op.");
+                    throw new Exception(
+                        "Mismatched types in <in> op in function ["
+                        ~ funcSigs[$-1].funcName ~ "]"
+                    );
                 }
                 break;
             case "in":
                 if (nextType.tag != TypeEnum.SET
                     || !nextType.set.setType.cmp(resultType))
                 {
-                    throw new Exception("Mismatched types in in op.");
+                    throw new Exception(
+                        "Mismatched types in in op in function ["
+                        ~ funcSigs[$-1].funcName ~ "]"
+                    );
                 }
                 break;
             }
@@ -455,7 +481,10 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
-                throw new Exception("Non-integral type in BIT-OR operation.");
+                throw new Exception(
+                    "Non-integral type in BIT-OR operation in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         builderStack[$-1] ~= resultType;
@@ -475,7 +504,10 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
-                throw new Exception("Non-integral type in BIT-XOR operation.");
+                throw new Exception(
+                    "Non-integral type in BIT-XOR operation in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         builderStack[$-1] ~= resultType;
@@ -495,7 +527,10 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
-                throw new Exception("Non-integral type in BIT-AND operation.");
+                throw new Exception(
+                    "Non-integral type in BIT-AND operation in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         builderStack[$-1] ~= resultType;
@@ -515,7 +550,10 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
-                throw new Exception("Non-integral type in shift operation.");
+                throw new Exception(
+                    "Non-integral type in shift operation in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         builderStack[$-1] ~= resultType;
@@ -668,8 +706,9 @@ class FunctionBuilder : Visitor
             if (!varLookup.success && !funcLookup.success && variant is null)
             {
                 throw new Exception(
-                    "No variable, function, or variant constructor [" ~ name
-                                                                      ~ "]."
+                    "No variable, function, or variant constructor ["
+                    ~ name ~ "] in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
             else if (varLookup.success)
@@ -709,7 +748,8 @@ class FunctionBuilder : Visitor
                             ~ name
                             ~ "] of variant ["
                             ~ variant.format
-                            ~ "] without a template instantiation";
+                            ~ "] without a template instantiation in function ["
+                            ~ funcSigs[$-1].funcName ~ "]";
                         throw new Exception(str);
                     }
                 }
@@ -801,7 +841,10 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!valType.cmp(nextType))
             {
-                throw new Exception("Non-uniform type in array literal");
+                throw new Exception(
+                    "Non-uniform type in array literal in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
         }
         auto arrayType = new ArrayType();
@@ -903,7 +946,12 @@ class FunctionBuilder : Visitor
         case "=":
             if (!left.cmp(varType))
             {
-                throw new Exception("Type mismatch in assign-existing.");
+                throw new Exception(
+                    "Type mismatch in assign-existing in function ["
+                    ~ funcSigs[$-1].funcName ~ "]\n"
+                    ~ "  Expects: " ~ left.format ~ "\n"
+                    ~ "  But got: " ~ varType.format
+                );
             }
             break;
         case "+=":
@@ -1311,9 +1359,13 @@ class FunctionBuilder : Visitor
             auto funcArgs = funcSig.funcArgs;
             if (funcArgs.length != node.children.length)
             {
-                throw new Exception("Incorrect number of arguments passed");
+                throw new Exception(
+                    "Incorrect number of arguments passed for call of "
+                    ~ "function [" ~ funcSig.funcName ~ "] in function ["
+                    ~ funcSigs[$-1].funcName ~ "]"
+                );
             }
-            foreach (child, argExpected; lockstep(node.children, funcArgs))
+            foreach (i, child, argExpected; lockstep(node.children, funcArgs))
             {
                 child.accept(this);
                 auto argPassed = builderStack[$-1][$-1];
@@ -1321,7 +1373,13 @@ class FunctionBuilder : Visitor
                 if (!argPassed.cmp(argExpected.type))
                 {
                     throw new Exception(
-                        "Mismatch between expected and passed arg type");
+                        "Mismatch between expected and passed arg type for "
+                        ~ "call of function [" ~ funcSig.funcName
+                        ~ "] in function [" ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "  Expects: " ~ argExpected.type.format ~ "\n"
+                        ~ "  But got: " ~ argPassed.format ~ "\n"
+                        ~ "in arg position [" ~ i.to!string ~ "]"
+                    );
                 }
             }
             builderStack[$-1] ~= funcSig.returnType;
