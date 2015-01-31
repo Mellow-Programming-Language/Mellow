@@ -24,6 +24,8 @@ Interesting compilable examples:
 - quicksort.clam
 - isExpr.clam
 - tree.clam
+- bf_is.clam (a bf interpreter with no input support and using `is` expressions
+              instead of the currently unimplemented match statement)
 
 Incomplete list of working features:
 - variables

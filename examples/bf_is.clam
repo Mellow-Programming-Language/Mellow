@@ -1,0 +1,105 @@
+
+extern func writeln(str: string);
+
+variant Token {
+    LeftBrack,
+    RightBrack,
+    Plus,
+    Minus,
+    LeftWakka,
+    RightWakka,
+    Period,
+    Comma
+}
+
+variant Expr {
+    Loop ([]Expr),
+    Inc,
+    Dec,
+    MoveLeft,
+    MoveRight,
+    Input,
+    Output
+}
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+func innerInterpret(seq: []Expr, tape: []int, i: int): int {
+    line: string;
+    foreach (expr; seq) {
+        if (expr is Inc) {
+            tape[i] = tape[i] + 1;
+        }
+        else if (expr is Dec) {
+            tape[i] = tape[i] - 1;
+        }
+        else if (expr is MoveLeft) {
+            i = i - 1;
+            if (i < 0)
+            {
+                i = tape.length - 1;
+            }
+        }
+        else if (expr is MoveRight) {
+            i = i + 1;
+            if (i >= tape.length)
+            {
+                i = 0;
+            }
+        }
+        else if (expr is Input) {
+
+        }
+        else if (expr is Output) {
+            writeln(intToString(tape[i]));
+        }
+        else if (expr is Loop(inner)) {
+            while (tape[i] != 0)
+            {
+                i = innerInterpret(inner, tape, i);
+            }
+        }
+    }
+    return i;
+}
+
+func interpret(program: []Expr) {
+    tape: [30000]int;
+    while (i := 0; i < tape.length) {
+        tape[i] = 0;
+        i = i + 1;
+    }
+    innerInterpret(program, tape, 0);
+}
+
+func main() {
+    hello := [
+        Inc, Inc, Inc, Inc, Inc, Inc, Inc, Inc,
+        Loop([MoveRight, Inc, Inc, Inc, Inc,
+              Loop([MoveRight, Inc, Inc, MoveRight, Inc, Inc, Inc, MoveRight,
+                    Inc, Inc, Inc, MoveRight, Inc, MoveLeft, MoveLeft,
+                    MoveLeft, MoveLeft, Dec
+              ]),
+              MoveRight, Inc, MoveRight, Inc, MoveRight, Dec, MoveRight,
+              MoveRight, Inc,
+              Loop([MoveLeft
+              ]),
+              MoveLeft, Dec
+        ]), MoveRight, MoveRight, Output, MoveRight, Dec, Dec, Dec, Output, Inc,
+        Inc, Inc, Inc, Inc, Inc, Inc, Output, Output, Inc, Inc, Inc, Output,
+        MoveRight, MoveRight, Output, MoveLeft, Dec, Output, MoveLeft, Output,
+        Inc, Inc, Inc, Output, Dec, Dec, Dec, Dec, Dec, Dec, Output, Dec, Dec,
+        Dec, Dec, Dec, Dec, Dec, Dec, Output, MoveRight, MoveRight, Inc, Output,
+        MoveRight, Inc, Inc, Output
+    ];
+    interpret(hello);
+}
