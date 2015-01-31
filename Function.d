@@ -1370,6 +1370,7 @@ class FunctionBuilder : Visitor
                 child.accept(this);
                 auto argPassed = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
+                argExpected.type = normalize(argExpected.type, records);
                 if (!argPassed.cmp(argExpected.type))
                 {
                     throw new Exception(
@@ -1410,10 +1411,7 @@ class FunctionBuilder : Visitor
                 child.accept(this);
                 auto typeGot = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
-                if (typeExpected.isUninstantiated)
-                {
-                    typeExpected = normalize(typeExpected, records);
-                }
+                typeExpected = normalize(typeExpected, records);
                 if (!typeExpected.cmp(typeGot))
                 {
                     throw new Exception(
@@ -1967,7 +1965,7 @@ class FunctionBuilder : Visitor
                         auto varBind = id;
                         auto pair = new VarTypePair();
                         pair.varName = varBind;
-                        pair.type = subtype;
+                        pair.type = subtype.normalize(records);
                         stackVarAllocSize[curFuncName]
                             += subtype.size
                                       .stackAlignSize;

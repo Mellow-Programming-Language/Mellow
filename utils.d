@@ -157,6 +157,19 @@ Type* normalize(Type* type, RecordBuilder records)
     {
         type = normalizeVariantDefs(records, type.variantDef);
     }
+    if (type.tag == TypeEnum.ARRAY)
+    {
+        type.array.arrayType = normalize(type.array.arrayType, records);
+    }
+    if (type.tag == TypeEnum.SET)
+    {
+        type.set.setType = normalize(type.set.setType, records);
+    }
+    if (type.tag == TypeEnum.HASH)
+    {
+        type.hash.keyType = normalize(type.hash.keyType, records);
+        type.hash.valueType = normalize(type.hash.valueType, records);
+    }
     return type;
 }
 
@@ -288,12 +301,24 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
     case TypeEnum.CHAR:
     case TypeEnum.BOOL:
     case TypeEnum.STRING:
-    case TypeEnum.SET:
-    case TypeEnum.HASH:
-    case TypeEnum.ARRAY:
     case TypeEnum.AGGREGATE:
-    case TypeEnum.TUPLE:
     case TypeEnum.FUNCPTR:
+        return type;
+    case TypeEnum.SET:
+        type.set.setType = _instantiateTypeTemplate(type.set.setType);
+        return type;
+    case TypeEnum.HASH:
+        type.hash.keyType = _instantiateTypeTemplate(type.hash.keyType);
+        type.hash.valueType = _instantiateTypeTemplate(type.hash.valueType);
+        return type;
+    case TypeEnum.ARRAY:
+        type.array.arrayType = _instantiateTypeTemplate(type.array.arrayType);
+        return type;
+    case TypeEnum.TUPLE:
+        foreach (ref tupleType; type.tuple.types)
+        {
+            tupleType = _instantiateTypeTemplate(tupleType);
+        }
         return type;
     case TypeEnum.CHAN:
         if (type.chan.chanType.tag == TypeEnum.AGGREGATE
