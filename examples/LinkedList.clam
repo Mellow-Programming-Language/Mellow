@@ -1,0 +1,58 @@
+
+extern func writeln(str: string);
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant LinkedList(T) {
+    ListNode (T, LinkedList!T),
+    EmptyList
+}
+
+func appendElem(list: LinkedList!int, elem: int): LinkedList!int {
+    if (list is EmptyList) {
+        return ListNode!int(elem, EmptyList!int);
+    }
+    else if (list is ListNode(T, right)) {
+        if (right is EmptyList) {
+            return ListNode!int(T, ListNode!int(elem, EmptyList!int));
+        }
+        else {
+            return ListNode!int(T, appendElem(right, elem));
+        }
+    }
+}
+
+func printList(list: LinkedList!int) {
+    if (list is ListNode(elem, rest)) {
+        writeln(intToString(elem));
+        printList(rest);
+    }
+}
+
+func listToArray(list: LinkedList!int): []int {
+    if (list is ListNode(elem, rest)) {
+        return [elem] ~ listToArray(rest);
+    }
+    null: []int;
+    return null;
+}
+
+func main() {
+    list := EmptyList!int;
+    foreach (val; [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+        list = appendElem(list, val);
+    }
+    printList(list);
+    foreach (val; listToArray(list)) {
+        writeln(intToString(val));
+    }
+}
