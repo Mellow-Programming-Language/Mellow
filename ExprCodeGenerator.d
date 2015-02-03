@@ -1215,9 +1215,11 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
         str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
         vars.deallocateStackSpace(8);
         str ~= "    call   r10\n";
+        str ~= "    mov    r8, rax\n";
         break;
     case "variant":
         str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
+        break;
     }
     return str;
 }
