@@ -11,12 +11,12 @@ void writeln(void* clamStr)
     printf("%s\n", (char*)(clamStr + STR_START_OFFSET));
 }
 
-void* clam_fopen(void* str, struct FopenMode* mode)
+struct MaybeFile* clam_fopen(void* str, struct FopenMode* mode)
 {
     // Allocate space for a Maybe!File, which needs space for the ref-count, the
     // variant tag and space for the File ref in Some (File)
-    void* maybeRes = malloc(REF_COUNT_SIZE + VARIANT_TAG_SIZE +
-                            sizeof(struct ClamFile*));
+    struct MaybeFile* maybeFile =
+        (struct MaybeFile*)malloc(sizeof(struct MaybeFile));
     FILE* file;
     switch (mode->mode)
     {
@@ -39,23 +39,19 @@ void* clam_fopen(void* str, struct FopenMode* mode)
         fileRef->openMode = mode->mode;
         fileRef->ptr = file;
         fileRef->isOpen = 1;
-        // Set ref-count to 1
-        ((uint32_t*)maybeRes)[0] = 1;
         // Set tag to Some
-        ((uint32_t*)maybeRes)[1] = 0;
+        maybeFile->variantTag = 0;
         // The File ref lives just after the variant tag, which is four bytes
-        ((struct ClamFile**)
-            (maybeRes + REF_COUNT_SIZE + VARIANT_TAG_SIZE)
-        )[0] = fileRef;
+        maybeFile->ptr = fileRef;
     }
     else
     {
-        // Set ref-count to 1
-        ((uint32_t*)maybeRes)[0] = 1;
         // Set tag to None
-        ((uint32_t*)maybeRes)[1] = 1;
+        maybeFile->variantTag = 1;
     }
-    return maybeRes;
+    // Set ref-count to 0
+    maybeFile->refCount = 0;
+    return maybeFile;
 }
 
 void clam_fclose(struct ClamFile* file)

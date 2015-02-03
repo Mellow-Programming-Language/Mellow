@@ -27,11 +27,18 @@ struct ClamFile
     unsigned char isOpen;
 };
 
+struct MaybeFile
+{
+    uint32_t refCount;
+    uint32_t variantTag;
+    struct ClamFile* ptr;
+};
+
 // Write a clam-string out to STDOUT
 void clam_writeln(void* str);
 
 // Return a Maybe!File for use with file operations
-void* clam_fopen(void* str, struct FopenMode* mode);
+struct MaybeFile* clam_fopen(void* str, struct FopenMode* mode);
 
 // Given a File ref, close the file
 // TODO: Must actually do something about the case of failure to close the file
