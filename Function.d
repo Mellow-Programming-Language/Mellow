@@ -1417,8 +1417,8 @@ class FunctionBuilder : Visitor
                     throw new Exception(
                         "Mismatch between expected and passed variant "
                         "constructor instantiation type: \n"
-                      ~ "  Expected:\n" ~ typeExpected.formatFull ~ "\n"
-                      ~ "  Got:\n" ~ typeGot.formatFull
+                      ~ "  Expected: " ~ typeExpected.formatFull ~ "\n"
+                      ~ "  Got: " ~ typeGot.formatFull
                     );
                 }
             }
