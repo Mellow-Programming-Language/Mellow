@@ -34,6 +34,13 @@ struct MaybeFile
     struct ClamFile* ptr;
 };
 
+struct MaybeStr
+{
+    uint32_t refCount;
+    uint32_t variantTag;
+    void* str;
+};
+
 // Write a clam-string out to STDOUT
 void clam_writeln(void* str);
 
@@ -43,5 +50,7 @@ struct MaybeFile* clam_fopen(void* str, struct FopenMode* mode);
 // Given a File ref, close the file
 // TODO: Must actually do something about the case of failure to close the file
 void clam_fclose(struct ClamFile* file);
+
+struct MaybeStr* clam_freadln(struct ClamFile* file);
 
 #endif
