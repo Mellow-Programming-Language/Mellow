@@ -936,6 +936,16 @@ class FunctionBuilder : Visitor
         node.children[1].accept(this);
         auto varType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (varType.tag == TypeEnum.AGGREGATE
+            || varType.tag == TypeEnum.STRUCT
+            || varType.tag == TypeEnum.VARIANT)
+        {
+            throw new Exception(
+                "Cannot declare but not initialize struct or variant types.\n"
+                ~ "  For [" ~ varName ~ ": " ~ varType.format ~ ";]\n"
+                ~ "  Use the appropriate value constructor"
+            );
+        }
         auto pair = new VarTypePair();
         pair.varName = varName;
         pair.type = varType;

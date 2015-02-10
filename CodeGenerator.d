@@ -1159,14 +1159,6 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
     case TypeEnum.FUNCPTR:
         break;
     case TypeEnum.STRUCT:
-        str ~= "    mov    rdi, " ~ getStructAllocSize(
-                                        pair.type.structDef
-                                    ).to!string
-                                  ~ "\n";
-        str ~= "    call   malloc\n";
-        // Set the refcount to 1, as we're assigning this array to a variable
-        str ~= "    mov    dword [rax], 1\n";
-        str ~= "    mov    r8, rax\n";
         break;
     case TypeEnum.VARIANT:
         break;
