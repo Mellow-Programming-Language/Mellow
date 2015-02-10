@@ -173,7 +173,8 @@ BooleanLiteral :: ("true")
 Lambda :: #"fn" LambdaArgs #"=>" BoolExpr;
 LambdaArgs :: #"(" (VariableTypePair (#"," VariableTypePair)*)? #")";
 
-StructConstructor :: Identifier #"{" ^StructMemberConstructor
+StructConstructor :: Identifier TemplateInstantiation?
+                                #"{" ^StructMemberConstructor
                                      (#"," ^StructMemberConstructor)*
                                 #"}";
 StructMemberConstructor :: Identifier #"=" Value;

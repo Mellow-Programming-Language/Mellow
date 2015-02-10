@@ -775,6 +775,8 @@ string compileValue(ValueNode node, Context* vars)
         str ~= compileBooleanLiteral(cast(BooleanLiteralNode)child, vars);
     } else if (cast(LambdaNode)child) {
         assert(false, "Unimplemented");
+    } else if (cast(StructConstructorNode)child) {
+        str ~= compileStructConstructor(cast(StructConstructorNode)child, vars);
     } else if (cast(CharLitNode)child) {
         assert(false, "Unimplemented");
     } else if (cast(StringLitNode)child) {
@@ -862,6 +864,63 @@ string compileLambdaArgs(LambdaArgsNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     return "";
+}
+
+string compileStructConstructor(StructConstructorNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    auto structDef = node.data["type"].get!(Type*).structDef;
+    Type*[string] members;
+    foreach (member; structDef.members)
+    {
+        members[member.name] = member.type;
+    }
+    str ~= "    mov    rdi, " ~ getStructAllocSize(structDef).to!string
+                              ~ "\n";
+    str ~= "    call   malloc\n";
+    // Set the refcount to 1, as we're assigning this struct to a variable
+    str ~= "    mov    dword [rax], 1\n";
+    str ~= "    mov    r8, rax\n";
+    vars.allocateStackSpace(8);
+    auto structLoc = vars.getTop.to!string;
+    scope (exit) vars.deallocateStackSpace(8);
+    str ~= "    mov    qword [rbp-" ~ structLoc
+                                    ~ "], r8\n";
+    auto i = 1;
+    if (cast(TemplateInstantiationNode)node.children[1])
+    {
+        i = 2;
+    }
+    for (; i < node.children.length; i += 2)
+    {
+        auto memberName = getIdentifier(cast(IdentifierNode)node.children[i]);
+        auto memberOffset = structDef.getOffsetOfMember(memberName);
+        auto type = members[memberName];
+        str ~= compileValue(cast(ValueNode)node.children[i+1], vars);
+        str ~= "    mov    r10, qword [rbp-" ~ structLoc
+                                            ~ "]\n";
+        // r10 is now a pointer to the beginning of the member of the struct
+        str ~= "    add    r10, " ~ (REF_COUNT_SIZE
+                                   + STRUCT_BUFFER_SIZE
+                                   + memberOffset).to!string
+                                  ~ "\n";
+        if (type.size <= 8)
+        {
+            str ~= "    mov    " ~ getWordSize(type.size)
+                                 ~ " [r10], r8"
+                                 ~ getRRegSuffix(type.size)
+                                 ~ "\n";
+        }
+        // Function pointer case
+        else
+        {
+
+        }
+    }
+    str ~= "    mov    r8, qword [rbp-" ~ structLoc
+                                        ~ "]\n";
+    return str;
 }
 
 string compileValueTuple(ValueTupleNode node, Context* vars)

@@ -305,6 +305,8 @@ class FunctionSigBuilder : Visitor
     void visit(WildcardPatternNode node) {}
     void visit(VarOrBareVariantPatternNode node) {}
 
+    void visit(StructConstructorNode node) {}
+    void visit(StructMemberConstructorNode node) {}
     void visit(ASTTerminal node) {}
     void visit(ExternStructDeclNode node) {}
     void visit(StructDefNode node) {}

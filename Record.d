@@ -317,5 +317,7 @@ class RecordBuilder : Visitor
     void visit(IsExprNode node) {}
     void visit(VariantIsMatchNode node) {}
     void visit(IdOrWildcardNode node) {}
+    void visit(StructConstructorNode node) {}
+    void visit(StructMemberConstructorNode node) {}
     void visit(ASTTerminal node) {}
 }

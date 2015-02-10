@@ -828,6 +828,76 @@ class FunctionBuilder : Visitor
         builderStack[$-1] ~= valType;
     }
 
+    void visit(StructConstructorNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StructConstructorNode"));
+        node.children[0].accept(this);
+        auto structName = id;
+        auto i = 1;
+        // Instantiate the actual struct type, including template arguments
+        auto aggregate = new AggregateType();
+        aggregate.typeName = structName;
+        if (cast(TemplateInstantiationNode)node.children[1])
+        {
+            i = 2;
+            builderStack.length++;
+            node.children[1].accept(this);
+            aggregate.templateInstantiations = builderStack[$-1];
+            builderStack.length--;
+        }
+        auto structDef = instantiateAggregate(records, aggregate);
+        Type*[string] memberAssigns;
+        for (; i < node.children.length; i += 2)
+        {
+            node.children[i].accept(this);
+            auto memberName = id;
+            node.children[i+1].accept(this);
+            auto valType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (memberName in memberAssigns)
+            {
+                throw new Exception(
+                    "A struct member must appear only once in a constructor"
+                );
+            }
+            memberAssigns[memberName] = valType;
+        }
+        Type*[string] membersActual;
+        foreach (member; structDef.structDef.members)
+        {
+            membersActual[member.name] = member.type;
+        }
+        auto memberNamesAssigned = memberAssigns.keys
+                                                .sort;
+        auto memberNamesActual = membersActual.keys
+                                              .sort;
+        if (memberNamesAssigned.setSymmetricDifference(memberNamesActual)
+                               .walkLength > 0)
+        {
+            throw new Exception(
+                "Incorrect struct member arguments in constructor"
+            );
+        }
+        foreach (key; memberAssigns.keys)
+        {
+            auto assignedType = memberAssigns[key];
+            auto expectedType = membersActual[key];
+            if (!assignedType.cmp(expectedType))
+            {
+                throw new Exception(
+                    "Type mismatch in struct constructor:\n"
+                    ~ "  Member [" ~ key ~ "]\n"
+                    ~ "  Expects type: " ~ expectedType.format ~ "\n"
+                    ~ "  But got type: " ~ assignedType.format
+                );
+            }
+        }
+        node.data["type"] = structDef;
+        builderStack[$-1] ~= structDef;
+    }
+
+    void visit(StructMemberConstructorNode node) {}
+
     void visit(ArrayLiteralNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayLiteralNode"));
