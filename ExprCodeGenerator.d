@@ -99,14 +99,33 @@ string compileNotTest(NotTestNode node, Context* vars)
 
 string compileComparison(ComparisonNode node, Context* vars)
 {
-
-    // TODO Need to refactor to account for allowing == and != on strings
-
     debug (COMPILE_TRACE) mixin(tracer);
     if (node.children.length == 1)
     {
         return compileExpr(cast(ExprNode)node.children[0], vars);
     }
+    auto leftType = node.data["lefttype"].get!(Type*);
+    auto rightType = node.data["righttype"].get!(Type*);
+    if (leftType.isNumeric
+        || leftType.tag == TypeEnum.BOOL
+        || leftType.tag == TypeEnum.CHAR)
+    {
+        return compileIntComparison(node, vars);
+    }
+    else if (leftType.tag == TypeEnum.STRING)
+    {
+        return compileStringComparison(node, vars);
+    }
+    else if (rightType.tag == TypeEnum.SET)
+    {
+        return compileSetComparison(node, vars);
+    }
+    assert(false, "Unreachable");
+}
+
+string compileIntComparison(ComparisonNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
     auto op = (cast(ASTTerminal)node.children[1]).token;
     auto str = "";
     str ~= compileExpr(cast(ExprNode)node.children[0], vars);
@@ -141,15 +160,71 @@ string compileComparison(ComparisonNode node, Context* vars)
     case "!=":
         str ~= "    je     " ~ failureLabel ~ "\n";
         break;
-    case "<in>":
+    }
+    str ~= "    mov    r10, 1\n";
+    str ~= failureLabel ~ ":\n";
+    str ~= "    mov    r8, r10\n";
+    return str;
+}
+
+string compileStringComparison(ComparisonNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    vars.runtimeExterns["strcmp"] = true;
+    auto op = (cast(ASTTerminal)node.children[1]).token;
+    auto str = "";
+    str ~= compileExpr(cast(ExprNode)node.children[0], vars);
+    vars.allocateStackSpace(8);
+    auto valLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
+    str ~= compileExpr(cast(ExprNode)node.children[2], vars);
+    str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+    vars.deallocateStackSpace(8);
+    // r9 is left value, r8 is right value
+    // Increment pointers to point at the beginning of the string data, skipping
+    // ref count and string length. Since these strings are null-terminated,
+    // we can just call strcmp
+    str ~= "    add    r8, 8\n";
+    str ~= "    add    r9, 8\n";
+    str ~= "    mov    rdi, r9\n";
+    str ~= "    mov    rsi, r8\n";
+    str ~= "    call   strcmp\n";
+    // Assume that the comparison fails, and update if it succeeds
+    str ~= "    mov    r10, 0\n";
+    // strcmp returns an int, so the value we care about is in eax, not rax
+    str ~= "    cmp    eax, 0\n";
+    auto failureLabel = vars.getUniqLabel();
+    final switch (op)
+    {
+    case "<=":
+        str ~= "    jg     " ~ failureLabel ~ "\n";
         break;
-    case "in":
+    case ">=":
+        str ~= "    jl     " ~ failureLabel ~ "\n";
+        break;
+    case "<":
+        str ~= "    jge    " ~ failureLabel ~ "\n";
+        break;
+    case ">":
+        str ~= "    jle    " ~ failureLabel ~ "\n";
+        break;
+    case "==":
+        str ~= "    jne    " ~ failureLabel ~ "\n";
+        break;
+    case "!=":
+        str ~= "    je     " ~ failureLabel ~ "\n";
         break;
     }
     str ~= "    mov    r10, 1\n";
     str ~= failureLabel ~ ":\n";
     str ~= "    mov    r8, r10\n";
     return str;
+}
+
+string compileSetComparison(ComparisonNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    return "";
 }
 
 string compileExpr(ExprNode node, Context* vars)

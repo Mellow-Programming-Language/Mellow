@@ -408,14 +408,6 @@ class FunctionBuilder : Visitor
             case ">=":
             case "<":
             case ">":
-                if (!resultType.isNumeric || !nextType.isNumeric)
-                {
-                    throw new Exception(
-                        "Cannot compare non-integral types in function ["
-                        ~ funcSigs[$-1].funcName ~ "]"
-                    );
-                }
-                break;
             case "==":
             case "!=":
                 if (resultType.isNumeric && nextType.isNumeric) {}
@@ -453,6 +445,8 @@ class FunctionBuilder : Visitor
                 }
                 break;
             }
+            node.data["lefttype"] = resultType;
+            node.data["righttype"] = nextType;
             auto boolType = new Type();
             boolType.tag = TypeEnum.BOOL;
             resultType = boolType;
