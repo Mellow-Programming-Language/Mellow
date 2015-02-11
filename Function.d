@@ -1211,9 +1211,10 @@ class FunctionBuilder : Visitor
         insideSlice++;
         auto arrayType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
-        if (arrayType.tag != TypeEnum.ARRAY)
+        if (arrayType.tag != TypeEnum.ARRAY
+            && arrayType.tag != TypeEnum.STRING)
         {
-            throw new Exception("Cannot slice non-array type.");
+            throw new Exception("Cannot slice non-array, non-string type.");
         }
         node.children[0].accept(this);
         auto sliceType = builderStack[$-1][$-1];
@@ -1222,7 +1223,17 @@ class FunctionBuilder : Visitor
         // instance of what the array type contains
         if (sliceType.tag != TypeEnum.TUPLE)
         {
-            builderStack[$-1] ~= arrayType.array.arrayType;
+            // If it's a string, then the single index type is char
+            if (arrayType.tag == TypeEnum.STRING)
+            {
+                auto charType = new Type();
+                charType.tag = TypeEnum.CHAR;
+                builderStack[$-1] ~= charType;
+            }
+            else
+            {
+                builderStack[$-1] ~= arrayType.array.arrayType;
+            }
         }
         // Otherwise, it's a range, meaning the outgoing type is just the
         // array type again

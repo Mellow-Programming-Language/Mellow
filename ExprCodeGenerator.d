@@ -853,7 +853,7 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(StructConstructorNode)child) {
         str ~= compileStructConstructor(cast(StructConstructorNode)child, vars);
     } else if (cast(CharLitNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileCharLit(cast(CharLitNode)child, vars);
     } else if (cast(StringLitNode)child) {
         str ~= compileStringLit(cast(StringLitNode)child, vars);
     } else if (cast(ValueTupleNode)child) {
@@ -1065,7 +1065,60 @@ string compileNumber(NumberNode node, Context* vars)
 string compileCharLit(CharLitNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+
+    // TODO add in support for octal and hex characters
+
+    auto charLit = (cast(ASTTerminal)node.children[0]).token[1..$-1];
+    char code;
+    auto str = "";
+    if (charLit[0] == '\\')
+    {
+        switch (charLit[1])
+        {
+        case 'a':
+            code = '\a';
+            break;
+        case 'b':
+            code = '\b';
+            break;
+        case 'f':
+            code = '\f';
+            break;
+        case 'n':
+            code = '\n';
+            break;
+        case 'r':
+            code = '\r';
+            break;
+        case 't':
+            code = '\t';
+            break;
+        case 'v':
+            code = '\v';
+            break;
+        case '\\':
+            code = '\\';
+            break;
+        case '\'':
+            code = '\\';
+            break;
+        case '"':
+            code = '\"';
+            break;
+        case '?':
+            code = '\?';
+            break;
+        default:
+            break;
+        }
+    }
+    else
+    {
+        code = charLit[0];
+    }
+    str ~= "    mov    r8, " ~ (cast(int)code).to!string
+                             ~ "\n";
+    return str;
 }
 
 string compileStringLit(StringLitNode node, Context* vars)
@@ -1211,9 +1264,21 @@ string compileTrailer(TrailerNode node, Context* vars)
 string compileDynArrAccess(DynArrAccessNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+
+    // TODO implement string range indexing. Currently only string single
+    // indexing works, to yield a char
+
     auto arrayType = node.data["parenttype"].get!(Type*);
-    auto resultType = arrayType.array.arrayType;
     auto indexType = node.data["type"].get!(Type*);
+    Type* resultType;
+    if (arrayType.tag == TypeEnum.ARRAY)
+    {
+        resultType = arrayType.array.arrayType;
+    }
+    else if (arrayType.tag == TypeEnum.STRING)
+    {
+        resultType = indexType;
+    }
     auto str = "";
     vars.bssQWordAllocs["__ZZlengthSentinel"] = true;
 

@@ -56,6 +56,7 @@ Incomplete list of working features:
 - templated structs
 - templated, recursively-defined variants
 - 'is' expressions
+- string comparison operators
 
 
 Incomplete list of unimplemented or broken features:
@@ -77,7 +78,6 @@ Incomplete list of unimplemented or broken features:
 - hashes
 - function pointers
 - tuples
-- string comparison operators
 - float comparison operators
 - float arithmetic
 - lambdas
