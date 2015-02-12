@@ -1818,8 +1818,26 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("MatchWhenNode"));
         // PatternNode
         node.children[0].accept(this);
-        // StatementNode*
-        foreach (child; node.children[1..$])
+        auto startIndex = 1;
+        if (node.children.length > 1
+            && cast(CondAssignmentsNode)node.children[1])
+        {
+            startIndex = 3;
+            // CondAssignmentsNode
+            node.children[1].accept(this);
+            // BoolExprNode
+            node.children[2].accept(this);
+            auto boolType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (boolType.tag != TypeEnum.BOOL)
+            {
+                throw new Exception(
+                    "Non-bool expr in match guard clause expr."
+                );
+            }
+        }
+        // StatementNode+
+        foreach (child; node.children[startIndex..$])
         {
             child.accept(this);
         }
