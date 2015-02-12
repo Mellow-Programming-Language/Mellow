@@ -1853,6 +1853,7 @@ class FunctionBuilder : Visitor
     void visit(DestructVariantPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DestructVariantPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.VARIANT)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1892,6 +1893,7 @@ class FunctionBuilder : Visitor
     void visit(StructPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StructPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.STRUCT)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1951,6 +1953,7 @@ class FunctionBuilder : Visitor
     void visit(BoolPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BoolPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.BOOL)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1961,6 +1964,7 @@ class FunctionBuilder : Visitor
     void visit(StringPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StringPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.STRING)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1971,6 +1975,7 @@ class FunctionBuilder : Visitor
     void visit(CharPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CharPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.CHAR)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1981,6 +1986,7 @@ class FunctionBuilder : Visitor
     void visit(IntPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IntPatternNode"));
+        node.data["type"] = matchType;
         if (!isIntegral(matchType))
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -1991,6 +1997,7 @@ class FunctionBuilder : Visitor
     void visit(FloatPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FloatPatternNode"));
+        node.data["type"] = matchType;
         if (!isFloat(matchType))
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -2001,6 +2008,7 @@ class FunctionBuilder : Visitor
     void visit(TuplePatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TuplePatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.TUPLE)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -2025,6 +2033,7 @@ class FunctionBuilder : Visitor
     void visit(ArrayEmptyPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.ARRAY)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -2035,6 +2044,7 @@ class FunctionBuilder : Visitor
     void visit(ArrayPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.ARRAY)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -2052,6 +2062,9 @@ class FunctionBuilder : Visitor
             pair.varName = restName;
             pair.type = matchTypeSave;
             funcScopes[$-1].syms[$-1].decls[restName] = pair;
+            this.stackVarAllocSize[curFuncName] += pair.type
+                                                       .size
+                                                       .stackAlignSize;
         }
         else if (cast(ASTTerminal)node.children[$-1])
         {
@@ -2069,6 +2082,7 @@ class FunctionBuilder : Visitor
     void visit(ArrayTailPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayTailPatternNode"));
+        node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.ARRAY)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
@@ -2086,6 +2100,9 @@ class FunctionBuilder : Visitor
             pair.varName = restName;
             pair.type = matchTypeSave;
             funcScopes[$-1].syms[$-1].decls[restName] = pair;
+            this.stackVarAllocSize[curFuncName] += pair.type
+                                                       .size
+                                                       .stackAlignSize;
         }
         matchType = matchType.array.arrayType;
         foreach (child; node.children[startIndex..$])
@@ -2103,6 +2120,7 @@ class FunctionBuilder : Visitor
     void visit(VarOrBareVariantPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VarOrBareVariantPatternNode"));
+        node.data["type"] = matchType;
         // IdentifierNode
         node.children[0].accept(this);
         auto var = id;
@@ -2124,6 +2142,9 @@ class FunctionBuilder : Visitor
             pair.varName = var;
             pair.type = matchType;
             funcScopes[$-1].syms[$-1].decls[var] = pair;
+            this.stackVarAllocSize[curFuncName] += pair.type
+                                                       .size
+                                                       .stackAlignSize;
         }
     }
 

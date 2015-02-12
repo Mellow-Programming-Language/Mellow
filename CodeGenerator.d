@@ -294,6 +294,9 @@ struct Context
     uint reservedStackSpace;
     uint maxTempSpaceUsed;
     string valueTag;
+    uint matchTypeLoc;
+    string[] matchEndLabel;
+    string[] matchNextWhenLabel;
     private VarTypePair*[] stackVars;
     private uint topOfStack;
     private uint uniqLabelCounter;
@@ -1041,7 +1044,61 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
 string compileMatchStmt(MatchStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    // If a match succeeds, then we have a label to jump to once the match
+    // statement is executed
+    vars.matchEndLabel ~= vars.getUniqLabel;
+    str ~= compileCondAssignments(
+        cast(CondAssignmentsNode)node.children[0], vars
+    );
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    vars.allocateStackSpace(8);
+    vars.matchTypeLoc = vars.getTop;
+    str ~= "    mov    qword [rbp-" ~ vars.matchTypeLoc.to!string
+                                    ~ "], r8\n";
+    foreach (child; node.children[2..$])
+    {
+        str ~= compileMatchWhen(cast(MatchWhenNode)child, vars);
+    }
+    vars.deallocateStackSpace(8);
+    vars.matchEndLabel.length--;
+    return str;
+}
+
+string compileMatchWhen(MatchWhenNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    // If the match fails, then we have access to the label to jump to to try
+    // the next match
+    vars.matchNextWhenLabel ~= vars.getUniqLabel;
+    // Inside each pattern, we test the individual components of the match.
+    // If the match fails, then we put in the code to jump to the next match
+    // branch
+    str ~= compilePattern(cast(PatternNode)node.children[0], vars);
+    if (cast(CondAssignmentsNode)node.children[1])
+    {
+        str ~= compileCondAssignments(
+            cast(CondAssignmentsNode)node.children[1], vars
+        );
+        str ~= compileBoolExpr(cast(BoolExprNode)node.children[2], vars);
+        // Test if the guard clause passed
+        str ~= "    cmp    r8, 0\n";
+        str ~= "    jnz    " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+        str ~= compileStatement(cast(StatementNode)node.children[3], vars);
+    }
+    else
+    {
+        str ~= compileStatement(cast(StatementNode)node.children[1], vars);
+    }
+    // If we got here, then the match was successful and the inner statement was
+    // executed, so jump to the end of the match statement
+    str ~= "    jmp    " ~ vars.matchEndLabel[$-1]
+                         ~ "\n";
+    str ~= vars.matchNextWhenLabel[$-1] ~ ":\n";
+    vars.matchNextWhenLabel.length--;
+    return str;
 }
 
 string compileDeclaration(DeclarationNode node, Context* vars)
@@ -1089,7 +1146,7 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
     }
     else
     {
-
+        assert(false, "Unimplemented");
     }
     return str;
 }
