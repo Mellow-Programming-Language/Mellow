@@ -294,7 +294,7 @@ struct Context
     uint reservedStackSpace;
     uint maxTempSpaceUsed;
     string valueTag;
-    uint matchTypeLoc;
+    uint[] matchTypeLoc;
     string[] matchEndLabel;
     string[] matchNextWhenLabel;
     private VarTypePair*[] stackVars;
@@ -1048,20 +1048,24 @@ string compileMatchStmt(MatchStmtNode node, Context* vars)
     // If a match succeeds, then we have a label to jump to once the match
     // statement is executed
     vars.matchEndLabel ~= vars.getUniqLabel;
+    vars.allocateStackSpace(8);
+    vars.matchTypeLoc ~= vars.getTop;
+    scope (exit)
+    {
+        vars.deallocateStackSpace(8);
+        vars.matchEndLabel.length--;
+        vars.matchTypeLoc.length--;
+    }
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
     );
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
-    vars.allocateStackSpace(8);
-    vars.matchTypeLoc = vars.getTop;
-    str ~= "    mov    qword [rbp-" ~ vars.matchTypeLoc.to!string
+    str ~= "    mov    qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
                                     ~ "], r8\n";
     foreach (child; node.children[2..$])
     {
         str ~= compileMatchWhen(cast(MatchWhenNode)child, vars);
     }
-    vars.deallocateStackSpace(8);
-    vars.matchEndLabel.length--;
     return str;
 }
 
@@ -1099,6 +1103,195 @@ string compileMatchWhen(MatchWhenNode node, Context* vars)
     str ~= vars.matchNextWhenLabel[$-1] ~ ":\n";
     vars.matchNextWhenLabel.length--;
     return str;
+}
+
+string compilePattern(PatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto child = node.children[0];
+    if (cast(DestructVariantPatternNode)child)
+        return compileDestructVariantPattern(
+            cast(DestructVariantPatternNode)child, vars
+        );
+    else if (cast(StructPatternNode)child)
+        return compileStructPattern(cast(StructPatternNode)child, vars);
+    else if (cast(BoolPatternNode)child)
+        return compileBoolPattern(cast(BoolPatternNode)child, vars);
+    else if (cast(StringPatternNode)child)
+        return compileStringPattern(cast(StringPatternNode)child, vars);
+    else if (cast(CharPatternNode)child)
+        return compileCharPattern(cast(CharPatternNode)child, vars);
+    else if (cast(FloatPatternNode)child)
+        return compileFloatPattern(cast(FloatPatternNode)child, vars);
+    else if (cast(IntPatternNode)child)
+        return compileIntPattern(cast(IntPatternNode)child, vars);
+    else if (cast(TuplePatternNode)child)
+        return compileTuplePattern(cast(TuplePatternNode)child, vars);
+    else if (cast(ArrayEmptyPatternNode)child)
+        return compileArrayEmptyPattern(cast(ArrayEmptyPatternNode)child, vars);
+    else if (cast(ArrayPatternNode)child)
+        return compileArrayPattern(cast(ArrayPatternNode)child, vars);
+    else if (cast(ArrayTailPatternNode)child)
+        return compileArrayTailPattern(cast(ArrayTailPatternNode)child, vars);
+    else if (cast(WildcardPatternNode)child)
+        return compileWildcardPattern(cast(WildcardPatternNode)child, vars);
+    else if (cast(VarOrBareVariantPatternNode)child)
+        return compileVarOrBareVariantPattern(
+            cast(VarOrBareVariantPatternNode)child, vars
+        );
+    assert(false, "Unreachable");
+    return "";
+}
+
+string compileDestructVariantPattern(DestructVariantPatternNode node,
+                                     Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto variantDef = node.data["type"].get!(Type*).variantDef;
+    auto str = "";
+    auto constructor = getIdentifier(cast(IdentifierNode)node.children[0]);
+    auto member = variantDef.getMember(constructor);
+    auto memberTag = variantDef.getMemberIndex(constructor);
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    cmp    r9, " ~ memberTag.to!string
+                             ~ "\n";
+    // If the tag doesn't match, jump to the next match arm
+    str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
+                         ~ "\n";
+    // But if it does match, then recurse on the patterns within the variant
+    // pattern, if there are any
+    if (node.children.length > 1)
+    {
+        auto memberTypes = member.constructorElems.tuple.types;
+        auto memberTypeSizes = memberTypes.map!(a => a.size)
+                                          .array;
+        vars.allocateStackSpace(8);
+        vars.matchTypeLoc ~= vars.getTop;
+        scope (exit)
+        {
+            vars.deallocateStackSpace(8);
+            vars.matchTypeLoc.length--;
+        }
+        foreach (i, child; node.children[1..$])
+        {
+            auto memberOffset = memberTypeSizes.getAlignedIndexOffset(i);
+            auto valueSize = memberTypeSizes[i];
+            switch (valueSize)
+            {
+            case 16:
+                assert(false, "Unimplemented");
+                break;
+            case 1:
+            case 2:
+                str ~= "    mov    r9, 0\n";
+            case 4:
+            case 8:
+            default:
+                // Get the value and put it in the top of the match type
+                // "stack"
+                str ~= "    mov    r9" ~ getRRegSuffix(valueSize)
+                                       ~ ", "
+                                       ~ getWordSize(valueSize)
+                                       ~ " [r8+"
+                                       ~ (REF_COUNT_SIZE
+                                        + VARIANT_TAG_SIZE
+                                        + memberOffset).to!string
+                                       ~ "]\n";
+                str ~= "    mov    qword [rbp-"
+                    ~ vars.matchTypeLoc[$-1].to!string
+                    ~ "], r9\n";
+                str ~= compilePattern(cast(PatternNode)child, vars);
+                break;
+            }
+        }
+    }
+    return str;
+}
+
+string compileStructPattern(StructPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileBoolPattern(BoolPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileStringPattern(StringPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileCharPattern(CharPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileFloatPattern(FloatPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileIntPattern(IntPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileTuplePattern(TuplePatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileArrayEmptyPattern(ArrayEmptyPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileArrayPattern(ArrayPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
+}
+
+string compileWildcardPattern(WildcardPatternNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    return "";
+}
+
+string compileVarOrBareVariantPattern(VarOrBareVariantPatternNode node,
+                                      Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
+    return "";
 }
 
 string compileDeclaration(DeclarationNode node, Context* vars)

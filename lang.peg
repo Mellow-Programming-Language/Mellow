@@ -237,6 +237,7 @@ Pattern :: DestructVariantPattern
          | FloatPattern
          | IntPattern
          | TuplePattern
+         | ArrayEmptyPattern
          | ArrayPattern
          | ArrayTailPattern
          | WildcardPattern

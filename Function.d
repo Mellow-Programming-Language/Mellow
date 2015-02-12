@@ -2127,12 +2127,21 @@ class FunctionBuilder : Visitor
         auto maybeVariantDef = variantFromConstructor(records, var);
         if (maybeVariantDef !is null)
         {
-            auto wrap = new Type();
-            wrap.tag = TypeEnum.VARIANT;
-            wrap.variantDef = maybeVariantDef;
-            if (!wrap.cmp(matchType))
+            if (matchType.tag != TypeEnum.VARIANT)
             {
-                throw new Exception("Constructor for wrong variant definition");
+                throw new Exception(
+                    "Matched type is not a variant type, but got constructor:\n"
+                    ~ "  " ~ var ~ "\n"
+                    ~ "  for variant: " ~ maybeVariantDef.format
+                );
+            }
+            if (!matchType.variantDef.isMember(var))
+            {
+                throw new Exception(
+                    "Constructor for wrong variant definition:\n"
+                    ~ "  Expects: " ~ matchType.format ~ "\n"
+                    ~ "  But got: " ~ maybeVariantDef.format
+                );
             }
         }
         // Is a variable binding
