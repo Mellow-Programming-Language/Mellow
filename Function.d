@@ -1818,14 +1818,14 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("MatchWhenNode"));
         // PatternNode
         node.children[0].accept(this);
-        auto startIndex = 1;
+        auto stmtIndex = 1;
         // Add scope for variable bindings in match expression and guard
         // clauses
         funcScopes[$-1].syms.length++;
         if (node.children.length > 1
             && cast(CondAssignmentsNode)node.children[1])
         {
-            startIndex = 3;
+            stmtIndex = 3;
             // CondAssignmentsNode
             node.children[1].accept(this);
             // BoolExprNode
@@ -1839,11 +1839,8 @@ class FunctionBuilder : Visitor
                 );
             }
         }
-        // StatementNode+
-        foreach (child; node.children[startIndex..$])
-        {
-            child.accept(this);
-        }
+        // StatementNode
+        node.children[stmtIndex].accept(this);
         funcScopes[$-1].syms.length--;
     }
 
