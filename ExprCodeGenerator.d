@@ -1109,6 +1109,7 @@ string compileCharLit(CharLitNode node, Context* vars)
             code = '\?';
             break;
         default:
+            code = charLit[1];
             break;
         }
     }
