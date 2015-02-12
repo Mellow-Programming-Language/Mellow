@@ -1819,6 +1819,9 @@ class FunctionBuilder : Visitor
         // PatternNode
         node.children[0].accept(this);
         auto startIndex = 1;
+        // Add scope for variable bindings in match expression and guard
+        // clauses
+        funcScopes[$-1].syms.length++;
         if (node.children.length > 1
             && cast(CondAssignmentsNode)node.children[1])
         {
@@ -1841,6 +1844,7 @@ class FunctionBuilder : Visitor
         {
             child.accept(this);
         }
+        funcScopes[$-1].syms.length--;
     }
 
     void visit(PatternNode node)
