@@ -242,7 +242,7 @@ Pattern :: DestructVariantPattern
          | VarOrBareVariantPattern
          ;
 DestructVariantPattern  :: Identifier #"(" Pattern (#"," Pattern)* #")";
-StructPattern           :: #"{" Identifier #"=" Pattern
+StructPattern           :: Identifier? #"{" Identifier #"=" Pattern
                           (#"," Identifier #"=" Pattern)* #"}";
 BoolPattern             :: "true" | "false";
 StringPattern           :: StringLit;
@@ -250,8 +250,9 @@ CharPattern             :: CharLit (#".." CharLit)?;
 IntPattern              :: IntNum (#".." IntNum)?;
 FloatPattern            :: FloatNum (#".." FloatNum)?;
 TuplePattern            :: #"(" Pattern (#"," Pattern)+ #")";
+ArrayEmptyPattern       :: #"[" #"]";
 ArrayPattern            :: #"[" Pattern (#"," Pattern)*
-                         ( #"," #".." (#'as' #Sp Identifier)? )? #"]";
+                         ( #"," ".." (#'as' #Sp Identifier)? )? #"]";
 ArrayTailPattern        :: #"[" #".." (#'as' #Sp Identifier)? #","
                            Pattern (#"," Pattern)* #"]";
 WildcardPattern         :: #"_";

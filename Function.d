@@ -1839,6 +1839,7 @@ class FunctionBuilder : Visitor
             throw new Exception("Must match on " ~ matchType.tag.format
                 ~ ", not variant type.");
         }
+        auto matchTypeSave = matchType;
         matchType = normalizeVariantDefs(records, matchType.variantDef);
         // IdentifierNode
         node.children[0].accept(this);
@@ -1861,11 +1862,12 @@ class FunctionBuilder : Visitor
             throw new Exception("Pattern sub-element quantity mismatch");
         }
         foreach (child, subtype; lockstep(node.children[1..$],
-                                        member.constructorElems.tuple.types))
+                                          member.constructorElems.tuple.types))
         {
             matchType = subtype;
             child.accept(this);
         }
+        matchType = matchTypeSave;
     }
 
     void visit(StructPatternNode node)
@@ -1876,6 +1878,55 @@ class FunctionBuilder : Visitor
             throw new Exception("Must match on " ~ matchType.tag.format
                 ~ ", not struct type.");
         }
+        auto matchTypeSave = matchType;
+        auto i = 0;
+        // If the second node is an identifier node, then that means the first
+        // node is the optional identifier node indicating the struct name,
+        // which is purely sugar for the user, but we gotta verify it
+        if (cast(IdentifierNode)node.children[1])
+        {
+            i = 1;
+            node.children[0].accept(this);
+            auto structName = id;
+            if (matchType.structDef.name != structName)
+            {
+                throw new Exception(
+                    "Wrong optional struct name in match"
+                );
+            }
+        }
+        Type*[string] members;
+        foreach (member; matchType.structDef.members)
+        {
+            members[member.name] = member.type;
+        }
+        bool[string] accessed;
+        for (; i < node.children.length; i += 2)
+        {
+            node.children[i].accept(this);
+            auto memberName = id;
+            if (memberName !in members)
+            {
+                throw new Exception(
+                    "Struct deconstruction match with unknown member:\n"
+                    ~ "  [" ~ memberName ~ "]\n"
+                    ~ "  expecting member from struct: "
+                    ~ matchTypeSave.structDef.format
+                );
+            }
+            if (memberName in accessed)
+            {
+                throw new Exception(
+                    "Multiple match clauses for member\n"
+                    ~ "  [" ~ memberName ~ "]\n"
+                    ~ "  in struct: " ~ matchTypeSave.structDef.format
+                );
+            }
+            accessed[memberName] = true;
+            matchType = members[memberName];
+            node.children[i+1].accept(this);
+        }
+        matchType = matchTypeSave;
     }
 
     void visit(BoolPatternNode node)
@@ -1936,6 +1987,30 @@ class FunctionBuilder : Visitor
             throw new Exception("Must match on " ~ matchType.tag.format
                 ~ ", not tuple type.");
         }
+        auto matchTypeSave = matchType;
+        if (matchType.tuple.types.length != node.children.length)
+        {
+            throw new Exception(
+                "Bad tuple match unpack: element quantity mismatch"
+            );
+        }
+        foreach (child, subtype; lockstep(node.children,
+                                          matchType.tuple.types))
+        {
+            matchType = subtype;
+            child.accept(this);
+        }
+        matchType = matchTypeSave;
+    }
+
+    void visit(ArrayEmptyPatternNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayPatternNode"));
+        if (matchType.tag != TypeEnum.ARRAY)
+        {
+            throw new Exception("Must match on " ~ matchType.tag.format
+                ~ ", not array type.");
+        }
     }
 
     void visit(ArrayPatternNode node)
@@ -1946,6 +2021,30 @@ class FunctionBuilder : Visitor
             throw new Exception("Must match on " ~ matchType.tag.format
                 ~ ", not array type.");
         }
+        auto matchTypeSave = matchType;
+        auto endIndex = node.children.length;
+        if (cast(IdentifierNode)node.children[$-1])
+        {
+            // Move back before the ".." token
+            endIndex = endIndex - 2;
+            node.children[$-1].accept(this);
+            auto restName = id;
+            auto pair = new VarTypePair();
+            pair.varName = restName;
+            pair.type = matchTypeSave;
+            funcScopes[$-1].syms[$-1].decls[restName] = pair;
+        }
+        else if (cast(ASTTerminal)node.children[$-1])
+        {
+            // Move back before the ".." token
+            endIndex = endIndex - 1;
+        }
+        matchType = matchType.array.arrayType;
+        foreach (child; node.children[0..endIndex])
+        {
+            child.accept(this);
+        }
+        matchType = matchTypeSave;
     }
 
     void visit(ArrayTailPatternNode node)
@@ -1956,12 +2055,30 @@ class FunctionBuilder : Visitor
             throw new Exception("Must match on " ~ matchType.tag.format
                 ~ ", not array type.");
         }
+        auto matchTypeSave = matchType;
+        auto startIndex = 0;
+        if (cast(IdentifierNode)node.children[0])
+        {
+            // Move past identifier node
+            startIndex = startIndex + 1;
+            node.children[0].accept(this);
+            auto restName = id;
+            auto pair = new VarTypePair();
+            pair.varName = restName;
+            pair.type = matchTypeSave;
+            funcScopes[$-1].syms[$-1].decls[restName] = pair;
+        }
+        matchType = matchType.array.arrayType;
+        foreach (child; node.children[startIndex..$])
+        {
+            child.accept(this);
+        }
+        matchType = matchTypeSave;
     }
 
     void visit(WildcardPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("WildcardPatternNode"));
-
     }
 
     void visit(VarOrBareVariantPatternNode node)
@@ -1986,7 +2103,7 @@ class FunctionBuilder : Visitor
         {
             auto pair = new VarTypePair();
             pair.varName = var;
-            pair.type = matchType.copy;
+            pair.type = matchType;
             funcScopes[$-1].syms[$-1].decls[var] = pair;
         }
     }

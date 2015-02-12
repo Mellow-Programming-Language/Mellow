@@ -308,6 +308,7 @@ class RecordBuilder : Visitor
     void visit(IntPatternNode node) {}
     void visit(FloatPatternNode node) {}
     void visit(TuplePatternNode node) {}
+    void visit(ArrayEmptyPatternNode node) {}
     void visit(ArrayPatternNode node) {}
     void visit(ArrayTailPatternNode node) {}
     void visit(WildcardPatternNode node) {}
