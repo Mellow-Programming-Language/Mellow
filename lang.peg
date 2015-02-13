@@ -177,7 +177,7 @@ StructConstructor :: Identifier TemplateInstantiation?
                                 #"{" ^StructMemberConstructor
                                      (#"," ^StructMemberConstructor)*
                                 #"}";
-StructMemberConstructor :: Identifier #"=" Value;
+StructMemberConstructor :: Identifier #"=" BoolExpr;
 
 ValueTuple :: #"(" BoolExpr (#"," BoolExpr)+ #")";
 

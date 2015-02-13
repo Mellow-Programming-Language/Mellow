@@ -972,7 +972,7 @@ string compileStructConstructor(StructConstructorNode node, Context* vars)
         auto memberName = getIdentifier(cast(IdentifierNode)node.children[i]);
         auto memberOffset = structDef.getOffsetOfMember(memberName);
         auto type = members[memberName];
-        str ~= compileValue(cast(ValueNode)node.children[i+1], vars);
+        str ~= compileBoolExpr(cast(BoolExprNode)node.children[i+1], vars);
         str ~= "    mov    r10, qword [rbp-" ~ structLoc
                                             ~ "]\n";
         // r10 is now a pointer to the beginning of the member of the struct
