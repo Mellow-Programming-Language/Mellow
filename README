@@ -25,8 +25,12 @@ Interesting compilable examples:
 - isExpr.clam
 - tree.clam
 - LinkedList.clam
-- bf_is.clam (a bf interpreter with no input support and using `is` expressions
-              instead of the currently unimplemented match statement)
+- bf_match.clam (a bf interpreter with no input support, but should otherwise
+                 demonstrate most features, and can handle invalid input. This
+                 file is an excellent demonstration of many features)
+- bf_concurrent.clam (as bf_match.clam, while demonstrating concurrency
+                      features, but doesn't handle invalid input. This file
+                      is an excellent demonstration of many features)
 
 Incomplete list of working features:
 - variables

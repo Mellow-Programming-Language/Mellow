@@ -1,0 +1,212 @@
+
+extern struct File;
+
+extern func writeln(str: string);
+extern func write(str: string);
+extern func clam_fopen(str: string, mode: FopenMode): Maybe!File;
+extern func clam_fclose(file: File);
+extern func clam_freadln(file: File): Maybe!string;
+
+variant FopenMode {
+    Read,
+    Write,
+    Append,
+    ReadUpdate,
+    WriteUpdate,
+    AppendUpdate
+}
+
+variant Maybe(T) {
+    Some (T),
+    None
+}
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant Token {
+    LeftBrack,
+    RightBrack,
+    Plus,
+    Minus,
+    LeftWakka,
+    RightWakka,
+    Period,
+    Comma
+}
+
+variant Expr {
+    Loop ([]Expr),
+    Inc,
+    Dec,
+    MoveLeft,
+    MoveRight,
+    Input,
+    Output
+}
+
+struct Pair(T, U) {
+    left: T;
+    right: U;
+}
+
+func tokenizer(source: string): []Token {
+    tokens: []Token;
+    while (i := 0; i < source.length) {
+        match (source[i]) {
+            '>' :: tokens ~= RightWakka;
+            '<' :: tokens ~= LeftWakka;
+            '+' :: tokens ~= Plus;
+            '-' :: tokens ~= Minus;
+            '[' :: tokens ~= LeftBrack;
+            ']' :: tokens ~= RightBrack;
+            '.' :: tokens ~= Period;
+            ',' :: tokens ~= Comma;
+        }
+        i = i + 1;
+    }
+    return tokens;
+}
+
+func innerParser(tokens: []Token, index: int): Maybe!(Pair!([]Expr, int)) {
+    exprs: []Expr;
+    while (i := index; i < tokens.length) {
+        match (tokens[i]) {
+            LeftWakka  :: exprs ~= MoveLeft;
+            RightWakka :: exprs ~= MoveRight;
+            Plus       :: exprs ~= Inc;
+            Minus      :: exprs ~= Dec;
+            Period     :: exprs ~= Output;
+            Comma      :: exprs ~= Input;
+            RightBrack ::
+                return Some!(Pair!([]Expr, int))(
+                    Pair!([]Expr, int){
+                        left = exprs, right = i
+                    }
+                );
+            LeftBrack  ::
+                if (innerParser(tokens, i+1) is Some (pair)) {
+                    exprs ~= Loop (pair.left);
+                    i = pair.right;
+                }
+                else {
+                    return None!(Pair!([]Expr, int));
+                }
+        }
+        i = i + 1;
+    }
+    return None!(Pair!([]Expr, int));
+}
+
+func parser(tokens: []Token): Maybe!([]Expr) {
+    exprs: []Expr;
+    while (i := 0; i < tokens.length) {
+        match (tokens[i]) {
+            LeftWakka  :: exprs ~= MoveLeft;
+            RightWakka :: exprs ~= MoveRight;
+            Plus       :: exprs ~= Inc;
+            Minus      :: exprs ~= Dec;
+            Period     :: exprs ~= Output;
+            Comma      :: exprs ~= Input;
+            RightBrack :: {
+                writeln("Err: Unmatched right bracket");
+                return None!([]Expr);
+            }
+            LeftBrack  :: {
+                if (innerParser(tokens, i+1) is Some (pair)) {
+                    exprs ~= Loop (pair.left);
+                    i = pair.right;
+                }
+                else {
+                    writeln("Err: Unmatched left bracket");
+                    return None!([]Expr);
+                }
+            }
+        }
+        i = i + 1;
+    }
+    return Some!([]Expr)(exprs);
+}
+
+func printTree(program: []Expr, indent: string) {
+    foreach (expr; program) {
+        match (expr) {
+            Inc          :: writeln(indent ~ "Inc");
+            Dec          :: writeln(indent ~ "Dec");
+            MoveLeft     :: writeln(indent ~ "MoveLeft");
+            MoveRight    :: writeln(indent ~ "MoveRight");
+            Input        :: writeln(indent ~ "Input");
+            Output       :: writeln(indent ~ "Output");
+            Loop (inner) :: {
+                writeln(indent ~ "Loop:");
+                printTree(inner, indent ~ "  ");
+            }
+        }
+    }
+}
+
+func innerInterpret(seq: []Expr, tape: []int, i: int): int {
+    line: string;
+    foreach (expr; seq) {
+        match (expr) {
+            Input        :: {}
+            Output       :: writeln(intToString(tape[i]));
+            Inc          :: tape[i] = tape[i] + 1;
+            Dec          :: tape[i] = tape[i] - 1;
+            MoveLeft     :: {
+                i = i - 1;
+                if (i < 0)
+                {
+                    i = tape.length - 1;
+                }
+            }
+            MoveRight    :: {
+                i = i + 1;
+                if (i >= tape.length)
+                {
+                    i = 0;
+                }
+            }
+            Loop (inner) :: {
+                while (tape[i] != 0)
+                {
+                    i = innerInterpret(inner, tape, i);
+                }
+            }
+        }
+    }
+    return i;
+}
+
+func interpret(program: []Expr) {
+    tape: [30000]int;
+    while (i := 0; i < tape.length) {
+        tape[i] = 0;
+        i = i + 1;
+    }
+    innerInterpret(program, tape, 0);
+}
+
+func main(argv: []string) {
+    if (argv.length < 2) {
+        writeln("Usage: ./bf [filename]");
+        return;
+    }
+    if (clam_fopen(argv[1], Read) is Some(file)) {
+        source := "";
+        while (clam_freadln(file) is Some(line)) {
+            source = source ~ line;
+        }
+        if (parser(tokenizer(source)) is Some (program)) {
+            interpret(program);
+        }
+    }
+}
