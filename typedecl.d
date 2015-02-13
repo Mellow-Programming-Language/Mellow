@@ -766,7 +766,19 @@ auto getAlignedSize(int[] entries)
 // input if it's already a multiple of 8
 uint stackAlignSize(uint size)
 {
-    return size + (size % 8);
+    if (size % 8 == 0)
+    {
+        return size;
+    }
+    else if (size < 8)
+    {
+        return 8;
+    }
+    else if (size > 8)
+    {
+        return size + (8 - (size % 8));
+    }
+    assert(false, "Unrechable");
 }
 
 struct VarTypePair
