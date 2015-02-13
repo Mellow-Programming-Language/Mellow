@@ -1143,7 +1143,7 @@ string compileMatchWhen(MatchWhenNode node, Context* vars)
         str ~= compileBoolExpr(cast(BoolExprNode)node.children[2], vars);
         // Test if the guard clause passed
         str ~= "    cmp    r8, 0\n";
-        str ~= "    jnz    " ~ vars.matchNextWhenLabel[$-1]
+        str ~= "    je     " ~ vars.matchNextWhenLabel[$-1]
                              ~ "\n";
         str ~= compileStatement(cast(StatementNode)node.children[3], vars);
     }
