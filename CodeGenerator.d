@@ -90,6 +90,60 @@ auto getIdentifier(IdentifierNode node)
     return (cast(ASTTerminal)node.children[0]).token;
 }
 
+// Assumes char length == 1 or 2, since the input should have been checked by
+// the parser
+auto getChar(string charRep)
+{
+    char code;
+    if (charRep[0] == '\\')
+    {
+        switch (charRep[1])
+        {
+        case 'a':
+            code = '\a';
+            break;
+        case 'b':
+            code = '\b';
+            break;
+        case 'f':
+            code = '\f';
+            break;
+        case 'n':
+            code = '\n';
+            break;
+        case 'r':
+            code = '\r';
+            break;
+        case 't':
+            code = '\t';
+            break;
+        case 'v':
+            code = '\v';
+            break;
+        case '\\':
+            code = '\\';
+            break;
+        case '\'':
+            code = '\\';
+            break;
+        case '"':
+            code = '\"';
+            break;
+        case '?':
+            code = '\?';
+            break;
+        default:
+            code = charRep[1];
+            break;
+        }
+    }
+    else
+    {
+        code = charRep[0];
+    }
+    return code;
+}
+
 auto getOffset(VarTypePair*[] vars, ulong index)
 {
     return getAlignedIndexOffset(vars.map!(a => a.type.size).array, index);
@@ -1243,8 +1297,42 @@ string compileStringPattern(StringPatternNode node, Context* vars)
 string compileCharPattern(CharPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto str = "";
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    // Char range
+    if (node.children.length > 1)
+    {
+        auto charOne = (cast(ASTTerminal)
+                       (cast(CharLitNode)node.children[0])
+                                             .children[0]).token[1..$-1]
+                                                          .getChar;
+        auto charTwo = (cast(ASTTerminal)
+                       (cast(CharLitNode)node.children[1])
+                                             .children[0]).token[1..$-1]
+                                                          .getChar;
+        str ~= "    cmp    r8, " ~ charOne.to!uint.to!string
+                                 ~ "\n";
+        str ~= "    jl     " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+        str ~= "    cmp    r8, " ~ charTwo.to!uint.to!string
+                                 ~ "\n";
+        str ~= "    jg     " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+    }
+    // Single char
+    else
+    {
+        auto charOne = (cast(ASTTerminal)
+                       (cast(CharLitNode)node.children[0])
+                                             .children[0]).token[1..$-1]
+                                                          .getChar;
+        str ~= "    cmp    r8, " ~ charOne.to!uint.to!string
+                                 ~ "\n";
+        str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+    }
+    return str;
 }
 
 string compileFloatPattern(FloatPatternNode node, Context* vars)

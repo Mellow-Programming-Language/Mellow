@@ -1069,54 +1069,8 @@ string compileCharLit(CharLitNode node, Context* vars)
     // TODO add in support for octal and hex characters
 
     auto charLit = (cast(ASTTerminal)node.children[0]).token[1..$-1];
-    char code;
+    char code = getChar(charLit);
     auto str = "";
-    if (charLit[0] == '\\')
-    {
-        switch (charLit[1])
-        {
-        case 'a':
-            code = '\a';
-            break;
-        case 'b':
-            code = '\b';
-            break;
-        case 'f':
-            code = '\f';
-            break;
-        case 'n':
-            code = '\n';
-            break;
-        case 'r':
-            code = '\r';
-            break;
-        case 't':
-            code = '\t';
-            break;
-        case 'v':
-            code = '\v';
-            break;
-        case '\\':
-            code = '\\';
-            break;
-        case '\'':
-            code = '\\';
-            break;
-        case '"':
-            code = '\"';
-            break;
-        case '?':
-            code = '\?';
-            break;
-        default:
-            code = charLit[1];
-            break;
-        }
-    }
-    else
-    {
-        code = charLit[0];
-    }
     str ~= "    mov    r8, " ~ (cast(int)code).to!string
                              ~ "\n";
     return str;
