@@ -1884,7 +1884,7 @@ class FunctionBuilder : Visitor
         foreach (child, subtype; lockstep(node.children[1..$],
                                           member.constructorElems.tuple.types))
         {
-            matchType = subtype;
+            matchType = subtype.normalize(records);
             child.accept(this);
         }
         matchType = matchTypeSave;
