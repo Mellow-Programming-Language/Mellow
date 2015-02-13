@@ -2143,6 +2143,13 @@ class FunctionBuilder : Visitor
                     ~ "  But got: " ~ maybeVariantDef.format
                 );
             }
+            auto member = matchType.variantDef.getMember(var);
+            if (member.constructorElems.tag != TypeEnum.VOID)
+            {
+                throw new Exception(
+                    "Cannot have empty variant match on non-empty constructor"
+                );
+            }
         }
         // Is a variable binding
         else

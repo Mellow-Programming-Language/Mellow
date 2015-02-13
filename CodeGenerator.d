@@ -1066,6 +1066,7 @@ string compileMatchStmt(MatchStmtNode node, Context* vars)
     {
         str ~= compileMatchWhen(cast(MatchWhenNode)child, vars);
     }
+    str ~= vars.matchEndLabel[$-1] ~ ":\n";
     return str;
 }
 
@@ -1152,8 +1153,10 @@ string compileDestructVariantPattern(DestructVariantPatternNode node,
     auto constructor = getIdentifier(cast(IdentifierNode)node.children[0]);
     auto member = variantDef.getMember(constructor);
     auto memberTag = variantDef.getMemberIndex(constructor);
-    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1]
+                                              .to!string
                                         ~ "]\n";
+    str ~= "    ; variant deconstruction match\n";
     str ~= "    mov    r9d, dword [r8+4]\n";
     str ~= "    cmp    r9, " ~ memberTag.to!string
                              ~ "\n";
@@ -1176,6 +1179,12 @@ string compileDestructVariantPattern(DestructVariantPatternNode node,
         }
         foreach (i, child; node.children[1..$])
         {
+            // Note that we're indexing into matchTypeLoc[$ - 2], not [$-1],
+            // as we've allocated a next index for our types we pull for the
+            // recursions, so our r8 from before is now behind one index
+            str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2]
+                                                      .to!string
+                                                ~ "]\n";
             auto memberOffset = memberTypeSizes.getAlignedIndexOffset(i);
             auto valueSize = memberTypeSizes[i];
             switch (valueSize)
@@ -1290,8 +1299,39 @@ string compileVarOrBareVariantPattern(VarOrBareVariantPatternNode node,
                                       Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto type = node.data["type"].get!(Type*);
+    auto name = getIdentifier(cast(IdentifierNode)node.children[0]);
+    auto str = "";
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    // Empty constructor match
+    if (type.tag == TypeEnum.VARIANT && type.variantDef.isMember(name))
+    {
+        str ~= "    ; Bare variant match\n";
+        auto memberTag = type.variantDef.getMemberIndex(name);
+        str ~= "    mov    r9d, dword [r8+4]\n";
+        str ~= "    cmp    r9, " ~ memberTag.to!string
+                                 ~ "\n";
+        // If the tag doesn't match, jump to the next match arm
+        str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+    }
+    // Variable binding
+    else
+    {
+        str ~= "    ; variable binding\n";
+        auto var = new VarTypePair;
+        var.varName = name;
+        var.type = type;
+        vars.addStackVar(var);
+        // Increase the ref-count by 1 for dynamically allocated types
+        if (type.isRefType)
+        {
+            str ~= "    add    dword [r8], 1\n";
+        }
+        str ~= vars.compileVarSet(name);
+    }
+    return str;
 }
 
 string compileDeclaration(DeclarationNode node, Context* vars)
