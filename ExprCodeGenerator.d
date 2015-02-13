@@ -1300,10 +1300,6 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         str ~= "    imul   rdx, " ~ resultType.size.to!string ~ "\n";
         str ~= "    call   memcpy\n";
         str ~= "    mov    r8, qword [rbp-" ~ newAllocLoc ~ "]\n";
-        if (node.children.length > 1)
-        {
-            str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
-        }
     }
     else
     {
@@ -1333,10 +1329,10 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
                                     ~ " [r8]\n";
         }
         str ~= "    mov    r8, r10\n";
-        if (node.children.length > 1)
-        {
-            str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
-        }
+    }
+    if (node.children.length > 1)
+    {
+        str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
     }
     return str;
 }
@@ -1374,6 +1370,10 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
     case "variant":
         str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
         break;
+    }
+    if (node.children.length > 1)
+    {
+        str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
     }
     return str;
 }
