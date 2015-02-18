@@ -368,12 +368,12 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
         // String special case
         if (leftType.tag == TypeEnum.CHAR)
         {
-
+            assert(false, "Unimplemented");
         }
         // Array case
         else
         {
-
+            assert(false, "Unimplemented");
         }
     }
     else if (leftType.tag == TypeEnum.STRING)
@@ -385,7 +385,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
         // Right type is char
         else
         {
-
+            assert(false, "Unimplemented");
         }
     }
     else if (leftType.tag == TypeEnum.ARRAY)
