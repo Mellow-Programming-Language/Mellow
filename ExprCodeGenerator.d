@@ -859,7 +859,7 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(ValueTupleNode)child) {
         assert(false, "Unimplemented");
     } else if (cast(ParenExprNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileParenExpr(cast(ParenExprNode)child, vars);
     } else if (cast(ArrayLiteralNode)child) {
         str ~= compileArrayLiteral(cast(ArrayLiteralNode)child, vars);
     } else if (cast(NumberNode)child) {
