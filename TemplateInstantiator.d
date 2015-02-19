@@ -241,9 +241,9 @@ class TemplateInstantiator : Visitor
     void visit(ComparisonNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ComparisonNode"));
+        node.children[0].accept(this);
         if (node.children.length > 1)
         {
-            node.children[0].accept(this);
             node.children[2].accept(this);
         }
     }
@@ -518,9 +518,15 @@ class TemplateInstantiator : Visitor
     void visit(FuncCallNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncCallNode"));
-        // TODO need to update to allow for calling templated functions
-
-        node.children[1].accept(this);
+        if (cast(TemplateInstantiationNode)node.children[1])
+        {
+            node.children[1].accept(this);
+            node.children[2].accept(this);
+        }
+        else
+        {
+            node.children[1].accept(this);
+        }
     }
 
     void visit(DotAccessNode node)

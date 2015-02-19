@@ -1572,9 +1572,36 @@ class FunctionBuilder : Visitor
         {
             throw new Exception("No function[" ~ name ~ "].");
         }
-        else if (funcLookup.success)
+        curFuncCallSig = funcLookup.sig;
+        if (cast(TemplateInstantiationNode)node.children[1])
         {
-            curFuncCallSig = funcLookup.sig;
+
+
+            builderStack.length++;
+            node.children[1].accept(this);
+            auto templateInstantiations = builderStack[$-1];
+            builderStack.length--;
+            auto instantiator = new TemplateInstantiator(records);
+            curFuncCallSig = instantiator.instantiateFunction(
+                curFuncCallSig, templateInstantiations
+            );
+            auto existsLookup = funcSigLookup(
+                toplevelFuncs, curFuncCallSig.funcName
+            );
+            if (!existsLookup.success)
+            {
+                toplevelFuncs ~= curFuncCallSig;
+                // Add this instantiated, templated function to the end of the
+                // abstract syntax tree, effectively bringing it into existence,
+                // and allowing it to get typechecked later
+                topNode.children ~= curFuncCallSig.funcDefNode;
+            }
+
+
+            node.children[2].accept(this);
+        }
+        else
+        {
             node.children[1].accept(this);
         }
     }

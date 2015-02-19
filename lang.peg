@@ -91,7 +91,7 @@ YieldStmt :: #'yield' #Sp?;
 
 ChanWrite :: BoolExpr #"<-=" BoolExpr;
 
-FuncCall :: Identifier FuncCallArgList;
+FuncCall :: Identifier TemplateInstantiation? FuncCallArgList;
 
 
 
