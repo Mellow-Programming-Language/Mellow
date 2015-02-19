@@ -2048,9 +2048,23 @@ string compileChanWrite(ChanWriteNode node, Context* vars)
 string compileFuncCall(FuncCallNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
     auto funcName = getIdentifier(cast(IdentifierNode)node.children[0]);
-    auto str = compileArgList(cast(FuncCallArgListNode)node.children[1], vars);
-    auto numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
+    ulong numArgs = 0;
+    if (cast(TemplateInstantiationNode)node.children[1])
+    {
+        str = compileArgList(
+            cast(FuncCallArgListNode)node.children[2], vars
+        );
+        numArgs = (cast(ASTNonTerminal)node.children[2]).children.length;
+    }
+    else
+    {
+        str = compileArgList(
+            cast(FuncCallArgListNode)node.children[1], vars
+        );
+        numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
+    }
     str ~= "    call   " ~ funcName ~ "\n";
     if (numArgs > 6)
     {

@@ -1596,6 +1596,12 @@ class FunctionBuilder : Visitor
                 // and allowing it to get typechecked later
                 topNode.children ~= curFuncCallSig.funcDefNode;
             }
+            auto newIdNode = new IdentifierNode();
+            auto terminal = new ASTTerminal(
+                curFuncCallSig.funcName, 0
+            );
+            newIdNode.children ~= terminal;
+            node.children[0] = newIdNode;
 
 
             node.children[2].accept(this);

@@ -205,7 +205,10 @@ class TemplateInstantiator : Visitor
     void visit(ReturnStmtNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ReturnStmtNode"));
-        node.children[0].accept(this);
+        if (node.children.length > 0)
+        {
+            node.children[0].accept(this);
+        }
     }
 
     void visit(BoolExprNode node)
