@@ -517,3 +517,151 @@ bool isUninstantiated(Type* type)
     }
     return false;
 }
+
+ASTNonTerminal genTypeTree(string templateParam, Type* newType)
+{
+    final switch (replaceType.tag)
+    {
+    case TypeEnum.VOID:
+    case TypeEnum.LONG:
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+    case TypeEnum.FLOAT:
+    case TypeEnum.DOUBLE:
+    case TypeEnum.CHAR:
+    case TypeEnum.BOOL:
+    case TypeEnum.STRING:
+        // Perform tree replacement for basic type
+        auto newNode = new BasicTypeNode();
+        auto newTerminalNode = new ASTTerminal(
+            replaceType.format, index
+        );
+        newNode.children ~= newTerminalNode;
+        return newNode;
+    case TypeEnum.SET:
+        auto newNode = new SetTypeNode();
+        newNode.children ~= _genTypeTree(templateParam, newType.set.setType);
+        return newNode;
+    case TypeEnum.HASH:
+        auto newNode = new HashTypeNode();
+        newNode.children ~= _genTypeTree(templateParam, newType.hash.keyType);
+        auto valueNode = new TypeIdNode;
+        valueNode.children ~= _genTypeTree(
+            templateParam, newType.hash.valueType
+        );
+        newNode.children ~= valueNode;
+        return newNode;
+    case TypeEnum.ARRAY:
+        auto newNode = new ArrayTypeNode();
+        auto typeIdNode = new TypeIdNode();
+        typeIdNode.children ~= _genTypeTree(
+            templateParam, newType.array.arrayType
+        );
+        newNode.children ~= typeIdNode;
+        return newNode;
+    case TypeEnum.CHAN:
+        auto newNode = new ChanTypeNode();
+        auto typeIdNode = new TypeIdNode();
+        typeIdNode.children ~= _genTypeTree(
+            templateParam, newType.chan.chanType
+        );
+        newNode.children ~= typeIdNode;
+        return newNode;
+    case TypeEnum.STRUCT:
+        auto newNode = new UserTypeNode();
+        auto idNode = new IdentifierNode();
+        auto termNode = new ASTTerminal();
+        termNode.token = newType.structDef.name;
+        idNode.children ~= termNode;
+        newNode.children ~= idNode;
+        if (newType.structDef.templateParams.length > 0)
+        {
+            auto templateInstanceNode = new TemplateInstantiationNode();
+            auto templateParamNode = new TemplateParamNode();
+            if (newType.structDef.templateParams.length > 1)
+            {
+                auto paramList = new TemplateParamListNode();
+                foreach (param; newType.structDef.templateParams)
+                {
+                    auto aliasNode = new TemplateAliasNode();
+
+                    // TODO do we need to do something about the lambda option
+                    // here?
+
+                    auto aliasTypeIdNode = new TypeIdNode;
+                    aliasTypeIdNode.children ~= _genTypeTree(
+                        templateParam, newType.structDef.mappings[param]
+                    );
+                    aliasNode.children ~= aliasTypeIdNode;
+                    paramList.children ~= aliasNode;
+                }
+                templateParamNode.children ~= paramList;
+            }
+            else
+            {
+                auto templateTypeIdNode = new TypeIdNode();
+                templateTypeIdNode.children ~= _genTypeTree(
+                    templateParam,
+                    newType.structDef
+                           .mappings[newType.structDef.templateParams[0]]
+                );
+                templateParamNode.children ~= templateTypeIdNode;
+            }
+            templateInstanceNode.children ~= templateParamNode;
+            newNode.children ~= templateInstanceNode;
+        }
+        return newNode;
+    case TypeEnum.VARIANT:
+        auto newNode = new UserTypeNode();
+        auto idNode = new IdentifierNode();
+        auto termNode = new ASTTerminal();
+        termNode.token = newType.variantDef.name;
+        idNode.children ~= termNode;
+        newNode.children ~= idNode;
+        if (newType.variantDef.templateParams.length > 0)
+        {
+            auto templateInstanceNode = new TemplateInstantiationNode();
+            auto templateParamNode = new TemplateParamNode();
+            if (newType.variantDef.templateParams.length > 1)
+            {
+                auto paramList = new TemplateParamListNode();
+                foreach (param; newType.variantDef.templateParams)
+                {
+                    auto aliasNode = new TemplateAliasNode();
+
+                    // TODO do we need to do something about the lambda option
+                    // here?
+
+                    auto aliasTypeIdNode = new TypeIdNode;
+                    aliasTypeIdNode.children ~= _genTypeTree(
+                        templateParam, newType.variantDef.mappings[param]
+                    );
+                    aliasNode.children ~= aliasTypeIdNode;
+                    paramList.children ~= aliasNode;
+                }
+                templateParamNode.children ~= paramList;
+            }
+            else
+            {
+                auto templateTypeIdNode = new TypeIdNode();
+                templateTypeIdNode.children ~= _genTypeTree(
+                    templateParam,
+                    newType.variantDef
+                           .mappings[newType.variantDef.templateParams[0]]
+                );
+                templateParamNode.children ~= templateTypeIdNode;
+            }
+            templateInstanceNode.children ~= templateParamNode;
+            newNode.children ~= templateInstanceNode;
+        }
+        return newNode;
+    case TypeEnum.AGGREGATE:
+        assert(false, "Unreachable");
+        break;
+    case TypeEnum.FUNCPTR:
+    case TypeEnum.TUPLE:
+        assert(false, "Unimplemented");
+        break;
+    }
+}
