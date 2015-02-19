@@ -754,7 +754,7 @@ class TemplateInstantiator : Visitor
     void visit(TypeIdNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TypeIdNode"));
-        auto child = node.children[0];
+        auto child = cast(ASTNonTerminal)node.children[0];
         // If it's a usertype, there's a chance we need to do a template
         // replacement
         if (cast(UserTypeNode)child)
@@ -769,7 +769,7 @@ class TemplateInstantiator : Visitor
             }
             else
             {
-                child.accept(this);
+                child.children[1].accept(this);
             }
         }
         else
