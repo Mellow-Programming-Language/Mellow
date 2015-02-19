@@ -17,16 +17,16 @@ variant LinkedList(T) {
     EmptyList
 }
 
-func appendElem(list: LinkedList!int, elem: int): LinkedList!int {
+func appendElem(T)(list: LinkedList!T, elem: T): LinkedList!T {
     if (list is EmptyList) {
-        return ListNode!int(elem, EmptyList!int);
+        return ListNode!T(elem, EmptyList!T);
     }
-    else if (list is ListNode(T, right)) {
+    else if (list is ListNode(val, right)) {
         if (right is EmptyList) {
-            return ListNode!int(T, ListNode!int(elem, EmptyList!int));
+            return ListNode!T(val, ListNode!T(elem, EmptyList!T));
         }
         else {
-            return ListNode!int(T, appendElem(right, elem));
+            return ListNode!T(val, appendElem!T(right, elem));
         }
     }
 }
@@ -38,21 +38,21 @@ func printList(list: LinkedList!int) {
     }
 }
 
-func listToArray(list: LinkedList!int): []int {
+func listToArray(T)(list: LinkedList!T): []T {
     if (list is ListNode(elem, rest)) {
-        return [elem] ~ listToArray(rest);
+        return [elem] ~ listToArray!T(rest);
     }
-    null: []int;
+    null: []T;
     return null;
 }
 
 func main() {
     list := EmptyList!int;
     foreach (val; [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
-        list = appendElem(list, val);
+        list = appendElem!int(list, val);
     }
     printList(list);
-    foreach (val; listToArray(list)) {
+    foreach (val; listToArray!int(list)) {
         writeln(intToString(val));
     }
 }

@@ -61,6 +61,7 @@ Incomplete list of working features:
 - templated, recursively-defined variants
 - 'is' expressions
 - string comparison operators
+- function templating
 
 
 Incomplete list of unimplemented or broken features:
@@ -85,5 +86,4 @@ Incomplete list of unimplemented or broken features:
 - float comparison operators
 - float arithmetic
 - lambdas
-- function templating
 - any sort of module system whatsoever
