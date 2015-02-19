@@ -672,9 +672,15 @@ string getMangledFuncName(FuncSig* sig)
     auto str = "";
     str ~= "__";
     str ~= sig.funcName;
+    str ~= "??";
     foreach (type; sig.templateTypes)
     {
         str ~= type.formatMangle();
+    }
+    str ~= "##";
+    foreach (var; sig.funcArgs)
+    {
+        str ~= var.type.formatMangle();
     }
     return str;
 }

@@ -172,7 +172,10 @@ class TemplateInstantiator : Visitor
     void visit(FuncReturnTypeNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncReturnTypeNode"));
-        node.children[0].accept(this);
+        if (node.children.length > 0)
+        {
+            node.children[0].accept(this);
+        }
     }
 
     void visit(FuncBodyBlocksNode node)
