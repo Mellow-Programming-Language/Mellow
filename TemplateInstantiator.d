@@ -31,6 +31,7 @@ debug (TEMPLATE_INSTANTIATION_TRACE)
 
 class TemplateInstantiator : Visitor
 {
+    private RecordBuilder records;
     private string id;
     private uint index;
     private string funcName;
@@ -66,7 +67,6 @@ class TemplateInstantiator : Visitor
     auto instantiateFunction(FuncSig* sig, Type*[] types)
     {
         this.newSig = new FuncSig();
-        this.newSig.funcName = sig.funcName;
         this.newSig.templateParams = sig.templateParams;
         this.newSig.closureVars = sig.closureVars;
         this.newSig.memberOf = sig.memberOf;
@@ -74,8 +74,25 @@ class TemplateInstantiator : Visitor
         auto node = sig.funcDefNode;
         node = cast(FuncDefNode)node.treecopy;
         node.accept(this);
+        auto sigBuilder = new FunctionSigBuilder(node, records);
+        this.newSig.returnType = sigBuilder.funcSig.returnType;
+        this.newSig.funcArgs = sigBuilder.funcSig.funcArgs;
+        this.newSig.funcName = sig.funcName;
+        this.newSig.templateTypes = types;
+        string mangledName = getMangledFuncName(newSig);
+        this.newSig.funcName = mangledName;
+        auto newIdNode = new IdentifierNode();
+        auto newTerminal = new ASTTerminal(mangledName, 0);
+        newIdNode.children ~= newTerminal;
+        (cast(FuncSignatureNode)node.children[0]).children[0] = newIdNode;
         this.newSig.funcDefNode = node;
+        ("Format new sig: " ~ newSig.format).writeln;
         return this.newSig;
+    }
+
+    this (RecordBuilder records)
+    {
+        this.records = records;
     }
 
     void visit(IdentifierNode node)

@@ -156,11 +156,11 @@ class FunctionBuilder : Visitor
 {
     private RecordBuilder records;
     private string id;
+    private FuncSig*[] toplevelFuncs;
     private FuncSig*[] funcSigs;
     private FuncSig* curFuncCallSig;
     private string[] idTuple;
     private VarTypePair*[] funcArgs;
-    private FuncSig*[] toplevelFuncs;
     // The higher the index, the deeper the scope
     private FunctionScope[] funcScopes;
     private VarTypePair*[] decls;
@@ -173,12 +173,18 @@ class FunctionBuilder : Visitor
     private Type* curVariant;
     private string curConstructor;
     private bool skipTemplatedFuncDef;
+    private ProgramNode topNode;
 
     mixin TypeVisitors;
 
     FuncSig*[] getCompilableFuncSigs()
     {
+        // Get all functions that have a compilable function body, AND
+        // which are not base function templates, ie, have a mangled name
         return toplevelFuncs.filter!(a => a.funcDefNode !is null)
+                            .filter!(a => a.templateParams.length == 0
+                                       || (a.funcName.length >= 3
+                                        && a.funcName[0..2] == "__"))
                             .array;
     }
 
@@ -203,16 +209,16 @@ class FunctionBuilder : Visitor
 
     this (ProgramNode node, RecordBuilder records, FuncSig*[] sigs)
     {
+        this.topNode = node;
         this.records = records;
         this.toplevelFuncs = sigs;
         builderStack.length++;
-        // Just do function definitions
-        auto funcDefs = node.children
-                            .filter!(a => typeid(a) == typeid(FuncDefNode));
-        foreach (funcDef; funcDefs)
+        for (auto i = 0; i < node.children.length; i++)
         {
-            funcDef.accept(this);
-            updateFuncSigStackVarAllocSize();
+            if (cast(FuncDefNode)node.children[i])
+            {
+                node.children[i].accept(this);
+            }
         }
         insideSlice = 0;
     }
@@ -227,17 +233,24 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         if (skipTemplatedFuncDef)
         {
+            ("skipping " ~ curFuncName).writeln;
             return;
         }
+        ("Moving forward with: " ~ curFuncName).writeln;
         // Visit FuncBodyBlocksNode
         node.children[1].accept(this);
         funcSigs.length--;
         funcScopes.length--;
+        updateFuncSigStackVarAllocSize();
     }
 
     void visit(FuncSignatureNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncSignatureNode"));
+        // Visit IdentifierNode, populate 'id'
+        node.children[0].accept(this);
+        auto funcName = id;
+        this.curFuncName = funcName;
         if ((cast(TemplateTypeParamsNode)node.children[1]).children.length > 0)
         {
             // This is a templated function, so we don't try to typecheck it
@@ -245,14 +258,12 @@ class FunctionBuilder : Visitor
             skipTemplatedFuncDef = true;
             return;
         }
-        // Visit IdentifierNode, populate 'id'
-        node.children[0].accept(this);
-        auto funcName = id;
-        this.curFuncName = funcName;
         this.stackVarAllocSize[curFuncName] = 0;
         auto lookup = funcSigLookup(toplevelFuncs, funcName);
         if (lookup.success)
         {
+            "lookup success".writeln;
+            lookup.sig.format.writeln;
             funcSigs ~= lookup.sig;
             foreach (arg; lookup.sig.funcArgs)
             {
@@ -265,7 +276,7 @@ class FunctionBuilder : Visitor
         // It must be an inner function definition
         else
         {
-
+            "lookup failure".writeln;
         }
     }
 
@@ -959,6 +970,8 @@ class FunctionBuilder : Visitor
         auto pair = new VarTypePair();
         pair.varName = varName;
         pair.type = varType;
+        varName.writeln();
+        varType.format.writeln;
         funcScopes[$-1].syms[$-1].decls[varName] = pair;
         decls ~= pair;
         node.data["pair"] = pair;
@@ -1371,12 +1384,23 @@ class FunctionBuilder : Visitor
         builderStack.length--;
         if (curFuncCallSig !is null)
         {
-            auto instantiator = new TemplateInstantiator();
+            auto instantiator = new TemplateInstantiator(records);
+            ("Before: " ~ curFuncCallSig.format).writeln;
             curFuncCallSig = instantiator.instantiateFunction(
                 curFuncCallSig, templateInstantiations
             );
-            auto funcDefNode = curFuncCallSig.funcDefNode;
-            assert(false, "Unimplemented");
+            ("After: " ~ curFuncCallSig.format).writeln;
+            auto funcLookup = funcSigLookup(
+                toplevelFuncs, curFuncCallSig.funcName
+            );
+            if (!funcLookup.success)
+            {
+                toplevelFuncs ~= curFuncCallSig;
+                // Add this instantiated, templated function to the end of the
+                // abstract syntax tree, effectively bringing it into existence,
+                // and allowing it to get typechecked later
+                topNode.children ~= curFuncCallSig.funcDefNode;
+            }
         }
         else if (curVariant !is null)
         {
@@ -1398,11 +1422,6 @@ class FunctionBuilder : Visitor
                 builderStack[$-1] ~= curVariant;
             }
         }
-
-        // TODO struct case of template instantiation
-
-        //else if () {}
-
         if (node.children.length > 1)
         {
             node.children[1].accept(this);

@@ -45,6 +45,11 @@ struct ArrayType
     {
         return "[]" ~ arrayType.format();
     }
+
+    string formatMangle() const
+    {
+        return "@A" ~ arrayType.formatMangle();
+    }
 }
 
 struct HashType
@@ -64,6 +69,12 @@ struct HashType
     {
         return "[" ~ keyType.format() ~ "]" ~ valueType.format();
     }
+
+    string formatMangle() const
+    {
+        return "@K" ~ keyType.formatMangle()
+             ~ "@N" ~ valueType.formatMangle();
+    }
 }
 
 struct SetType
@@ -80,6 +91,11 @@ struct SetType
     string format() const
     {
         return "<>" ~ setType.format();
+    }
+
+    string formatMangle() const
+    {
+        return "@S" ~ setType.formatMangle();
     }
 }
 
@@ -113,6 +129,11 @@ struct AggregateType
         }
         return str;
     }
+
+    string formatMangle() const
+    {
+        return "@Z" ~ typeName;
+    }
 }
 
 struct TupleType
@@ -131,6 +152,17 @@ struct TupleType
     string format() const
     {
         return "(" ~ types.map!(a => a.format()).join(", ") ~ ")";
+    }
+
+    string formatMangle() const
+    {
+        auto str = "";
+        str ~= "@T" ~ types.length.to!string;
+        foreach (type; types)
+        {
+            str ~= type.formatMangle();
+        }
+        return str;
     }
 }
 
@@ -169,6 +201,18 @@ struct FuncPtrType
         {
             str ~= " => " ~ returnType.format();
         }
+        return str;
+    }
+
+    string formatMangle() const
+    {
+        auto str = "";
+        str ~= "@F" ~ funcArgs.length.to!string;
+        foreach (type; funcArgs)
+        {
+            str ~= type.formatMangle();
+        }
+        str ~= "@Y" ~ returnType.formatMangle();
         return str;
     }
 }
@@ -275,6 +319,17 @@ struct StructType
             {
                 str ~= "(" ~ templateParams.join(", ") ~ ")";
             }
+        }
+        return str;
+    }
+
+    string formatMangle() const
+    {
+        auto str = "";
+        str ~= "@R" ~ name;
+        foreach (param; templateParams)
+        {
+            str ~= mappings[param].formatMangle();
         }
         return str;
     }
@@ -415,6 +470,17 @@ struct VariantType
         return str;
     }
 
+    string formatMangle() const
+    {
+        auto str = "";
+        str ~= "@V" ~ name;
+        foreach (param; templateParams)
+        {
+            str ~= mappings[param].formatMangle();
+        }
+        return str;
+    }
+
     // The total size of a variant value on the heap is the size of the largest
     // constructor
     auto size()
@@ -474,6 +540,11 @@ struct ChanType
     string format() const
     {
         return "chan!(" ~ chanType.format() ~ ")";
+    }
+
+    string formatMangle() const
+    {
+        return "@C" ~ chanType.formatMangle();
     }
 }
 
@@ -604,6 +675,43 @@ struct Type
             return str ~ this.structDef.formatFull();
         case TypeEnum.VARIANT:
             return str ~ this.variantDef.formatFull();
+        }
+    }
+
+    string formatMangle() const
+    {
+        string str = "";
+        final switch (tag)
+        {
+        case TypeEnum.VOID:
+        case TypeEnum.LONG:
+        case TypeEnum.INT:
+        case TypeEnum.SHORT:
+        case TypeEnum.BYTE:
+        case TypeEnum.FLOAT:
+        case TypeEnum.DOUBLE:
+        case TypeEnum.CHAR:
+        case TypeEnum.BOOL:
+        case TypeEnum.STRING:
+            return "@B" ~ format();
+        case TypeEnum.SET:
+            return set.formatMangle();
+        case TypeEnum.HASH:
+            return hash.formatMangle();
+        case TypeEnum.ARRAY:
+            return array.formatMangle();
+        case TypeEnum.AGGREGATE:
+            return aggregate.formatMangle();
+        case TypeEnum.TUPLE:
+            return tuple.formatMangle();
+        case TypeEnum.FUNCPTR:
+            return funcPtr.formatMangle();
+        case TypeEnum.CHAN:
+            return chan.formatMangle();
+        case TypeEnum.STRUCT:
+            return structDef.formatMangle();
+        case TypeEnum.VARIANT:
+            return variantDef.formatMangle();
         }
     }
 
@@ -809,6 +917,8 @@ struct FuncSig
     string funcName;
     // Template args
     string[] templateParams;
+    // Types used to instantiate template
+    Type*[] templateTypes;
     // A possibly zero-length list of variables that are closed over, indicating
     // this is a closure function. If the length is zero, the number of
     // arguments to the actual implementation of the function is the number

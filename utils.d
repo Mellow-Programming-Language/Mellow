@@ -666,3 +666,15 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
         break;
     }
 }
+
+string getMangledFuncName(FuncSig* sig)
+{
+    auto str = "";
+    str ~= "__";
+    str ~= sig.funcName;
+    foreach (type; sig.templateTypes)
+    {
+        str ~= type.formatMangle();
+    }
+    return str;
+}

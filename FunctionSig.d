@@ -69,10 +69,13 @@ class FunctionSigBuilder : Visitor
         node.children[0].accept(this);
         funcSig = new FuncSig();
         funcSig.funcName = funcName;
-        funcSig.funcArgs = funcArgs;
-        funcSig.returnType = returnType;
         funcSig.templateParams = templateParams;
         funcSig.funcDefNode = node;
+        if (templateParams.length == 0)
+        {
+            funcSig.funcArgs = funcArgs;
+            funcSig.returnType = returnType;
+        }
         funcName = "";
         funcArgs = [];
         returnType = null;
@@ -86,6 +89,10 @@ class FunctionSigBuilder : Visitor
         funcName = id;
         // Visit TemplateTypeParamsNode
         node.children[1].accept(this);
+        if (templateParams.length > 0)
+        {
+            return;
+        }
         // Visit FuncDefArgListNode
         node.children[2].accept(this);
         // Visit FuncReturnTypeNode
