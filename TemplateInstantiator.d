@@ -86,7 +86,6 @@ class TemplateInstantiator : Visitor
         newIdNode.children ~= newTerminal;
         (cast(FuncSignatureNode)node.children[0]).children[0] = newIdNode;
         this.newSig.funcDefNode = node;
-        ("Format new sig: " ~ newSig.format).writeln;
         return this.newSig;
     }
 
@@ -97,14 +96,14 @@ class TemplateInstantiator : Visitor
 
     void visit(IdentifierNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IdentifierNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("IdentifierNode"));
         id = (cast(ASTTerminal)node.children[0]).token;
         index = (cast(ASTTerminal)node.children[0]).index;
     }
 
     void visit(FuncDefNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncDefNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -113,7 +112,7 @@ class TemplateInstantiator : Visitor
 
     void visit(FuncSignatureNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncSignatureNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncSignatureNode"));
         // IdentifierNode
         node.children[0].accept(this);
         // TemplateTypeParamsNode
@@ -134,7 +133,7 @@ class TemplateInstantiator : Visitor
 
     void visit(TemplateTypeParamsNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateTypeParamsNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateTypeParamsNode"));
         if (node.children.length == 0)
         {
             throw new Exception(
@@ -147,7 +146,7 @@ class TemplateInstantiator : Visitor
 
     void visit(TemplateTypeParamListNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateTypeParamListNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateTypeParamListNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -157,7 +156,7 @@ class TemplateInstantiator : Visitor
 
     void visit(FuncDefArgListNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefArgListNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncDefArgListNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -166,19 +165,19 @@ class TemplateInstantiator : Visitor
 
     void visit(FuncSigArgNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncSigArgNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncSigArgNode"));
         node.children[$-1].accept(this);
     }
 
     void visit(FuncReturnTypeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncReturnTypeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncReturnTypeNode"));
         node.children[0].accept(this);
     }
 
     void visit(FuncBodyBlocksNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncBodyBlocksNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncBodyBlocksNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -187,7 +186,7 @@ class TemplateInstantiator : Visitor
 
     void visit(BareBlockNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BareBlockNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("BareBlockNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -196,25 +195,25 @@ class TemplateInstantiator : Visitor
 
     void visit(StatementNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StatementNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("StatementNode"));
         node.children[0].accept(this);
     }
 
     void visit(ReturnStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ReturnStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ReturnStmtNode"));
         node.children[0].accept(this);
     }
 
     void visit(BoolExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BoolExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("BoolExprNode"));
         node.children[0].accept(this);
     }
 
     void visit(OrTestNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("OrTestNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("OrTestNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -223,7 +222,7 @@ class TemplateInstantiator : Visitor
 
     void visit(AndTestNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AndTestNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("AndTestNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -232,13 +231,13 @@ class TemplateInstantiator : Visitor
 
     void visit(NotTestNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("NotTestNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("NotTestNode"));
         node.children[0].accept(this);
     }
 
     void visit(ComparisonNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ComparisonNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ComparisonNode"));
         if (node.children.length > 1)
         {
             node.children[0].accept(this);
@@ -248,13 +247,13 @@ class TemplateInstantiator : Visitor
 
     void visit(ExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ExprNode"));
         node.children[0].accept(this);
     }
 
     void visit(OrExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("OrExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("OrExprNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -263,7 +262,7 @@ class TemplateInstantiator : Visitor
 
     void visit(XorExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("XorExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("XorExprNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -272,7 +271,7 @@ class TemplateInstantiator : Visitor
 
     void visit(AndExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AndExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("AndExprNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -281,7 +280,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ShiftExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ShiftExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ShiftExprNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -290,7 +289,7 @@ class TemplateInstantiator : Visitor
 
     void visit(SumExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SumExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("SumExprNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -299,7 +298,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ProductExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ProductExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ProductExprNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -308,7 +307,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ValueNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ValueNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ValueNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -317,13 +316,13 @@ class TemplateInstantiator : Visitor
 
     void visit(ParenExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ParenExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ParenExprNode"));
         node.children[0].accept(this);
     }
 
     void visit(StructConstructorNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StructConstructorNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("StructConstructorNode"));
         if (cast(TemplateInstantiationNode)node.children[1])
         {
             node.children[1].accept(this);
@@ -345,7 +344,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ArrayLiteralNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayLiteralNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ArrayLiteralNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -354,13 +353,13 @@ class TemplateInstantiator : Visitor
 
     void visit(VariableTypePairNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VariableTypePairNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("VariableTypePairNode"));
         node.children[1].accept(this);
     }
 
     void visit(VariableTypePairTupleNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VariableTypePairTupleNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("VariableTypePairTupleNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -369,38 +368,38 @@ class TemplateInstantiator : Visitor
 
     void visit(DeclarationNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DeclarationNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("DeclarationNode"));
         node.children[0].accept(this);
     }
 
     void visit(DeclAssignmentNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DeclAssignmentNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("DeclAssignmentNode"));
         node.children[1].accept(this);
     }
 
     void visit(AssignExistingNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssignExistingNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("AssignExistingNode"));
         node.children[0].accept(this);
         node.children[2].accept(this);
     }
 
     void visit(DeclTypeInferNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DeclTypeInferNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("DeclTypeInferNode"));
         node.children[1].accept(this);
     }
 
     void visit(AssignmentNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssignmentNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("AssignmentNode"));
         node.children[0].accept(this);
     }
 
     void visit(ValueTupleNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ValueTupleNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ValueTupleNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -409,7 +408,7 @@ class TemplateInstantiator : Visitor
 
     void visit(LorRValueNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("LorRValueNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("LorRValueNode"));
         if (node.children.length > 1)
         {
             node.children[1].accept(this);
@@ -418,7 +417,7 @@ class TemplateInstantiator : Visitor
 
     void visit(LorRTrailerNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("LorRTrailerNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("LorRTrailerNode"));
         if (cast(IdentifierNode)node.children[0])
         {
             node.children[1].accept(this);
@@ -434,37 +433,37 @@ class TemplateInstantiator : Visitor
 
     void visit(SlicingNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SlicingNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("SlicingNode"));
         node.children[0].accept(this);
     }
 
     void visit(SingleIndexNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SingleIndexNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("SingleIndexNode"));
         node.children[0].accept(this);
     }
 
     void visit(IndexRangeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IndexRangeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("IndexRangeNode"));
         node.children[0].accept(this);
     }
 
     void visit(StartToIndexRangeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StartToIndexRangeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("StartToIndexRangeNode"));
         node.children[0].accept(this);
     }
 
     void visit(IndexToEndRangeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IndexToEndRangeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("IndexToEndRangeNode"));
         node.children[0].accept(this);
     }
 
     void visit(IndexToIndexRangeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IndexToIndexRangeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("IndexToIndexRangeNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -473,13 +472,13 @@ class TemplateInstantiator : Visitor
 
     void visit(TrailerNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TrailerNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TrailerNode"));
         node.children[0].accept(this);
     }
 
     void visit(DynArrAccessNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DynArrAccessNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("DynArrAccessNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -488,7 +487,7 @@ class TemplateInstantiator : Visitor
 
     void visit(TemplateInstanceMaybeTrailerNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateInstanceMaybeTrailerNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateInstanceMaybeTrailerNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -497,7 +496,7 @@ class TemplateInstantiator : Visitor
 
     void visit(FuncCallTrailerNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallTrailerNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncCallTrailerNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -506,7 +505,7 @@ class TemplateInstantiator : Visitor
 
     void visit(FuncCallArgListNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallArgListNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncCallArgListNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -515,7 +514,7 @@ class TemplateInstantiator : Visitor
 
     void visit(FuncCallNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncCallNode"));
         // TODO need to update to allow for calling templated functions
 
         node.children[1].accept(this);
@@ -523,7 +522,7 @@ class TemplateInstantiator : Visitor
 
     void visit(DotAccessNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DotAccessNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("DotAccessNode"));
         // TODO update this for when UFCS calls with tmeplated functions are
         // supported
 
@@ -532,7 +531,7 @@ class TemplateInstantiator : Visitor
 
     void visit(IfStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IfStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("IfStmtNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -541,7 +540,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ElseIfsNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseIfsNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseIfsNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -550,7 +549,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ElseIfStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseIfStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseIfStmtNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -559,7 +558,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ElseStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseStmtNode"));
         if (node.children.length > 0)
         {
             node.children[0].accept(this);
@@ -568,7 +567,7 @@ class TemplateInstantiator : Visitor
 
     void visit(WhileStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("WhileStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("WhileStmtNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -577,7 +576,7 @@ class TemplateInstantiator : Visitor
 
     void visit(CondAssignmentsNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CondAssignmentsNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CondAssignmentsNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -586,13 +585,13 @@ class TemplateInstantiator : Visitor
 
     void visit(CondAssignNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CondAssignNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CondAssignNode"));
         node.children[0].accept(this);
     }
 
     void visit(ForeachStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForeachStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForeachStmtNode"));
         foreach (child; node.children[1..$])
         {
             child.accept(this);
@@ -603,7 +602,7 @@ class TemplateInstantiator : Visitor
 
     void visit(MatchStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("MatchStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("MatchStmtNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -612,7 +611,7 @@ class TemplateInstantiator : Visitor
 
     void visit(MatchWhenNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("MatchWhenNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("MatchWhenNode"));
         foreach (child; node.children[1..$])
         {
             child.accept(this);
@@ -639,7 +638,7 @@ class TemplateInstantiator : Visitor
     // declared in this expression
     void visit(IsExprNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IsExprNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("IsExprNode"));
         node.children[0].accept(this);
     }
 
@@ -651,7 +650,7 @@ class TemplateInstantiator : Visitor
     // expression
     void visit(ChanWriteNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ChanWriteNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ChanWriteNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -660,13 +659,13 @@ class TemplateInstantiator : Visitor
 
     void visit(ChanReadNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ChanReadNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ChanReadNode"));
         node.children[0].accept(this);
     }
 
     void visit(SpawnStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SpawnStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("SpawnStmtNode"));
         // TODO need to update for allowing calling of templated functions
 
         node.children[1].accept(this);
@@ -674,73 +673,73 @@ class TemplateInstantiator : Visitor
 
     void visit(ForStmtNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForStmtNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForStmtNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(ForInitNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForInitNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForInitNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(ForConditionalNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForConditionalNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForConditionalNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(ForPostExpressionNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForPostExpressionNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForPostExpressionNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(LambdaNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("LambdaNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("LambdaNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(LambdaArgsNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("LambdaArgsNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("LambdaArgsNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(StructFunctionNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StructFunctionNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("StructFunctionNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(InBlockNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("InBlockNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("InBlockNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(OutBlockNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("OutBlockNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("OutBlockNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(ReturnModBlockNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ReturnModBlockNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ReturnModBlockNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(BodyBlockNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BodyBlockNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("BodyBlockNode"));
         assert(false, "Unimplemented");
     }
 
     void visit(TypeIdNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TypeIdNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TypeIdNode"));
         auto child = node.children[0];
         // If it's a usertype, there's a chance we need to do a template
         // replacement
@@ -769,7 +768,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ArrayTypeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayTypeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ArrayTypeNode"));
         if (node.children.length > 1)
         {
             node.children[1].accept(this);
@@ -784,13 +783,13 @@ class TemplateInstantiator : Visitor
 
     void visit(HashTypeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("HashTypeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("HashTypeNode"));
         node.children[1].accept(this);
     }
 
     void visit(TypeTupleNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TypeTupleNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TypeTupleNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -799,7 +798,7 @@ class TemplateInstantiator : Visitor
 
     void visit(ChanTypeNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ChanTypeNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ChanTypeNode"));
         node.children[0].accept(this);
     }
 
@@ -807,19 +806,19 @@ class TemplateInstantiator : Visitor
 
     void visit(TemplateInstantiationNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateInstantiationNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateInstantiationNode"));
         node.children[0].accept(this);
     }
 
     void visit(TemplateParamNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateParamNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateParamNode"));
         node.children[0].accept(this);
     }
 
     void visit(TemplateParamListNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateParamListNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateParamListNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -828,7 +827,7 @@ class TemplateInstantiator : Visitor
 
     void visit(TemplateAliasNode node)
     {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateAliasNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateAliasNode"));
         node.children[0].accept(this);
     }
 

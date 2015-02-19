@@ -158,6 +158,7 @@ class FunctionBuilder : Visitor
     private string id;
     private FuncSig*[] toplevelFuncs;
     private FuncSig*[] funcSigs;
+    private FuncSig*[] callSigs;
     private FuncSig* curFuncCallSig;
     private string[] idTuple;
     private VarTypePair*[] funcArgs;
@@ -233,10 +234,8 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
         if (skipTemplatedFuncDef)
         {
-            ("skipping " ~ curFuncName).writeln;
             return;
         }
-        ("Moving forward with: " ~ curFuncName).writeln;
         // Visit FuncBodyBlocksNode
         node.children[1].accept(this);
         funcSigs.length--;
@@ -262,8 +261,6 @@ class FunctionBuilder : Visitor
         auto lookup = funcSigLookup(toplevelFuncs, funcName);
         if (lookup.success)
         {
-            "lookup success".writeln;
-            lookup.sig.format.writeln;
             funcSigs ~= lookup.sig;
             foreach (arg; lookup.sig.funcArgs)
             {
@@ -276,7 +273,6 @@ class FunctionBuilder : Visitor
         // It must be an inner function definition
         else
         {
-            "lookup failure".writeln;
         }
     }
 
@@ -717,6 +713,7 @@ class FunctionBuilder : Visitor
     void visit(ValueNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ValueNode"));
+        FuncSig* localFuncSig;
         if (typeid(node.children[0]) == typeid(IdentifierNode))
         {
             node.children[0].accept(this);
@@ -744,6 +741,7 @@ class FunctionBuilder : Visitor
             else if (funcLookup.success)
             {
                 curFuncCallSig = funcLookup.sig;
+                localFuncSig = curFuncCallSig;
                 auto funcPtr = new FuncPtrType();
                 funcPtr.funcArgs = funcLookup.sig.funcArgs
                                                  .map!(a => a.type)
@@ -783,6 +781,18 @@ class FunctionBuilder : Visitor
             if (node.children.length > 1)
             {
                 node.children[1].accept(this);
+                if (localFuncSig !is null
+                    && localFuncSig.templateParams.length > 0
+                    && callSigs.length > 0)
+                {
+                    auto newIdNode = new IdentifierNode();
+                    auto terminal = new ASTTerminal(
+                        callSigs[$-1].funcName, 0
+                    );
+                    callSigs.length--;
+                    newIdNode.children ~= terminal;
+                    node.children[0] = newIdNode;
+                }
             }
         }
         else
@@ -970,8 +980,6 @@ class FunctionBuilder : Visitor
         auto pair = new VarTypePair();
         pair.varName = varName;
         pair.type = varType;
-        varName.writeln();
-        varType.format.writeln;
         funcScopes[$-1].syms[$-1].decls[varName] = pair;
         decls ~= pair;
         node.data["pair"] = pair;
@@ -1385,11 +1393,9 @@ class FunctionBuilder : Visitor
         if (curFuncCallSig !is null)
         {
             auto instantiator = new TemplateInstantiator(records);
-            ("Before: " ~ curFuncCallSig.format).writeln;
             curFuncCallSig = instantiator.instantiateFunction(
                 curFuncCallSig, templateInstantiations
             );
-            ("After: " ~ curFuncCallSig.format).writeln;
             auto funcLookup = funcSigLookup(
                 toplevelFuncs, curFuncCallSig.funcName
             );
@@ -1401,6 +1407,7 @@ class FunctionBuilder : Visitor
                 // and allowing it to get typechecked later
                 topNode.children ~= curFuncCallSig.funcDefNode;
             }
+            callSigs ~= curFuncCallSig;
         }
         else if (curVariant !is null)
         {
