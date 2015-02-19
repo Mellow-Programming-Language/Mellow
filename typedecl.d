@@ -826,8 +826,8 @@ struct FuncSig
     // The return type. Since it's a bare type, it can possibly be a tuple of
     // types
     Type* returnType;
-    // Body blocks node, for expanding templates
-    FuncBodyBlocksNode funcBodyBlocks;
+    // For expanding templates
+    FuncDefNode funcDefNode;
     // The total number of bytes named variables will use on the stack
     uint stackVarAllocSize;
 

@@ -19,23 +19,15 @@ class FunctionSigBuilder : Visitor
     private VarTypePair*[] funcArgs;
     private Type* returnType;
     private VarTypePair*[] decls;
-    FuncSig*[] toplevelFuncs;
+    FuncSig* funcSig;
 
     mixin TypeVisitors;
 
-    this (ProgramNode node, RecordBuilder records)
+    this (ASTNode node, RecordBuilder records)
     {
         this.records = records;
         builderStack.length++;
-        // Just do function definitions
-        auto funcDefs = node.children
-                            .filter!(a =>
-                                    typeid(a) == typeid(FuncDefNode)
-                                 || typeid(a) == typeid(ExternFuncDeclNode));
-        foreach (funcDef; funcDefs)
-        {
-            funcDef.accept(this);
-        }
+        node.accept(this);
     }
 
     private auto collectMultiples(T)(T[] elems)
@@ -62,11 +54,10 @@ class FunctionSigBuilder : Visitor
         node.children[1].accept(this);
         // Visit FuncReturnTypeNode
         node.children[2].accept(this);
-        auto funcSig = new FuncSig();
+        funcSig = new FuncSig();
         funcSig.funcName = funcName;
         funcSig.funcArgs = funcArgs;
         funcSig.returnType = returnType;
-        toplevelFuncs ~= funcSig;
         funcName = "";
         funcArgs = [];
         returnType = null;
@@ -76,13 +67,12 @@ class FunctionSigBuilder : Visitor
     {
         // Visit FuncSignatureNode
         node.children[0].accept(this);
-        auto funcSig = new FuncSig();
+        funcSig = new FuncSig();
         funcSig.funcName = funcName;
         funcSig.funcArgs = funcArgs;
         funcSig.returnType = returnType;
         funcSig.templateParams = templateParams;
-        funcSig.funcBodyBlocks = cast(FuncBodyBlocksNode)node.children[1];
-        toplevelFuncs ~= funcSig;
+        funcSig.funcDefNode = node;
         funcName = "";
         funcArgs = [];
         returnType = null;

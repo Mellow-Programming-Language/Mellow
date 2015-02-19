@@ -1,16 +1,19 @@
 all: compiler runtime/runtime.o stdlib/stdlib.o
 
 compiler: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
-		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d
+		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d\
+		  TemplateInstantiator.d
 	dmd -ofcompiler main.d Function.d FunctionSig.d Record.d parser.d\
 		visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
-		ExprCodeGenerator.d
+		ExprCodeGenerator.d TemplateInstantiator.d
 
 compiler_debug: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
-		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d
+		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d\
+		  TemplateInstantiator.d
 	dmd -ofcompiler_debug main.d Function.d FunctionSig.d Record.d parser.d\
 		visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
-		ExprCodeGenerator.d -debug=COMPILE_TRACE -debug=TRACE
+		ExprCodeGenerator.d TemplateInstantiator.d\
+		-debug=COMPILE_TRACE -debug=TRACE
 
 runtime/runtime.o:
 	make -C runtime

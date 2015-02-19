@@ -90,8 +90,18 @@ EOF".write;
         return 0;
     }
     auto records = new RecordBuilder(cast(ProgramNode)topNode);
-    auto funcSigs = new FunctionSigBuilder(cast(ProgramNode)topNode,
-        records);
+    // Just do function definitions
+    auto funcDefs =
+        (cast(ProgramNode)
+        topNode).children
+               .filter!(a => typeid(a) == typeid(FuncDefNode)
+                          || typeid(a) == typeid(ExternFuncDeclNode));
+    FuncSig*[] funcSigs;
+    foreach (funcDef; funcDefs)
+    {
+        auto builder = new FunctionSigBuilder(funcDef, records);
+        funcSigs ~= builder.funcSig;
+    }
     auto funcs = new FunctionBuilder(cast(ProgramNode)topNode, records,
         funcSigs);
     if (dump)
@@ -104,7 +114,7 @@ EOF".write;
         {
             writeln(variantDef.format());
         }
-        foreach (sig; funcSigs.toplevelFuncs)
+        foreach (sig; funcSigs)
         {
             sig.format.writeln;
         }

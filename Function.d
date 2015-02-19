@@ -10,6 +10,7 @@ import typedecl;
 import Record;
 import utils;
 import FunctionSig;
+import TemplateInstantiator;
 
 // CLosures and struct member functions can be implemented in exactly the same
 // way. The 'this' pointer and the environment pointer for closures are
@@ -171,21 +172,24 @@ class FunctionBuilder : Visitor
     private string curFuncName;
     private Type* curVariant;
     private string curConstructor;
+    private bool skipTemplatedFuncDef;
 
     mixin TypeVisitors;
 
     FuncSig*[] getCompilableFuncSigs()
     {
-        return toplevelFuncs.filter!(a => a.funcBodyBlocks !is null)
+        return toplevelFuncs.filter!(a => a.funcDefNode !is null)
                             .array;
     }
 
     FuncSig*[] getExternFuncSigs()
     {
-        return toplevelFuncs.filter!(a => a.funcBodyBlocks is null)
+        return toplevelFuncs.filter!(a => a.funcDefNode is null)
                             .array;
     }
 
+    // TODO update this so templated functions are handled correctly, ie, their
+    // mangled names
     void updateFuncSigStackVarAllocSize()
     {
         foreach (sig; toplevelFuncs)
@@ -197,10 +201,10 @@ class FunctionBuilder : Visitor
         }
     }
 
-    this (ProgramNode node, RecordBuilder records, FunctionSigBuilder sigs)
+    this (ProgramNode node, RecordBuilder records, FuncSig*[] sigs)
     {
         this.records = records;
-        this.toplevelFuncs = sigs.toplevelFuncs;
+        this.toplevelFuncs = sigs;
         builderStack.length++;
         // Just do function definitions
         auto funcDefs = node.children
@@ -219,7 +223,12 @@ class FunctionBuilder : Visitor
         funcScopes.length++;
         funcScopes[$-1].syms.length++;
         // Visit FuncSignatureNode
+        skipTemplatedFuncDef = false;
         node.children[0].accept(this);
+        if (skipTemplatedFuncDef)
+        {
+            return;
+        }
         // Visit FuncBodyBlocksNode
         node.children[1].accept(this);
         funcSigs.length--;
@@ -229,6 +238,13 @@ class FunctionBuilder : Visitor
     void visit(FuncSignatureNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncSignatureNode"));
+        if ((cast(TemplateTypeParamsNode)node.children[1]).children.length > 0)
+        {
+            // This is a templated function, so we don't try to typecheck it
+            // until it's been instantiated
+            skipTemplatedFuncDef = true;
+            return;
+        }
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         auto funcName = id;
@@ -1349,16 +1365,21 @@ class FunctionBuilder : Visitor
     void visit(TemplateInstanceMaybeTrailerNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("TemplateInstanceMaybeTrailerNode"));
+        builderStack.length++;
+        node.children[0].accept(this);
+        auto templateInstantiations = builderStack[$-1];
+        builderStack.length--;
         if (curFuncCallSig !is null)
         {
+            auto instantiator = new TemplateInstantiator();
+            curFuncCallSig = instantiator.instantiateFunction(
+                curFuncCallSig, templateInstantiations
+            );
+            auto funcDefNode = curFuncCallSig.funcDefNode;
             assert(false, "Unimplemented");
         }
         else if (curVariant !is null)
         {
-            builderStack.length++;
-            node.children[0].accept(this);
-            auto templateInstantiations = builderStack[$-1];
-            builderStack.length--;
             Type*[string] mappings;
             foreach (name, type; lockstep(curVariant.variantDef.templateParams,
                                           templateInstantiations))

@@ -53,7 +53,10 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
     }
     else
     {
-        throw new Exception("Instantiation of non-existent type.");
+        throw new Exception(
+            "Instantiation of non-existent type:\n"
+            ~ "  " ~ aggregate.typeName
+        );
     }
     return type;
 }
@@ -520,7 +523,7 @@ bool isUninstantiated(Type* type)
 
 ASTNonTerminal genTypeTree(string templateParam, Type* newType)
 {
-    final switch (replaceType.tag)
+    final switch (newType.tag)
     {
     case TypeEnum.VOID:
     case TypeEnum.LONG:
@@ -535,19 +538,19 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
         // Perform tree replacement for basic type
         auto newNode = new BasicTypeNode();
         auto newTerminalNode = new ASTTerminal(
-            replaceType.format, index
+            newType.format, 0
         );
         newNode.children ~= newTerminalNode;
         return newNode;
     case TypeEnum.SET:
         auto newNode = new SetTypeNode();
-        newNode.children ~= _genTypeTree(templateParam, newType.set.setType);
+        newNode.children ~= genTypeTree(templateParam, newType.set.setType);
         return newNode;
     case TypeEnum.HASH:
         auto newNode = new HashTypeNode();
-        newNode.children ~= _genTypeTree(templateParam, newType.hash.keyType);
+        newNode.children ~= genTypeTree(templateParam, newType.hash.keyType);
         auto valueNode = new TypeIdNode;
-        valueNode.children ~= _genTypeTree(
+        valueNode.children ~= genTypeTree(
             templateParam, newType.hash.valueType
         );
         newNode.children ~= valueNode;
@@ -555,7 +558,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
     case TypeEnum.ARRAY:
         auto newNode = new ArrayTypeNode();
         auto typeIdNode = new TypeIdNode();
-        typeIdNode.children ~= _genTypeTree(
+        typeIdNode.children ~= genTypeTree(
             templateParam, newType.array.arrayType
         );
         newNode.children ~= typeIdNode;
@@ -563,7 +566,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
     case TypeEnum.CHAN:
         auto newNode = new ChanTypeNode();
         auto typeIdNode = new TypeIdNode();
-        typeIdNode.children ~= _genTypeTree(
+        typeIdNode.children ~= genTypeTree(
             templateParam, newType.chan.chanType
         );
         newNode.children ~= typeIdNode;
@@ -571,8 +574,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
     case TypeEnum.STRUCT:
         auto newNode = new UserTypeNode();
         auto idNode = new IdentifierNode();
-        auto termNode = new ASTTerminal();
-        termNode.token = newType.structDef.name;
+        auto termNode = new ASTTerminal(newType.structDef.name, 0);
         idNode.children ~= termNode;
         newNode.children ~= idNode;
         if (newType.structDef.templateParams.length > 0)
@@ -590,7 +592,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
                     // here?
 
                     auto aliasTypeIdNode = new TypeIdNode;
-                    aliasTypeIdNode.children ~= _genTypeTree(
+                    aliasTypeIdNode.children ~= genTypeTree(
                         templateParam, newType.structDef.mappings[param]
                     );
                     aliasNode.children ~= aliasTypeIdNode;
@@ -601,7 +603,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
             else
             {
                 auto templateTypeIdNode = new TypeIdNode();
-                templateTypeIdNode.children ~= _genTypeTree(
+                templateTypeIdNode.children ~= genTypeTree(
                     templateParam,
                     newType.structDef
                            .mappings[newType.structDef.templateParams[0]]
@@ -615,8 +617,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
     case TypeEnum.VARIANT:
         auto newNode = new UserTypeNode();
         auto idNode = new IdentifierNode();
-        auto termNode = new ASTTerminal();
-        termNode.token = newType.variantDef.name;
+        auto termNode = new ASTTerminal(newType.variantDef.name, 0);
         idNode.children ~= termNode;
         newNode.children ~= idNode;
         if (newType.variantDef.templateParams.length > 0)
@@ -634,7 +635,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
                     // here?
 
                     auto aliasTypeIdNode = new TypeIdNode;
-                    aliasTypeIdNode.children ~= _genTypeTree(
+                    aliasTypeIdNode.children ~= genTypeTree(
                         templateParam, newType.variantDef.mappings[param]
                     );
                     aliasNode.children ~= aliasTypeIdNode;
@@ -645,7 +646,7 @@ ASTNonTerminal genTypeTree(string templateParam, Type* newType)
             else
             {
                 auto templateTypeIdNode = new TypeIdNode();
-                templateTypeIdNode.children ~= _genTypeTree(
+                templateTypeIdNode.children ~= genTypeTree(
                     templateParam,
                     newType.variantDef
                            .mappings[newType.variantDef.templateParams[0]]

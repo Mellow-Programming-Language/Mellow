@@ -778,8 +778,13 @@ string compileFunction(FuncSig* sig, Context* vars)
             }
         }
     }
+
+    // TODO handle the other block cases
+
+    auto funcBodyBlocks = cast(FuncBodyBlocksNode)sig.funcDefNode
+                                                     .children[1];
     auto funcDef = compileBlock(
-        cast(BareBlockNode)sig.funcBodyBlocks.children[0], vars
+        cast(BareBlockNode)funcBodyBlocks.children[0], vars
     );
     // Determine the total amount of stack space used by the function at max
     auto totalStackSpaceUsed = sig.stackVarAllocSize + vars.maxTempSpaceUsed;
