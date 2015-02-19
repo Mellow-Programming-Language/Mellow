@@ -534,8 +534,10 @@ class TemplateInstantiator : Visitor
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("DotAccessNode"));
         // TODO update this for when UFCS calls with tmeplated functions are
         // supported
-
-        node.children[1].accept(this);
+        if (node.children.length > 1)
+        {
+            node.children[1].accept(this);
+        }
     }
 
     void visit(IfStmtNode node)
