@@ -88,7 +88,7 @@ string compileNotTest(NotTestNode node, Context* vars)
     if (cast(NotTestNode)child)
     {
         str ~= compileNotTest(cast(NotTestNode)child, vars);
-        str ~= "    not    r8\n";
+        str ~= "    xor    r8, 1\n";
     }
     else
     {
