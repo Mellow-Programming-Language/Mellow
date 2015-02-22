@@ -1795,7 +1795,7 @@ class FunctionBuilder : Visitor
         auto loopType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         Type*[] loopTypes;
-        if (loopType.tag == TypeEnum.ARRAY)
+        if (loopType.tag == TypeEnum.ARRAY || loopType.tag == TypeEnum.STRING)
         {
             loopTypes ~= loopType;
         }
@@ -1803,10 +1803,11 @@ class FunctionBuilder : Visitor
         {
             foreach (type; loopType.tuple.types)
             {
-                if (type.tag != TypeEnum.ARRAY)
+                if (type.tag != TypeEnum.ARRAY && type.tag != TypeEnum.STRING)
                 {
                     throw new Exception(
-                        "Cannot loop over non-array types in loop tuple");
+                        "Cannot loop over non-array/string types in loop tuple"
+                    );
                 }
                 loopTypes ~= type;
             }
@@ -1846,12 +1847,23 @@ class FunctionBuilder : Visitor
         {
             auto pair = new VarTypePair();
             pair.varName = varName;
-            pair.type = type.array.arrayType;
+            if (type.tag == TypeEnum.ARRAY)
+            {
+                pair.type = type.array.arrayType;
+                this.stackVarAllocSize[curFuncName] += type.array
+                                                           .arrayType
+                                                           .size
+                                                           .stackAlignSize;
+            }
+            else if (type.tag == TypeEnum.STRING)
+            {
+                auto charWrap = new Type();
+                charWrap.tag = TypeEnum.CHAR;
+                pair.type = charWrap;
+                this.stackVarAllocSize[curFuncName] += charWrap.size
+                                                               .stackAlignSize;
+            }
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
-            this.stackVarAllocSize[curFuncName] += type.array
-                                                       .arrayType
-                                                       .size
-                                                       .stackAlignSize;
         }
         // BareBlockNode
         node.children[2].accept(this);

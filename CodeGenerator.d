@@ -1014,14 +1014,25 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         vars.addStackVar(indexVar);
     }
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
-    if (loopType.tag == TypeEnum.ARRAY)
+    if (loopType.tag == TypeEnum.ARRAY || loopType.tag == TypeEnum.STRING)
     {
         auto loopVarName = foreachArgs[0];
         auto loopVar = new VarTypePair();
+        auto elemSize = 0;
         loopVar.varName = loopVarName;
-        loopVar.type = loopType.array.arrayType.copy;
+        if (loopType.tag == TypeEnum.ARRAY)
+        {
+            loopVar.type = loopType.array.arrayType.copy;
+            elemSize = loopType.array.arrayType.size;
+        }
+        else if (loopType.tag == TypeEnum.STRING)
+        {
+            auto wrap = new Type();
+            wrap.tag = TypeEnum.CHAR;
+            loopVar.type = wrap;
+            elemSize = wrap.size;
+        }
         vars.addStackVar(loopVar);
-        auto elemSize = loopType.array.arrayType.size;
         vars.allocateStackSpace(8);
         auto arrayLoc = vars.getTop.to!string;
         vars.allocateStackSpace(8);
@@ -1058,7 +1069,15 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         str ~= "    add    r10, 8\n";
         // Actually add in the array pointer value
         str ~= "    add    r10, r8\n";
-        if (loopType.array.arrayType.needsSignExtend)
+        // Zero the register if the type is less than 4 bytes
+        if ((loopType.tag == TypeEnum.ARRAY &&
+            loopType.array.arrayType.size < 4)
+            || (loopType.tag == TypeEnum.STRING))
+        {
+            str ~= "    mov    r11, 0\n";
+        }
+        if (loopType.tag == TypeEnum.ARRAY &&
+            loopType.array.arrayType.needsSignExtend)
         {
             // Get the element in r11
             str ~= "    movsx  r11, " ~ getWordSize(elemSize)
