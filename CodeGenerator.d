@@ -1307,8 +1307,22 @@ string compileStructPattern(StructPatternNode node, Context* vars)
 string compileBoolPattern(BoolPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto str = "";
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    auto boolVal = (cast(ASTTerminal)node.children[0])
+                                     .token;
+    if (boolVal == "true")
+    {
+        str ~= "    cmp    r8, 1\n";
+    }
+    else
+    {
+        str ~= "    cmp    r8, 0\n";
+    }
+    str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
+                         ~ "\n";
+    return str;
 }
 
 string compileStringPattern(StringPatternNode node, Context* vars)
@@ -1369,7 +1383,6 @@ string compileFloatPattern(FloatPatternNode node, Context* vars)
 string compileIntPattern(IntPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
                                         ~ "]\n";
@@ -1418,8 +1431,15 @@ string compileTuplePattern(TuplePatternNode node, Context* vars)
 string compileArrayEmptyPattern(ArrayEmptyPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto str = "";
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    // Get array length
+    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    cmp    r9, 0\n";
+    str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
+                         ~ "\n";
+    return str;
 }
 
 string compileArrayPattern(ArrayPatternNode node, Context* vars)
@@ -1944,6 +1964,7 @@ string compileAssignment(AssignmentNode node, Context* vars)
 string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     auto str = "";
     return str;
 }
