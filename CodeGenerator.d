@@ -1369,8 +1369,43 @@ string compileFloatPattern(FloatPatternNode node, Context* vars)
 string compileIntPattern(IntPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    // Int range
+    if (node.children.length > 1)
+    {
+        auto intOne = (cast(ASTTerminal)
+                       (cast(IntNumNode)node.children[0])
+                                             .children[0]).token
+                                                          .to!int;
+        auto intTwo = (cast(ASTTerminal)
+                       (cast(IntNumNode)node.children[1])
+                                             .children[0]).token
+                                                          .to!int;
+        str ~= "    cmp    r8, " ~ intOne.to!int.to!string
+                                 ~ "\n";
+        str ~= "    jl     " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+        str ~= "    cmp    r8, " ~ intTwo.to!int.to!string
+                                 ~ "\n";
+        str ~= "    jg     " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+    }
+    // Single int
+    else
+    {
+        auto intOne = (cast(ASTTerminal)
+                       (cast(IntNumNode)node.children[0])
+                                             .children[0]).token
+                                                          .to!int;
+        str ~= "    cmp    r8, " ~ intOne.to!int.to!string
+                                 ~ "\n";
+        str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+    }
+    return str;
 }
 
 string compileTuplePattern(TuplePatternNode node, Context* vars)
