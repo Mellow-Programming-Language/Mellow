@@ -2137,10 +2137,10 @@ class FunctionBuilder : Visitor
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayPatternNode"));
         node.data["type"] = matchType;
-        if (matchType.tag != TypeEnum.ARRAY)
+        if (matchType.tag != TypeEnum.ARRAY && matchType.tag != TypeEnum.STRING)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not array type.");
+                ~ ", not array or string type.");
         }
         auto matchTypeSave = matchType;
         auto endIndex = node.children.length;
@@ -2163,7 +2163,16 @@ class FunctionBuilder : Visitor
             // Move back before the ".." token
             endIndex = endIndex - 1;
         }
-        matchType = matchType.array.arrayType;
+        if (matchType.tag == TypeEnum.ARRAY)
+        {
+            matchType = matchType.array.arrayType;
+        }
+        else if (matchType.tag == TypeEnum.STRING)
+        {
+            auto charType = new Type();
+            charType.tag = TypeEnum.CHAR;
+            matchType = charType;
+        }
         foreach (child; node.children[0..endIndex])
         {
             child.accept(this);
@@ -2175,10 +2184,10 @@ class FunctionBuilder : Visitor
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayTailPatternNode"));
         node.data["type"] = matchType;
-        if (matchType.tag != TypeEnum.ARRAY)
+        if (matchType.tag != TypeEnum.ARRAY && matchType.tag != TypeEnum.STRING)
         {
             throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not array type.");
+                ~ ", not array or string type.");
         }
         auto matchTypeSave = matchType;
         auto startIndex = 0;
@@ -2196,7 +2205,16 @@ class FunctionBuilder : Visitor
                                                        .size
                                                        .stackAlignSize;
         }
-        matchType = matchType.array.arrayType;
+        if (matchType.tag == TypeEnum.ARRAY)
+        {
+            matchType = matchType.array.arrayType;
+        }
+        else if (matchType.tag == TypeEnum.STRING)
+        {
+            auto charType = new Type();
+            charType.tag = TypeEnum.CHAR;
+            matchType = charType;
+        }
         foreach (child; node.children[startIndex..$])
         {
             child.accept(this);

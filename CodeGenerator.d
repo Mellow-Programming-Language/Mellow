@@ -1445,8 +1445,104 @@ string compileArrayEmptyPattern(ArrayEmptyPatternNode node, Context* vars)
 string compileArrayPattern(ArrayPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto type = node.data["type"].get!(Type*);
+    auto str = "";
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    auto endIndex = node.children.length;
+    auto tailId = "";
+    if (cast(IdentifierNode)node.children[$-1])
+    {
+        // Move back before the ".." token
+        endIndex = endIndex - 2;
+        tailId = getIdentifier(cast(IdentifierNode)node.children[$-1]);
+    }
+    else if (cast(ASTTerminal)node.children[$-1])
+    {
+        // Move back before the ".." token
+        endIndex = endIndex - 1;
+    }
+    auto length = endIndex;
+    // Get array length
+    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    cmp    r9, " ~ length.to!string
+                             ~ "\n";
+    // In this case, we're matching against an exact array length
+    if (endIndex == node.children.length)
+    {
+        str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+    }
+    // In this case, we simply need at least a certain length
+    else
+    {
+        str ~= "    jl     " ~ vars.matchNextWhenLabel[$-1]
+                             ~ "\n";
+    }
+    vars.allocateStackSpace(8);
+    vars.matchTypeLoc ~= vars.getTop;
+    scope (exit)
+    {
+        vars.deallocateStackSpace(8);
+        vars.matchTypeLoc.length--;
+    }
+    auto valueSize = 0;
+    if (type.tag == TypeEnum.ARRAY)
+    {
+        valueSize = type.array.arrayType.size;
+    }
+    else if (type.tag == TypeEnum.STRING)
+    {
+        auto charType = new Type();
+        charType.tag = TypeEnum.CHAR;
+        valueSize = charType.size;
+    }
+    foreach (i, child; node.children[0..endIndex])
+    {
+        // Note that we're indexing into matchTypeLoc[$ - 2], not [$-1],
+        // as we've allocated a next index for our types we pull for the
+        // recursions, so our r8 from before is now behind one index
+        str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2]
+                                                  .to!string
+                                            ~ "]\n";
+        auto memberOffset = i * valueSize;
+        switch (valueSize)
+        {
+        case 16:
+            assert(false, "Unimplemented");
+            break;
+        case 1:
+        case 2:
+            str ~= "    mov    r9, 0\n";
+        case 4:
+        case 8:
+        default:
+            // Get the value and put it in the top of the match type
+            // "stack"
+            str ~= "    mov    r9" ~ getRRegSuffix(valueSize)
+                                   ~ ", "
+                                   ~ getWordSize(valueSize)
+                                   ~ " [r8+"
+                                   ~ (REF_COUNT_SIZE
+                                    + CLAM_STR_SIZE
+                                    + memberOffset).to!string
+                                   ~ "]\n";
+            str ~= "    mov    qword [rbp-"
+                ~ vars.matchTypeLoc[$-1].to!string
+                ~ "], r9\n";
+            str ~= compilePattern(cast(PatternNode)child, vars);
+            break;
+        }
+    }
+    // In this case, we need to make a copy of the tail of the array and make
+    // it available as a variable with name tailId in the match arm statement.
+    // Note that we only do this if the match was actually successful up to
+    // this point
+    if (tailId != "")
+    {
+        assert(false, "Unimplemented");
+    }
+    return str;
 }
 
 string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
