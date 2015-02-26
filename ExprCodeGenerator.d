@@ -1232,7 +1232,9 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
     }
     else if (arrayType.tag == TypeEnum.STRING)
     {
-        resultType = indexType;
+        auto charType = new Type();
+        charType.tag = TypeEnum.CHAR;
+        resultType = charType;
     }
     auto str = "";
     vars.bssQWordAllocs["__ZZlengthSentinel"] = true;
@@ -1275,6 +1277,11 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         str ~= "    imul   rdi, " ~ resultType.size.to!string ~ "\n";
         // Add 8 for the ref count and array size
         str ~= "    add    rdi, 8\n";
+        if (arrayType.tag == TypeEnum.STRING)
+        {
+            // Add the null byte to the memory allocation
+            str ~= "    add    rdi, 1\n";
+        }
         // Get the allocated memory pointer in rax
         str ~= "    call   malloc\n";
         // Store the new allocation pointer
@@ -1299,6 +1306,17 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         str ~= "    mov    rdx, r12\n";
         str ~= "    imul   rdx, " ~ resultType.size.to!string ~ "\n";
         str ~= "    call   memcpy\n";
+        // Add the actual null byte into the memory location
+        if (arrayType.tag == TypeEnum.STRING)
+        {
+            // memcpy returns the destination pointer in rax, so we have
+            // a pointer to the beginning of the actual data (past the refcount
+            // and size). r12 is a callee saved register, so we still have the
+            // string length in hand. Characters are a single byte, so adding
+            // the length to the pointer yields where the null byte needs to go
+            str ~= "    add    rax, r12\n";
+            str ~= "    mov    byte [rax], 0\n";
+        }
         str ~= "    mov    r8, qword [rbp-" ~ newAllocLoc ~ "]\n";
     }
     else
