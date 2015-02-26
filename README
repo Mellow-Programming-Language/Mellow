@@ -32,6 +32,7 @@ Interesting compilable examples:
 - bf_concurrent.clam (as bf_match.clam, while demonstrating concurrency
                       features, but doesn't handle invalid input. This file
                       is an excellent demonstration of many features)
+- tokenizer.clam
 
 Incomplete list of working features:
 - variables
