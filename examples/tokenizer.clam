@@ -1,0 +1,125 @@
+
+extern func writeln(str: string);
+extern func ord(c: char): int;
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant Token {
+    FuncTok,
+    ExternTok,
+    StructTok,
+    LeftBrace,
+    RightBrace,
+    LeftParen,
+    RightParen,
+    LeftBracket,
+    RightBracket,
+    IdTok (string),
+    DoubleColon,
+    ColonTok,
+}
+
+func formatToken(tok: Token): string {
+    match (tok)    {
+        FuncTok :: return "FuncTok";
+        ExternTok :: return "ExternTok";
+        StructTok :: return "StructTok";
+        LeftBrace :: return "LeftBrace";
+        RightBrace :: return "RightBrace";
+        LeftParen :: return "LeftParen";
+        RightParen :: return "RightParen";
+        LeftBracket :: return "LeftBracket";
+        RightBracket :: return "RightBracket";
+        IdTok (str) :: return "IdTok (" ~ str ~ ")";
+        DoubleColon :: return "DoubleColon";
+        ColonTok :: return "ColonTok";
+    }
+    return "NOTOK";
+}
+
+func isWhitespace(c: char): bool {
+    match (c) {
+        ' '  :: return true;
+        '\n' :: return true;
+        '\r' :: return true;
+        '\t' :: return true;
+    }
+    return false;
+}
+
+func isIdBegin(c: char): bool {
+    match (c) {
+        '_' :: return true;
+        _ if (ord(c) >= ord('A') && ord(c) <= ord('Z')) :: return true;
+        _ if (ord(c) >= ord('a') && ord(c) <= ord('z')) :: return true;
+    }
+    return false;
+}
+
+func isIdChar(c: char): bool {
+    match (c) {
+        '_' :: return true;
+        _ if (ord(c) >= ord('A') && ord(c) <= ord('Z')) :: return true;
+        _ if (ord(c) >= ord('a') && ord(c) <= ord('z')) :: return true;
+        _ if (ord(c) >= ord('0') && ord(c) <= ord('9')) :: return true;
+    }
+    return false;
+}
+
+func tokenizer(source: string): []Token {
+    tokens: []Token;
+    while (i := 0; i < source.length) {
+        match (source[i..]) {
+            ['f', 'u', 'n', 'c', ..] ::
+                {tokens ~= FuncTok; i = i + 4;}
+            ['e', 'x', 't', 'e', 'r', 'n', ..] ::
+                {tokens ~= ExternTok; i = i + 6;}
+            ['s', 't', 'r', 'u', 'c', 't', ..] ::
+                {tokens ~= StructTok; i = i + 6;}
+            ['{', ..] ::
+                {tokens ~= LeftBrace; i = i + 1;}
+            ['}', ..] ::
+                {tokens ~= RightBrace; i = i + 1;}
+            ['(', ..] ::
+                {tokens ~= LeftParen; i = i + 1;}
+            [')', ..] ::
+                {tokens ~= RightParen; i = i + 1;}
+            ['[', ..] ::
+                {tokens ~= LeftBracket; i = i + 1;}
+            [']', ..] ::
+                {tokens ~= RightBracket; i = i + 1;}
+            [':', ':', ..] ::
+                {tokens ~= DoubleColon; i = i + 2;}
+            [':', ..] ::
+                {tokens ~= ColonTok; i = i + 1;}
+            [c, ..] if (isIdBegin(c)) :: {
+                j := i + 1;
+                while (j < source.length && isIdChar(source[j])) {
+                    j = j + 1;
+                }
+                tokens ~= IdTok(source[i..j]);
+                i = j;
+            }
+            [c, ..] if (isWhitespace(c)) ::
+                i = i + 1;
+        }
+    }
+    return tokens;
+}
+
+func main() {
+    str := "extern func (myVar: string) {}";
+    tokens := tokenizer(str);
+    foreach (tok; tokens) {
+        writeln(formatToken(tok));
+    }
+}
