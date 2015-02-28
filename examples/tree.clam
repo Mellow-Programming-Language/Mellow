@@ -18,16 +18,13 @@ variant Tree(T) {
 }
 
 func addNode(T)(val: T, tree: Tree!T): Tree!T {
-    if (tree is Leaf) {
-        return Branch!T(Leaf!T, val, Leaf!T);
-    }
-    else if (tree is Branch(left, nodeVal, right)) {
-        if (val < nodeVal) {
+    match (tree) {
+        Leaf ::
+            return Branch!T(Leaf!T, val, Leaf!T);
+        Branch (left, nodeVal, right) if (val < nodeVal) ::
             return Branch!T(addNode!T(val, left), nodeVal, right);
-        }
-        else {
+        Branch (left, nodeVal, right) ::
             return Branch!T(left, nodeVal, addNode!T(val, right));
-        }
     }
 }
 
@@ -52,19 +49,15 @@ func printTree(T)(tree: Tree!T, indent: string) {
 }
 
 func isMember(T)(checkVal: T, tree: Tree!T): bool {
-    if (tree is Leaf) {
-        return false;
-    }
-    else if (tree is Branch (left, nodeVal, right)) {
-        if (checkVal == nodeVal) {
+    match (tree) {
+        Leaf ::
+            return false;
+        Branch (_, nodeVal, _) if (checkVal == nodeVal) ::
             return true;
-        }
-        else if (checkVal < nodeVal) {
+        Branch (left, nodeVal, _) if (checkVal < nodeVal) ::
             return isMember!T(checkVal, left);
-        }
-        else {
+        Branch (_, nodeVal, right) ::
             return isMember!T(checkVal, right);
-        }
     }
 }
 

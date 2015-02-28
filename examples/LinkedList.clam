@@ -18,16 +18,16 @@ variant LinkedList(T) {
 }
 
 func appendElem(T)(list: LinkedList!T, elem: T): LinkedList!T {
-    if (list is EmptyList) {
-        return ListNode!T(elem, EmptyList!T);
-    }
-    else if (list is ListNode(val, right)) {
-        if (right is EmptyList) {
-            return ListNode!T(val, ListNode!T(elem, EmptyList!T));
-        }
-        else {
-            return ListNode!T(val, appendElem!T(right, elem));
-        }
+    match (list) {
+        EmptyList ::
+            return ListNode!T(elem, EmptyList!T);
+        ListNode(val, right) ::
+            if (right is EmptyList) {
+                return ListNode!T(val, ListNode!T(elem, EmptyList!T));
+            }
+            else {
+                return ListNode!T(val, appendElem!T(right, elem));
+            }
     }
 }
 
