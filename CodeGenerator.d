@@ -1565,8 +1565,103 @@ string compileArrayPattern(ArrayPatternNode node, Context* vars)
 string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto type = node.data["type"].get!(Type*);
+    auto str = "";
+    str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    auto startIndex = 0;
+    auto headId = "";
+    if (cast(IdentifierNode)node.children[0])
+    {
+        // Move beyond the headId node
+        startIndex++;
+        // Grab the headId token
+        headId = getIdentifier(cast(IdentifierNode)node.children[0]);
+    }
+    // Get array length
+    str ~= "    mov    r9d, dword [r8+4]\n";
+    // Determine if there are enough elements in the array to compare against
+    // every node in the array match
+    str ~= "    cmp    r9, " ~ (node.children.length - startIndex).to!string
+                             ~ "\n";
+    // If there aren't enough elements in the array, fail the match
+    str ~= "    jl     " ~ vars.matchNextWhenLabel[$-1]
+                         ~ "\n";
+    vars.allocateStackSpace(8);
+    vars.matchTypeLoc ~= vars.getTop;
+    vars.allocateStackSpace(8);
+    auto arrayStartIndex = vars.getTop;
+    scope (exit)
+    {
+        vars.deallocateStackSpace(16);
+        vars.matchTypeLoc.length--;
+    }
+    auto valueSize = 0;
+    if (type.tag == TypeEnum.ARRAY)
+    {
+        valueSize = type.array.arrayType.size;
+    }
+    else if (type.tag == TypeEnum.STRING)
+    {
+        auto charType = new Type();
+        charType.tag = TypeEnum.CHAR;
+        valueSize = charType.size;
+    }
+    str ~= "    sub    r9, " ~ (node.children.length - startIndex).to!string
+                             ~ "\n";
+    str ~= "    imul   r9, " ~ valueSize.to!string
+                             ~ "\n";
+    str ~= "    mov    qword [rbp-" ~ arrayStartIndex.to!string
+                                    ~ "], r9\n";
+    foreach (i, child; node.children[startIndex..$])
+    {
+        // Note that we're indexing into matchTypeLoc[$ - 2], not [$-1],
+        // as we've allocated a next index for our types we pull for the
+        // recursions, so our r8 from before is now behind one index
+        str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2]
+                                                  .to!string
+                                            ~ "]\n";
+        str ~= "    mov    r9, qword [rbp-" ~ arrayStartIndex.to!string
+                                            ~ "]\n";
+        str ~= "    add    r9, " ~ (i * valueSize).to!string
+                                 ~ "\n";
+        switch (valueSize)
+        {
+        case 16:
+            assert(false, "Unimplemented");
+            break;
+        case 1:
+        case 2:
+            str ~= "    mov    r9, 0\n";
+        case 4:
+        case 8:
+        default:
+            str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+                                      + CLAM_STR_SIZE).to!string
+                                     ~ "\n";
+            str ~= "    add    r8, r9\n";
+            // Get the value and put it in the top of the match type
+            // "stack"
+            str ~= "    mov    r9" ~ getRRegSuffix(valueSize)
+                                   ~ ", "
+                                   ~ getWordSize(valueSize)
+                                   ~ " [r8]\n";
+            str ~= "    mov    qword [rbp-"
+                ~ vars.matchTypeLoc[$-1].to!string
+                ~ "], r9\n";
+            str ~= compilePattern(cast(PatternNode)child, vars);
+            break;
+        }
+    }
+    // In this case, we need to make a copy of the tail of the array and make
+    // it available as a variable with name headId in the match arm statement.
+    // Note that we only do this if the match was actually successful up to
+    // this point
+    if (headId != "")
+    {
+        assert(false, "Unimplemented");
+    }
+    return str;
 }
 
 string compileWildcardPattern(WildcardPatternNode node, Context* vars)
