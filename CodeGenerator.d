@@ -1300,8 +1300,61 @@ string compileDestructVariantPattern(DestructVariantPatternNode node,
 string compileStructPattern(StructPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto structType = node.data["type"].get!(Type*);
+    auto str = "";
+    auto startIndex = 0;
+    if (cast(IdentifierNode)node.children[1])
+    {
+        startIndex++;
+    }
+    vars.allocateStackSpace(8);
+    vars.matchTypeLoc ~= vars.getTop;
+    scope (exit)
+    {
+        vars.deallocateStackSpace(8);
+        vars.matchTypeLoc.length--;
+    }
+    for (auto i = startIndex; i < node.children.length; i += 2)
+    {
+        auto id = getIdentifier(cast(IdentifierNode)node.children[i]);
+        auto member = structType.structDef
+                                .getMember(id);
+        auto memberOffset = structType.structDef
+                                      .getOffsetOfMember(id);
+        auto memberSize = member.type.size;
+        // Note that it's $-2, because of the above allocation
+        str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2].to!string
+                                            ~ "]\n";
+        // r8 is now a pointer to the beginning of the member of the struct
+        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+                                  + STRUCT_BUFFER_SIZE
+                                  + memberOffset).to!string
+                                 ~ "\n";
+        switch (memberSize)
+        {
+        case 16:
+            assert(false, "Unimplemented");
+            break;
+        case 1:
+        case 2:
+            // If it's not an 8-byte or 4-byte mov, we need to zero the target
+            // register
+            str ~= "    mov    r9, 0\n";
+        case 4:
+        case 8:
+        default:
+            str ~= "    mov    r9" ~ getRRegSuffix(memberSize)
+                                   ~ ", "
+                                   ~ getWordSize(memberSize)
+                                   ~ "[r8]\n";
+            str ~= "    mov    qword [rbp-"
+                ~ vars.matchTypeLoc[$-1].to!string
+                ~ "], r9\n";
+            str ~= compilePattern(cast(PatternNode)node.children[i+1], vars);
+            break;
+        }
+    }
+    return str;
 }
 
 string compileBoolPattern(BoolPatternNode node, Context* vars)
