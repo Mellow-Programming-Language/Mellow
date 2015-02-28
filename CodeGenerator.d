@@ -1328,8 +1328,25 @@ string compileBoolPattern(BoolPatternNode node, Context* vars)
 string compileStringPattern(StringPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    vars.runtimeExterns["strcmp"] = true;
+    auto str = "";
+    str ~= compileStringLit(cast(StringLitNode)node.children[0], vars);
+    str ~= "    mov    r9, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
+                                        ~ "]\n";
+    // Strings to compare are in r8 and r9
+    // Increment pointers to point at the beginning of the string data, skipping
+    // ref count and string length. Since these strings are null-terminated,
+    // we can just call strcmp
+    str ~= "    add    r8, 8\n";
+    str ~= "    add    r9, 8\n";
+    str ~= "    mov    rdi, r9\n";
+    str ~= "    mov    rsi, r8\n";
+    str ~= "    call   strcmp\n";
+    // strcmp returns an int, so the value we care about is in eax, not rax
+    str ~= "    cmp    eax, 0\n";
+    str ~= "    jne     " ~ vars.matchNextWhenLabel[$-1]
+                          ~ "\n";
+    return str;
 }
 
 string compileCharPattern(CharPatternNode node, Context* vars)
