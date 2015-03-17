@@ -1471,6 +1471,7 @@ class FunctionBuilder : Visitor
     void visit(FuncCallTrailerNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallTrailerNode"));
+        node.data["funcsig"] = curFuncCallSig;
         node.children[0].accept(this);
         if (node.children.length > 1)
         {

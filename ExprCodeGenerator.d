@@ -1376,12 +1376,32 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
     final switch (vars.valueTag)
     {
     case "func":
+        auto funcSig = node.data["funcsig"].get!(FuncSig*);
         vars.allocateStackSpace(8);
         auto valLoc = vars.getTop.to!string;
         str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
         str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
         str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
         vars.deallocateStackSpace(8);
+        if (funcSig.returnType.tag == TypeEnum.TUPLE)
+        {
+            // Allocate stack space for every return value beyond the first,
+            // which will be returned in rax, to be returned on the stack
+            auto alignedSize = funcSig.returnType
+                                      .tuple
+                                      .types[1..$]
+                                      .map!(a => a.size)
+                                      .array
+                                      .getAlignedSize;
+            str ~= "    sub    rsp, " ~ (alignedSize
+                                       + getPadding(alignedSize, 16))
+                                        .to!string
+                                      ~ "\n";
+            // In the assignment statement that actually deals with assigning
+            // the value, we'll check if the value was from a function call,
+            // and if it was, we'll check if it returned a tuple, and if it
+            // was, we'll grab the values off the stack and fix the stack
+        }
         str ~= "    call   r10\n";
         str ~= "    mov    r8, rax\n";
         break;

@@ -60,7 +60,9 @@ Statement :: BareBlock
            | (FuncCall #";")
            ;
 
-ReturnStmt :: #'return' (#Sp BoolExpr)?;
+ReturnStmt :: #'return' ((#Sp BoolExpr)
+                        | (#Sp ValueTuple)
+                        )?;
 
 IfStmt :: #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
           BareBlock ElseIfs ElseStmt;
@@ -157,7 +159,6 @@ Value :: (BooleanLiteral DotAccess?)
        | StructConstructor
        | (CharLit DotAccess?)
        | (StringLit DotAccess?)
-       | (ValueTuple DotAccess?)
        | (ParenExpr DotAccess?)
        | (ArrayLiteral DotAccess?)
        | (Number DotAccess?)
