@@ -67,6 +67,12 @@ const VARIANT_TAG_SIZE = 4; // sizeof(uint32_t))
 const INT_REG = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 const FLOAT_REG = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
                    "xmm7"];
+// This is used as a placeholder when generating code for return statements.
+// Since we don't know how much temporary space is used by the function until
+// after we generate code for the whole thing, and since we only allocate
+// actual stack space (by actually subtracting from rsp) once at the beginning,
+// this is used so we can modify the generated function code after-the-fact with
+// the correct stack restore instructions
 const STACK_RESTORE_PLACEHOLDER = "\n____STACK_RESTORE_PLACEHOLDER____\n";
 
 debug (COMPILE_TRACE)
