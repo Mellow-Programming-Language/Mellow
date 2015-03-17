@@ -65,6 +65,7 @@ Incomplete list of working features:
 - string comparison operators
 - function templating
 - match statements
+- tuples
 
 
 Incomplete list of unimplemented or broken features:
@@ -84,7 +85,6 @@ Incomplete list of unimplemented or broken features:
 - sets
 - hashes
 - function pointers
-- tuples
 - float comparison operators
 - float arithmetic
 - lambdas
