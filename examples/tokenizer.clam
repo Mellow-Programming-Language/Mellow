@@ -1,6 +1,24 @@
 
+extern struct File;
+extern func clam_fopen(str: string, mode: FopenMode): Maybe!File;
+extern func clam_fclose(file: File);
+extern func clam_freadln(file: File): Maybe!string;
 extern func writeln(str: string);
 extern func ord(c: char): int;
+
+variant FopenMode {
+    Read,
+    Write,
+    Append,
+    ReadUpdate,
+    WriteUpdate,
+    AppendUpdate
+}
+
+variant Maybe(T) {
+    Some (T),
+    None
+}
 
 func intToString(val: int): string {
     if (val < 0) {
@@ -50,18 +68,36 @@ variant Token {
 
 func formatToken(tok: Token): string {
     match (tok)    {
-        FuncTok (_, _) :: return "FuncTok";
-        ExternTok (_, _) :: return "ExternTok";
-        StructTok (_, _) :: return "StructTok";
-        LeftBrace (_, _) :: return "LeftBrace";
-        RightBrace (_, _) :: return "RightBrace";
-        LeftParen (_, _) :: return "LeftParen";
-        RightParen (_, _) :: return "RightParen";
-        LeftBracket (_, _) :: return "LeftBracket";
-        RightBracket (_, _) :: return "RightBracket";
-        IdTok (str, _, _) :: return "IdTok (" ~ str ~ ")";
+        BoolTok (_, _) :: return "BoolTok";
+        ByteTok (_, _) :: return "ByteTok";
+        CharTok (_, _) :: return "CharTok";
         ColonColon (_, _) :: return "ColonColon";
         ColonTok (_, _) :: return "ColonTok";
+        DoubleTok (_, _) :: return "DoubleTok";
+        ElseTok (_, _) :: return "ElseTok";
+        ExternTok (_, _) :: return "ExternTok";
+        FloatTok (_, _) :: return "FloatTok";
+        ForeachTok (_, _) :: return "ForeachTok";
+        FuncTok (_, _) :: return "FuncTok";
+        IdTok (str, _, _) :: return "IdTok (" ~ str ~ ")";
+        IfTok (_, _) :: return "IfTok";
+        IntTok (_, _) :: return "IntTok";
+        LeftBrace (_, _) :: return "LeftBrace";
+        LeftBracket (_, _) :: return "LeftBracket";
+        LeftParen (_, _) :: return "LeftParen";
+        LongTok (_, _) :: return "LongTok";
+        MatchTok (_, _) :: return "MatchTok";
+        RightBrace (_, _) :: return "RightBrace";
+        RightBracket (_, _) :: return "RightBracket";
+        RightParen (_, _) :: return "RightParen";
+        ShortTok (_, _) :: return "ShortTok";
+        SpawnTok (_, _) :: return "SpawnTok";
+        StringTok (_, _) :: return "StringTok";
+        StructTok (_, _) :: return "StructTok";
+        VariantTok (_, _) :: return "VariantTok";
+        VoidTok (_, _) :: return "VoidTok";
+        WhileTok (_, _) :: return "WhileTok";
+        YieldTok (_, _) :: return "YieldTok";
     }
     return "NOTOK";
 }
@@ -171,9 +207,18 @@ func tokenizer(source: string, line: int): []Token {
     return tokens;
 }
 
-func main() {
-    str := "extern func (myVar: string) {}";
-    tokens := tokenizer(str, 1);
+func main(argv: []string) {
+    if (argv.length < 2) {
+        writeln("Usage: " ~ argv[0] ~ " [filename]");
+        return;
+    }
+    tokens: []Token;
+    if (clam_fopen(argv[1], Read) is Some (file)) {
+        while (i := 1; clam_freadln(file) is Some (line)) {
+            tokens = tokens ~ tokenizer(line, i);
+            i = i + 1;
+        }
+    }
     foreach (tok; tokens) {
         writeln(formatToken(tok));
     }
