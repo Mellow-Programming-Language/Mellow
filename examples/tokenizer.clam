@@ -14,34 +14,54 @@ func intToString(val: int): string {
 }
 
 variant Token {
-    FuncTok,
-    ExternTok,
-    StructTok,
-    LeftBrace,
-    RightBrace,
-    LeftParen,
-    RightParen,
-    LeftBracket,
-    RightBracket,
-    IdTok (string),
-    DoubleColon,
-    ColonTok,
+    BoolTok (int, int),
+    ByteTok (int, int),
+    CharTok (int, int),
+    ColonTok (int, int),
+    ColonColon (int, int),
+    ColonEq (int, int),
+    DoubleTok (int, int),
+    ElseTok (int, int),
+    ExternTok (int, int),
+    FloatTok (int, int),
+    ForeachTok (int, int),
+    FuncTok (int, int),
+    IdTok (string, int, int),
+    IfTok (int, int),
+    IntTok (int, int),
+    LeftBrace (int, int),
+    LeftBracket (int, int),
+    LeftParen (int, int),
+    LongTok (int, int),
+    MatchTok (int, int),
+    RightBrace (int, int),
+    RightBracket (int, int),
+    RightParen (int, int),
+    SemicolonTok (int, int),
+    ShortTok (int, int),
+    SpawnTok (int, int),
+    StringTok (int, int),
+    StructTok (int, int),
+    VariantTok (int, int),
+    VoidTok (int, int),
+    WhileTok (int, int),
+    YieldTok (int, int),
 }
 
 func formatToken(tok: Token): string {
     match (tok)    {
-        FuncTok :: return "FuncTok";
-        ExternTok :: return "ExternTok";
-        StructTok :: return "StructTok";
-        LeftBrace :: return "LeftBrace";
-        RightBrace :: return "RightBrace";
-        LeftParen :: return "LeftParen";
-        RightParen :: return "RightParen";
-        LeftBracket :: return "LeftBracket";
-        RightBracket :: return "RightBracket";
-        IdTok (str) :: return "IdTok (" ~ str ~ ")";
-        DoubleColon :: return "DoubleColon";
-        ColonTok :: return "ColonTok";
+        FuncTok (_, _) :: return "FuncTok";
+        ExternTok (_, _) :: return "ExternTok";
+        StructTok (_, _) :: return "StructTok";
+        LeftBrace (_, _) :: return "LeftBrace";
+        RightBrace (_, _) :: return "RightBrace";
+        LeftParen (_, _) :: return "LeftParen";
+        RightParen (_, _) :: return "RightParen";
+        LeftBracket (_, _) :: return "LeftBracket";
+        RightBracket (_, _) :: return "RightBracket";
+        IdTok (str, _, _) :: return "IdTok (" ~ str ~ ")";
+        ColonColon (_, _) :: return "ColonColon";
+        ColonTok (_, _) :: return "ColonTok";
     }
     return "NOTOK";
 }
@@ -75,42 +95,77 @@ func isIdChar(c: char): bool {
     return false;
 }
 
-func tokenizer(source: string): []Token {
+func tokenizer(source: string, line: int): []Token {
     tokens: []Token;
     while (i := 0; i < source.length) {
         match (source[i..]) {
-            ['f', 'u', 'n', 'c', ..] ::
-                {tokens ~= FuncTok; i = i + 4;}
-            ['e', 'x', 't', 'e', 'r', 'n', ..] ::
-                {tokens ~= ExternTok; i = i + 6;}
-            ['s', 't', 'r', 'u', 'c', 't', ..] ::
-                {tokens ~= StructTok; i = i + 6;}
-            ['{', ..] ::
-                {tokens ~= LeftBrace; i = i + 1;}
-            ['}', ..] ::
-                {tokens ~= RightBrace; i = i + 1;}
-            ['(', ..] ::
-                {tokens ~= LeftParen; i = i + 1;}
-            [')', ..] ::
-                {tokens ~= RightParen; i = i + 1;}
-            ['[', ..] ::
-                {tokens ~= LeftBracket; i = i + 1;}
-            [']', ..] ::
-                {tokens ~= RightBracket; i = i + 1;}
-            [':', ':', ..] ::
-                {tokens ~= DoubleColon; i = i + 2;}
-            [':', ..] ::
-                {tokens ~= ColonTok; i = i + 1;}
+            [c, ..] if (isWhitespace(c)) :: {
+                i = i + 1;
+                while (i < source.length && isWhitespace(source[i])) {
+                    i = i + 1;
+                }
+            }
             [c, ..] if (isIdBegin(c)) :: {
                 j := i + 1;
                 while (j < source.length && isIdChar(source[j])) {
                     j = j + 1;
                 }
-                tokens ~= IdTok(source[i..j]);
+                match (source[i..j]) {
+                    "bool"    :: tokens ~= BoolTok    (line, i);
+                    "byte"    :: tokens ~= ByteTok    (line, i);
+                    "char"    :: tokens ~= CharTok    (line, i);
+                    "double"  :: tokens ~= DoubleTok  (line, i);
+                    "else"    :: tokens ~= ElseTok    (line, i);
+                    "extern"  :: tokens ~= ExternTok  (line, i);
+                    "float"   :: tokens ~= FloatTok   (line, i);
+                    "foreach" :: tokens ~= ForeachTok (line, i);
+                    "func"    :: tokens ~= FuncTok    (line, i);
+                    "if"      :: tokens ~= IfTok      (line, i);
+                    "int"     :: tokens ~= IntTok     (line, i);
+                    "long"    :: tokens ~= LongTok    (line, i);
+                    "match"   :: tokens ~= MatchTok   (line, i);
+                    "short"   :: tokens ~= ShortTok   (line, i);
+                    "spawn"   :: tokens ~= SpawnTok   (line, i);
+                    "string"  :: tokens ~= StringTok  (line, i);
+                    "struct"  :: tokens ~= StructTok  (line, i);
+                    "variant" :: tokens ~= VariantTok (line, i);
+                    "void"    :: tokens ~= VoidTok    (line, i);
+                    "while"   :: tokens ~= WhileTok   (line, i);
+                    "yield"   :: tokens ~= YieldTok   (line, i);
+                    _         :: tokens ~= IdTok      (source[i..j], line, i);
+                }
                 i = j;
             }
-            [c, ..] if (isWhitespace(c)) ::
-                i = i + 1;
+            ['{', ..] :: {
+                tokens ~= LeftBrace(line, i);          i = i + 1;
+            }
+            ['}', ..] :: {
+                tokens ~= RightBrace(line, i);         i = i + 1;
+            }
+            ['(', ..] :: {
+                tokens ~= LeftParen(line, i);          i = i + 1;
+            }
+            [')', ..] :: {
+                tokens ~= RightParen(line, i);         i = i + 1;
+            }
+            ['[', ..] :: {
+                tokens ~= LeftBracket(line, i);        i = i + 1;
+            }
+            [']', ..] :: {
+                tokens ~= RightBracket(line, i);       i = i + 1;
+            }
+            [':', ':', ..] :: {
+                tokens ~= ColonColon(line, i);         i = i + 2;
+            }
+            [':', '=', ..] :: {
+                tokens ~= ColonEq(line, i);            i = i + 2;
+            }
+            [':', ..] :: {
+                tokens ~= ColonTok(line, i);           i = i + 1;
+            }
+            [';', ..] :: {
+                tokens ~= SemicolonTok(line, i);       i = i + 1;
+            }
         }
     }
     return tokens;
@@ -118,7 +173,7 @@ func tokenizer(source: string): []Token {
 
 func main() {
     str := "extern func (myVar: string) {}";
-    tokens := tokenizer(str);
+    tokens := tokenizer(str, 1);
     foreach (tok; tokens) {
         writeln(formatToken(tok));
     }
