@@ -25,6 +25,7 @@ Interesting compilable examples:
 - isExpr.clam
 - tree.clam
 - LinkedList.clam
+- tokenizer.clam
 - bf_match.clam (a deliberately overengineered bf interpreter with no input
                  support, but should otherwise demonstrate most features, and
                  can handle invalid input. This file is an excellent
@@ -32,7 +33,7 @@ Interesting compilable examples:
 - bf_concurrent.clam (as bf_match.clam, while demonstrating concurrency
                       features, but doesn't handle invalid input. This file
                       is an excellent demonstration of many features)
-- tokenizer.clam
+- avl.clam (an implementation of an AVL self-balancing binary tree)
 
 Incomplete list of working features:
 - variables

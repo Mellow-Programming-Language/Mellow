@@ -1,0 +1,178 @@
+
+extern func writeln(str: string);
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant AVLNode(T) {
+    EndNode,
+    AVLTree (int, T, AVLNode!T, AVLNode!T)
+}
+
+variant Maybe(T) {
+    Some (T),
+    None
+}
+
+func max(T)(one: T, two: T): T {
+    if (one >= two) {
+        return one;
+    }
+    return two;
+}
+
+func newNode(T)(val: T, left: AVLNode!T, right: AVLNode!T): AVLNode!T {
+    return AVLTree!T(
+        1 + max!int(height!T(left), height!T(right)), val, left, right
+    );
+}
+
+func height(T)(node: AVLNode!T): int {
+    match (node) {
+        AVLTree (h, _, _, _) :: return h;
+    }
+    return 0;
+}
+
+func bal_factor(T)(node: AVLNode!T): int {
+    match (node) {
+        AVLTree(_, _, l, r) :: return height!T(l) - height!T(r);
+    }
+    return 0;
+}
+
+func rotate_left(T)(node: AVLNode!T): AVLNode!T {
+    match (node) {
+        AVLTree (_, x, a, AVLTree(_, y, b, c)) ::
+            return newNode!T(y, newNode!T(x, a, b), c);
+    }
+    return node;
+}
+
+func rotate_right(T)(node: AVLNode!T): AVLNode!T {
+    match (node) {
+        AVLTree (_, x, AVLTree(_, y, a, b), c) ::
+            return newNode!T(y, a, newNode!T(x, b, c));
+    }
+    return node;
+}
+
+func balance(T)(node: AVLNode!T): AVLNode!T {
+    if (node is AVLTree(h, v, l, r)) {
+        nbf := bal_factor!T(node);
+        lbf := bal_factor!T(l);
+        rbf := bal_factor!T(r);
+        match ([nbf, lbf, rbf]) {
+            [ 2, -1, _] :: {
+                return rotate_right!T(newNode!T(v, rotate_left!T(l), r));
+            }
+            [ 2,  _, _] :: {
+                return rotate_right!T(node);
+            }
+            [-2,  _, 1] ::{
+                return rotate_left!T(newNode!T(v, l, rotate_right!T(r)));
+            }
+            [-2,  _, _] :: {
+                return rotate_left!T(node);
+            }
+        }
+    }
+    return node;
+}
+
+func add(T)(node: AVLNode!T, elem: T): AVLNode!T {
+    if (node is AVLTree(h, v, l, r)) {
+        if (elem == v) {
+            return node;
+        }
+        else if (elem < v) {
+            return balance!T(newNode!T(v, add!T(l, elem), r));
+        }
+        else {
+            return balance!T(newNode!T(v, l, add!T(r, elem)));
+        }
+    }
+    return newNode!T(elem, EndNode!T, EndNode!T);
+}
+
+func removeSuccessor(T)(t: AVLNode!T): (AVLNode!T, T) {
+    match (t) {
+        AVLTree(_, v, EndNode, r) :: return (r, v);
+        AVLTree(_, v, l, r) :: {
+            (l2, v2) := removeSuccessor!T(l);
+            return (balance!T(newNode!T(v, l2, r)), v2);
+        }
+    }
+}
+
+func removeMaybe(T)(t: AVLNode!T, n: T): Maybe!(AVLNode!T) {
+    if (t is AVLTree (_, v, l, r)) {
+        if (n < v) {
+            if (removeMaybe!T(l, n) is Some (remNode)) {
+                return Some!(AVLNode!T)(balance!T(newNode!T(v, remNode, r)));
+            }
+        }
+        else if (n > v) {
+            if (removeMaybe!T(r, n) is Some (remNode)) {
+                return Some!(AVLNode!T)(balance!T(newNode!T(v, l, remNode)));
+            }
+        }
+        else {
+            match ([l, r]) {
+                [_, EndNode] :: return Some!(AVLNode!T)(l);
+                [EndNode, _] :: return Some!(AVLNode!T)(r);
+                _            :: {
+                    (r2, v2) := removeSuccessor!T(r);
+                    return Some!(AVLNode!T)(balance!T(newNode!T(v2, l, r2)));
+                }
+            }
+        }
+    }
+    return None!T;
+}
+
+func remove(T)(node: AVLNode!T, elem: T): AVLNode!T {
+    if (removeMaybe!T(node, elem) is Some (newNode)) {
+        return newNode;
+    }
+    return node;
+}
+
+func printTree(node: AVLNode!int, indent: string) {
+    match (node) {
+        EndNode :: return;
+        AVLTree (_, v, l, r) :: {
+            writeln(indent ~ intToString(v));
+            printTree(l, indent ~ "  ");
+            printTree(r, indent ~ "  ");
+        }
+    }
+}
+
+func main() {
+    tree := newNode!int(1, EndNode!int, EndNode!int);
+    tree = add!int(tree, 2);
+    tree = add!int(tree, 3);
+    tree = add!int(tree, 4);
+    tree = add!int(tree, 5);
+    tree = add!int(tree, 6);
+    tree = add!int(tree, 7);
+    tree = add!int(tree, 8);
+    tree = add!int(tree, 9);
+    tree = add!int(tree, 10);
+    tree = add!int(tree, 11);
+    tree = add!int(tree, 12);
+    tree = add!int(tree, 13);
+    tree = add!int(tree, 14);
+    tree = add!int(tree, 15);
+    printTree(tree, "");
+    return;
+}
