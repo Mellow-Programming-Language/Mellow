@@ -896,7 +896,7 @@ class FunctionBuilder : Visitor
         Type*[string] membersActual;
         foreach (member; structDef.structDef.members)
         {
-            membersActual[member.name] = member.type;
+            membersActual[member.name] = member.type.normalize(records);
         }
         auto memberNamesAssigned = memberAssigns.keys
                                                 .sort;
@@ -1945,6 +1945,10 @@ class FunctionBuilder : Visitor
     void visit(DestructVariantPatternNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DestructVariantPatternNode"));
+        if (matchType.tag == TypeEnum.AGGREGATE)
+        {
+            matchType = instantiateAggregate(records, matchType.aggregate);
+        }
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.VARIANT)
         {
