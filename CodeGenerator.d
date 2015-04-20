@@ -1453,9 +1453,15 @@ string compileFloatPattern(FloatPatternNode node, Context* vars)
 string compileIntPattern(IntPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto type = node.data["type"].get!(Type*);
     auto str = "";
     str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
                                         ~ "]\n";
+    if (type.needsSignExtend)
+    {
+        str ~= "    movsx    r8, r8" ~ getRRegSuffix(type.size)
+                                     ~ "\n";
+    }
     // Int range
     if (node.children.length > 1)
     {
