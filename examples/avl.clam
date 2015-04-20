@@ -89,7 +89,7 @@ func balance(T)(node: AVLNode!T): AVLNode!T {
 }
 
 func add(T)(node: AVLNode!T, elem: T): AVLNode!T {
-    if (node is AVLTree(h, v, l, r)) {
+    if (node is AVLTree(_, v, l, r)) {
         if (elem == v) {
             return node;
         }
@@ -101,6 +101,21 @@ func add(T)(node: AVLNode!T, elem: T): AVLNode!T {
         }
     }
     return newNode!T(elem, EndNode!T, EndNode!T);
+}
+
+func contains(T)(node: AVLNode!T, elem: T): bool {
+    if (node is AVLTree(_, v, l, r)) {
+        if (elem == v) {
+            return true;
+        }
+        else if (elem < v) {
+            return contains!T(l, elem);
+        }
+        else {
+            return contains!T(r, elem);
+        }
+    }
+    return false;
 }
 
 func removeSuccessor(T)(t: AVLNode!T): (AVLNode!T, T) {
@@ -174,5 +189,11 @@ func main() {
     tree = add!int(tree, 14);
     tree = add!int(tree, 15);
     printTree(tree, "");
+    if (contains!int(tree, 15)) {
+        writeln("Correct! Does contain 15!");
+    }
+    if (!contains!int(tree, 27)) {
+        writeln("Correct! Doesn't contain 27!");
+    }
     return;
 }
