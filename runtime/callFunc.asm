@@ -1,8 +1,10 @@
 
-    SECTION .text
+    SECTION .tbss
 
-extern mainstack
-extern currentthread
+mainstack:      resq 1
+currentthread:  resq 1
+
+    SECTION .text
 
     ; extern void yield();
     global yield

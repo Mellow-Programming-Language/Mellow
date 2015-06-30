@@ -17,8 +17,6 @@ static uint32_t numThreads;
 static pthread_t* kernelThreads;
 static volatile SchedulerData* schedulerData;
 static volatile uint64_t programDone = 0;
-__thread uint64_t mainstack;
-__thread uint64_t currentthread;
 
 void printThreadData(ThreadData* curThread, int32_t v)
 {
