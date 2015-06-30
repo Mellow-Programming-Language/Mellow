@@ -1,24 +1,36 @@
+#include <assert.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <sys/mman.h>
+#include <unistd.h> // for sysconf and _SC_NPROCESSOR_ONLIN
 #include "scheduler.h"
 
-GlobalThreadMem* g_threadManager = NULL;
+static GlobalThreadMem* g_threadManager = NULL;
+static volatile pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static uint32_t numCores;
+static uint32_t numThreads;
+static pthread_t* kernelThreads;
+static volatile SchedulerData* schedulerData;
+static volatile uint64_t programDone = 0;
+__thread uint64_t mainstack;
+__thread uint64_t currentthread;
 
-void printThreadData(ThreadData* curThread)
+void printThreadData(ThreadData* curThread, int32_t v)
 {
     printf("Print Thread Data:\n");
-    printf("    ThreadData* curThread: %X\n", curThread);
-    printf("    funcAddr             : %X\n", curThread->funcAddr);
-    printf("    curFuncAddr          : %X\n", curThread->curFuncAddr);
-    printf("    t_StackBot           : %X\n", curThread->t_StackBot);
-    printf("    t_StackCur           : %X\n", curThread->t_StackCur);
-    printf("    t_StackRaw           : %X\n", curThread->t_StackRaw);
-    printf("    t_rbp                : %X\n", curThread->t_rbp);
-    printf("    stillValid           : %u\n", curThread->stillValid);
+    printf("    ThreadData* curThread %d: %X\n", v, curThread);
+    printf("    funcAddr              %d: %X\n", v, curThread->funcAddr);
+    printf("    curFuncAddr           %d: %X\n", v, curThread->curFuncAddr);
+    printf("    t_StackBot            %d: %X\n", v, curThread->t_StackBot);
+    printf("    t_StackCur            %d: %X\n", v, curThread->t_StackCur);
+    printf("    t_StackRaw            %d: %X\n", v, curThread->t_StackRaw);
+    printf("    t_rbp                 %d: %X\n", v, curThread->t_rbp);
+    printf("    stillValid            %d: %u\n", v, curThread->stillValid);
 }
 
 void callThreadFunc(ThreadData* thread)
@@ -172,6 +184,31 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
 
 void execScheduler()
 {
+
+    printf("sizeof SchedulerData: %d\n", sizeof(SchedulerData));
+    printf("valid offset        : %d\n", offsetof(SchedulerData, valid));
+    printf("sizeof ThreadData   : %d\n", sizeof(ThreadData));
+    printf("isExecuting offset  : %d\n", offsetof(ThreadData, isExecuting));
+
+    numCores = sysconf(_SC_NPROCESSORS_ONLN);
+    numThreads = numCores;
+    kernelThreads = (pthread_t*)malloc(numThreads * sizeof(pthread_t));
+    schedulerData = (SchedulerData*)malloc(numThreads * sizeof(SchedulerData));
+    unsigned long i;
+    for (i = 0; i < numThreads; i++)
+    {
+        schedulerData[i].valid = 0;
+        schedulerData[i].threadData = NULL;
+        int resCode = pthread_create(
+            (kernelThreads + i), NULL, awaitTask, (void*)i
+        );
+        assert(0 == resCode);
+    }
+    scheduler();
+}
+
+void scheduler()
+{
     // This is a blindingly terrible scheduler
     uint32_t i = 0;
     uint8_t stillValid = 0;
@@ -189,4 +226,13 @@ void execScheduler()
             stillValid = 0;
         }
     }
+    for (i = 0; i < numThreads; i++)
+    {
+        pthread_join(kernelThreads[i], NULL);
+    }
+}
+
+void* awaitTask(void* arg)
+{
+    return NULL;
 }

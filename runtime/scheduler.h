@@ -33,12 +33,22 @@ typedef struct
     // stillValid is 0, and the thread is still valid if stillValid != 0 OR
     // curFuncAddr == 0
     uint8_t stillValid;
+    // Indicates whether the green thread is currently being executed by a
+    // worker thread. If this is set, the green thread is not to be considered
+    // for scheduling
+    uint8_t isExecuting;
     // Amount of bytes that were used for the stack allocation of arguments
     uint32_t stackArgsSize;
     // Memory populated with the function arguments to be placed in registers
     // in a canned way in callFunc
     void* regVars;
 } ThreadData;
+
+typedef struct
+{
+    ThreadData* threadData;
+    uint8_t valid;
+} SchedulerData;
 
 extern void callFunc(ThreadData* curThread);
 extern void yield();
@@ -50,7 +60,7 @@ extern void yield();
 // or on the stack after the eighth integer argument
 void newProc(uint32_t argBytes, void* funcAddr, int8_t* argLens, void* args);
 
-void printThreadData(ThreadData* curThread);
+void printThreadData(ThreadData* curThread, int32_t v);
 
 void callThreadFunc(ThreadData* thread);
 
@@ -73,5 +83,9 @@ void takedownThreadManager();
 // void addThreadData(uint32_t argBytes, void* funcAddr, ...);
 
 void execScheduler();
+
+void scheduler();
+
+void* awaitTask(void*);
 
 #endif

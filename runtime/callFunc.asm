@@ -1,10 +1,8 @@
 
-    SECTION .bss
-
-mainstack:      resq 1 ; Stored mainstack rsp
-currentthread:  resq 1 ; Pointer to current thread
-
     SECTION .text
+
+extern mainstack
+extern currentthread
 
     ; extern void yield();
     global yield
@@ -40,7 +38,7 @@ callFunc:
 
     ; Populate registers for operation. ThreadData* thread is initially in rdi
     mov     rcx, rdi            ; ThreadData* thread
-    xor     rdi, rdi
+    xor     rdi, rdi            ; Zero rdi so edi is cleared before set
     mov     edi, dword [rcx+52] ; ThreadData->stackArgsSize
     mov     r11, qword [rcx]    ; ThreadData->funcAddr
     mov     rdx, qword [rcx+16] ; ThreadData->t_StackBot
@@ -60,7 +58,7 @@ callFunc:
     mov     qword [rcx+8], r11  ; ThreadData->curFuncAddr, init to start of func
 
     ; Set stack pointer to be before arguments
-    sub     rdx, rdi
+    sub     rdx, rdi            ; Note that we're using the value in edi here
     ; Allocate 8 bytes on stack for return address
     sub     rdx, 8
     mov     qword [rdx], schedulerReturn

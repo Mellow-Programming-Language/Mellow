@@ -167,7 +167,7 @@ EOF".write;
             try
             {
                 auto gccPid = spawnProcess(
-                    ["gcc", "-o", outfileName, objectTmpfileName, stdlibPath,
+                    ["gcc", "-pthread", "-o", outfileName, objectTmpfileName, stdlibPath,
                     runtimePath]
                 );
                 wait(gccPid);

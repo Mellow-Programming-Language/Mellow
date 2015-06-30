@@ -7,7 +7,7 @@ callFunc.o: callFunc.asm
 	nasm -f elf64 callFunc.asm
 
 scheduler.o: scheduler.c scheduler.h
-	gcc -c scheduler.c
+	gcc -pthread -c scheduler.c
 
 realclean:
 	-rm *.o
