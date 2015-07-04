@@ -1,5 +1,5 @@
 
-    SECTION .tbss
+    SECTION .bss
 
 mainstack:      resq 1
 currentthread:  resq 1
