@@ -1,8 +1,9 @@
 
-    SECTION .bss
-
-mainstack:      resq 1
-currentthread:  resq 1
+    ; From tls.asm
+    extern get_currentthread
+    extern set_currentthread
+    extern get_mainstack
+    extern set_mainstack
 
     SECTION .text
 
@@ -13,21 +14,21 @@ yield:
     ; return address on the stack, and rbp is whatever it is from the function
     ; that called yield()
 
-    ; Get curThread pointer
-    mov     rdx, qword [currentthread]
+    ; Get curThread pointer in rax
+    call    get_currentthread
     ; Get return address
-    mov     rax, [rsp]
+    mov     rdx, [rsp]
     ; Pop return address off the stack
     add     rsp, 8
     ; Set validity of thread
-    mov     byte [rdx+48], 1 ; ThreadData->stillValid
+    mov     byte [rax+48], 1 ; ThreadData->stillValid
     ; Set return address to continue execution
-    mov     [rdx+8], rax  ; ThreadData->curFuncAddr
+    mov     [rax+8], rdx  ; ThreadData->curFuncAddr
     ; Set curThread StackCur value, now that rsp is pointing to the top of
     ; the stack of the function that just yielded
-    mov     [rdx+24], rsp   ; ThreadData->t_StackCur
+    mov     [rax+24], rsp   ; ThreadData->t_StackCur
     ; Save rbp for thread
-    mov     [rdx+40], rbp ; ThreadData->t_rbp
+    mov     [rax+40], rbp ; ThreadData->t_rbp
 
     jmp     schedulerReturn
 
@@ -38,15 +39,18 @@ callFunc:
     push    rbp                     ; set up stack frame
     mov     rbp, rsp
 
-    ; Populate registers for operation. ThreadData* thread is initially in rdi
-    mov     rcx, rdi            ; ThreadData* thread
-    xor     rdi, rdi            ; Zero rdi so edi is cleared before set
-    mov     edi, dword [rcx+52] ; ThreadData->stackArgsSize
-    mov     r11, qword [rcx]    ; ThreadData->funcAddr
-    mov     rdx, qword [rcx+16] ; ThreadData->t_StackBot
-    mov     rax, qword [rcx+56] ; ThreadData->regVars
-    ; First set the currentthread value
-    mov     qword [currentthread], rcx ; ThreadData* thread
+    ; ThreadData* curThread is initially in rdi
+
+    ; Set currentthread pointer to TLS
+    call    set_currentthread
+
+    ; Populate registers for operation.
+    mov     rcx,  rdi            ; ThreadData* curThread is in rdi
+    xor     r10,  r10            ; Zero r10 so r10d is cleared before set
+    mov     r10d, dword [rcx+52] ; ThreadData->stackArgsSize
+    mov     r11,  qword [rcx]    ; ThreadData->funcAddr
+    mov     rdx,  qword [rcx+16] ; ThreadData->t_StackBot
+    mov     rax,  qword [rcx+56] ; ThreadData->regVars
 
     ; Determine if we are starting a new thread, or if we're continuing
     ; execution
@@ -60,23 +64,24 @@ callFunc:
     mov     qword [rcx+8], r11  ; ThreadData->curFuncAddr, init to start of func
 
     ; Set stack pointer to be before arguments
-    sub     rdx, rdi            ; Note that we're using the value in edi here
+    sub     rdx, r10            ; Note that we're using the value in r10d here
     ; Allocate 8 bytes on stack for return address
     sub     rdx, 8
     mov     qword [rdx], schedulerReturn
 
     ; Store the value of the main stack pointer, and store rbp as top value
     push    rbp
-    mov     qword [mainstack], rsp
+    mov     rdi, rsp
+    call    set_mainstack
     mov     rsp, rdx
 
     ; Move the register function arguments into the relevant registers
-    mov     rdi, qword [rax]
-    mov     rsi, qword [rax+8]
-    mov     rdx, qword [rax+16]
-    mov     rcx, qword [rax+24]
-    mov     r8, qword [rax+32]
-    mov     r9, qword [rax+40]
+    mov     rdi,  qword [rax]
+    mov     rsi,  qword [rax+8]
+    mov     rdx,  qword [rax+16]
+    mov     rcx,  qword [rax+24]
+    mov     r8,   qword [rax+32]
+    mov     r9,   qword [rax+40]
     movsd   xmm0, qword [rax+48]
     movsd   xmm1, qword [rax+56]
     movsd   xmm2, qword [rax+64]
@@ -96,7 +101,8 @@ continueThread:
     ; up for a clean return, push rbp as the last thing on the mainstack
     push    rbp
     ; Save mainstack rsp
-    mov     qword [mainstack], rsp
+    mov     rdi, rsp
+    call    set_mainstack
     ; Set rsp to StackCur of current thread
     mov     rsp, qword [rcx+24] ; ThreadData->t_StackCur
     ; Set rbp to t_rbp of current thread
@@ -113,7 +119,8 @@ continueThread:
 
 schedulerReturn:
     ; Restore the value of the main stack pointer
-    mov     rsp, qword [mainstack]
+    call    get_mainstack
+    mov     rsp, rax
     ; Restore current rbp
     pop     rbp
 
