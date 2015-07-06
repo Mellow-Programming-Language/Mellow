@@ -216,7 +216,12 @@ void scheduler()
         if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
         {
             stillValid = 1;
-            callThreadFunc(curThread);
+            schedulerData[0].threadData = curThread;
+            schedulerData[0].valid = 1;
+            while (schedulerData[0].valid == 1)
+            {
+                usleep(1);
+            }
         }
         if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
         {
@@ -224,6 +229,7 @@ void scheduler()
             stillValid = 0;
         }
     }
+    programDone = 1;
     for (i = 0; i < numThreads; i++)
     {
         pthread_join(kernelThreads[i], NULL);
@@ -232,5 +238,16 @@ void scheduler()
 
 void* awaitTask(void* arg)
 {
+    uint64_t index = (uint64_t)arg;
+    while (programDone == 0)
+    {
+        if (schedulerData[index].valid == 1)
+        {
+            printf("Kernel thread %d execting green thread!\n", index);
+            callThreadFunc(schedulerData[index].threadData);
+            schedulerData[index].valid = 0;
+        }
+        usleep(1);
+    }
     return NULL;
 }

@@ -47,7 +47,7 @@ typedef struct
 typedef struct
 {
     ThreadData* threadData;
-    uint8_t valid;
+    uint64_t valid;
 } SchedulerData;
 
 extern void callFunc(ThreadData* curThread);
