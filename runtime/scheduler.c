@@ -11,7 +11,7 @@
 #include "scheduler.h"
 
 static GlobalThreadMem* g_threadManager = NULL;
-static volatile pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t numCores;
 static uint32_t numThreads;
 static pthread_t* kernelThreads;
@@ -192,7 +192,7 @@ void execScheduler()
     numThreads = numCores;
     kernelThreads = (pthread_t*)malloc(numThreads * sizeof(pthread_t));
     schedulerData = (SchedulerData*)malloc(numThreads * sizeof(SchedulerData));
-    unsigned long i;
+    uint64_t i;
     for (i = 0; i < numThreads; i++)
     {
         schedulerData[i].valid = 0;
@@ -208,27 +208,56 @@ void execScheduler()
 void scheduler()
 {
     // This is a blindingly terrible scheduler
-    uint32_t i = 0;
+    uint64_t i = 0;
     uint8_t stillValid = 0;
     for (i = 0; i < g_threadManager->threadArrIndex; i++)
     {
         ThreadData* curThread = g_threadManager->threadArr[i];
-        if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
+        if (curThread->isExecuting)
         {
+            printf("isExecuting: setting isValid\n");
             stillValid = 1;
-            schedulerData[0].threadData = curThread;
-            schedulerData[0].valid = 1;
-            while (schedulerData[0].valid == 1)
+        }
+        else if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
+        {
+            printf("Found executable thread\n");
+            uint64_t k;
+            uint64_t kthreadFound = 0;
+            uint64_t kthreadIndex = numThreads;
+            while (kthreadFound == 0)
             {
-                usleep(1);
+                printf("Looping on kthreadFound\n");
+                for (k = 0; k < numThreads; k++)
+                {
+                    printf("Looping on numThreads\n");
+                    if (schedulerData[0].valid == 0)
+                    {
+                        printf("Found kthread\n");
+                        kthreadIndex = 0;
+                        kthreadFound = 1;
+                        break;
+                    }
+                }
             }
+            printf("Setting kthread values\n");
+            schedulerData[kthreadIndex].threadData = curThread;
+            schedulerData[kthreadIndex].valid = 1;
+            kthreadFound = 0;
+            kthreadIndex = numThreads;
+            printf("Setting stillValid!\n");
+            stillValid = 1;
         }
         if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
         {
+            printf(
+                "Resetting scheduler counter... %d green threads total\n",
+                g_threadManager->threadArrIndex
+            );
             i = -1;
             stillValid = 0;
         }
     }
+    printf("Scheduler beginning to wait on worker threads!\n");
     programDone = 1;
     for (i = 0; i < numThreads; i++)
     {
@@ -243,11 +272,28 @@ void* awaitTask(void* arg)
     {
         if (schedulerData[index].valid == 1)
         {
-            printf("Kernel thread %d execting green thread!\n", index);
-            callThreadFunc(schedulerData[index].threadData);
-            schedulerData[index].valid = 0;
+            printf("Kernel thread executing green thread: %d\n", index);
+            ThreadData* curThread = schedulerData[index].threadData;
+            if (curThread->stillValid == 0 && curThread->curFuncAddr != 0)
+            {
+                schedulerData[index].valid = 0;
+            }
+            else
+            {
+                printf("Setting isExecuting: %d\n", index);
+                curThread->isExecuting = 1;
+                printf("Calling callThreadFunc: %d\n", index);
+                printThreadData(curThread, index);
+                callThreadFunc(curThread);
+                printf("Unsetting isExecuting: %d\n", index);
+                curThread->isExecuting = 0;
+                printf("Unsetting .valid: %d\n", index);
+                schedulerData[index].valid = 0;
+                printf("Thread finished work: %d\n", index);
+            }
         }
         usleep(1);
     }
     return NULL;
 }
+
