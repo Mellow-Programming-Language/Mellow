@@ -73,6 +73,7 @@ void takedownThreadManager()
 
 void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
 {
+    pthread_mutex_lock(&mutex);
     // Alloc new ThreadData
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
     // Init the address of the function this green thread manages
@@ -178,16 +179,11 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
     // Increment index
     g_threadManager->threadArrIndex++;
+    pthread_mutex_unlock(&mutex);
 }
 
 void execScheduler()
 {
-
-    printf("sizeof SchedulerData: %d\n", sizeof(SchedulerData));
-    printf("valid offset        : %d\n", offsetof(SchedulerData, valid));
-    printf("sizeof ThreadData   : %d\n", sizeof(ThreadData));
-    printf("isExecuting offset  : %d\n", offsetof(ThreadData, isExecuting));
-
     numCores = sysconf(_SC_NPROCESSORS_ONLN);
     numThreads = numCores;
     kernelThreads = (pthread_t*)malloc(numThreads * sizeof(pthread_t));
@@ -208,56 +204,69 @@ void execScheduler()
 void scheduler()
 {
     // This is a blindingly terrible scheduler
-    uint64_t i = 0;
+    int64_t i = 0;
     uint8_t stillValid = 0;
-    for (i = 0; i < g_threadManager->threadArrIndex; i++)
+    uint64_t kthreadExecuting = 0;
+    for (i = 0; i < numThreads; i++)
     {
-        ThreadData* curThread = g_threadManager->threadArr[i];
-        if (curThread->isExecuting)
+        if (schedulerData[i].valid != 0)
         {
-            printf("isExecuting: setting isValid\n");
-            stillValid = 1;
+            kthreadExecuting = i + 1;
+            goto SKIP_WORKER;
         }
-        else if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
+        if (schedulerData[i].valid == 0 && schedulerData[i].threadData != NULL)
         {
-            printf("Found executable thread\n");
-            uint64_t k;
-            uint64_t kthreadFound = 0;
-            uint64_t kthreadIndex = numThreads;
-            while (kthreadFound == 0)
+            schedulerData[i].threadData = 0;
+        }
+        pthread_mutex_lock(&mutex);
+        int64_t j = 0;
+        for (j = 0; j < g_threadManager->threadArrIndex; j++)
+        {
+            if (j == 0)
             {
-                printf("Looping on kthreadFound\n");
-                for (k = 0; k < numThreads; k++)
+                pthread_mutex_unlock(&mutex);
+            }
+            ThreadData* curThread = g_threadManager->threadArr[j];
+            // Try to find the green thread in the scheduler list
+            uint64_t m;
+            uint64_t isScheduled = 0;
+            for (m = 0; m < numThreads; m++)
+            {
+                if (curThread == schedulerData[m].threadData)
                 {
-                    printf("Looping on numThreads\n");
-                    if (schedulerData[0].valid == 0)
-                    {
-                        printf("Found kthread\n");
-                        kthreadIndex = 0;
-                        kthreadFound = 1;
-                        break;
-                    }
+                    isScheduled++;
                 }
             }
-            printf("Setting kthread values\n");
-            schedulerData[kthreadIndex].threadData = curThread;
-            schedulerData[kthreadIndex].valid = 1;
-            kthreadFound = 0;
-            kthreadIndex = numThreads;
-            printf("Setting stillValid!\n");
-            stillValid = 1;
+            if (isScheduled != 0)
+            {
+                assert(isScheduled == 1);
+                stillValid = 1;
+            }
+            else if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
+            {
+                schedulerData[i].threadData = curThread;
+                schedulerData[i].valid = 1;
+                stillValid = 1;
+                // We've scheduled a gthread for this worker thread
+                break;
+            }
         }
-        if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
+SKIP_WORKER:
+        // At least one worker thread is still executing
+        if (i + 1 >= numThreads)
         {
-            printf(
-                "Resetting scheduler counter... %d green threads total\n",
-                g_threadManager->threadArrIndex
-            );
-            i = -1;
-            stillValid = 0;
+            if (kthreadExecuting != 0)
+            {
+                kthreadExecuting = 0;
+                i = -1;
+            }
+            else if (stillValid != 0)
+            {
+                stillValid = 0;
+                i = -1;
+            }
         }
     }
-    printf("Scheduler beginning to wait on worker threads!\n");
     programDone = 1;
     for (i = 0; i < numThreads; i++)
     {
@@ -272,25 +281,9 @@ void* awaitTask(void* arg)
     {
         if (schedulerData[index].valid == 1)
         {
-            printf("Kernel thread executing green thread: %d\n", index);
             ThreadData* curThread = schedulerData[index].threadData;
-            if (curThread->stillValid == 0 && curThread->curFuncAddr != 0)
-            {
-                schedulerData[index].valid = 0;
-            }
-            else
-            {
-                printf("Setting isExecuting: %d\n", index);
-                curThread->isExecuting = 1;
-                printf("Calling callThreadFunc: %d\n", index);
-                printThreadData(curThread, index);
-                callThreadFunc(curThread);
-                printf("Unsetting isExecuting: %d\n", index);
-                curThread->isExecuting = 0;
-                printf("Unsetting .valid: %d\n", index);
-                schedulerData[index].valid = 0;
-                printf("Thread finished work: %d\n", index);
-            }
+            callThreadFunc(curThread);
+            schedulerData[index].valid = 0;
         }
         usleep(1);
     }

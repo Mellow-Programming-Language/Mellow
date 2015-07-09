@@ -33,10 +33,6 @@ typedef struct
     // stillValid is 0, and the thread is still valid if stillValid != 0 OR
     // curFuncAddr == 0
     uint8_t stillValid;
-    // Indicates whether the green thread is currently being executed by a
-    // worker thread. If this is set, the green thread is not to be considered
-    // for scheduling
-    uint8_t isExecuting;
     // Amount of bytes that were used for the stack allocation of arguments
     uint32_t stackArgsSize;
     // Memory populated with the function arguments to be placed in registers
