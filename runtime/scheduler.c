@@ -285,7 +285,6 @@ void* awaitTask(void* arg)
             callThreadFunc(curThread);
             schedulerData[index].valid = 0;
         }
-        usleep(1);
     }
     return NULL;
 }
