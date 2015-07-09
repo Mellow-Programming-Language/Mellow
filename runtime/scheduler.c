@@ -73,7 +73,6 @@ void takedownThreadManager()
 
 void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
 {
-    pthread_mutex_lock(&mutex);
     // Alloc new ThreadData
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
     // Init the address of the function this green thread manages
@@ -163,6 +162,7 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     newThread->regVars = regVars;
     // Number of bytes allocated for arguments on stack
     newThread->stackArgsSize = onStack * 8;
+    pthread_mutex_lock(&mutex);
     // Put newThread into global thread manager, allocating space for the
     // pointer if necessary. Check first if we need to allocate more memory
     if (g_threadManager->threadArrIndex >= g_threadManager->threadArrLen)
