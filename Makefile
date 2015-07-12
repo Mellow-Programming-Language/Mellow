@@ -9,16 +9,31 @@ compiler: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
 
 compiler_debug: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
 		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d\
-		  TemplateInstantiator.d
+		  TemplateInstantiator.d\
+		  runtime/runtime.o
 	dmd -ofcompiler_debug main.d Function.d FunctionSig.d Record.d parser.d\
 		visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
 		ExprCodeGenerator.d TemplateInstantiator.d\
 		-debug=COMPILE_TRACE -debug=TRACE
 
-runtime/runtime.o:
+compiler_multithread: main.d Function.d FunctionSig.d Record.d parser.d\
+		  visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
+		  ExprCodeGenerator.d TemplateInstantiator.d\
+		  runtime/runtime_multithread.o
+	dmd -ofcompiler_multithread main.d Function.d FunctionSig.d Record.d\
+		parser.d visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
+		ExprCodeGenerator.d TemplateInstantiator.d\
+		-version=MULTITHREAD
+
+runtime/runtime.o: runtime/callFunc.asm runtime/scheduler.c runtime/scheduler.h
 	make -C runtime
 
-stdlib/stdlib.o:
+runtime/runtime_multithread.o: runtime/callFunc_multithread.asm\
+							   runtime/scheduler.c runtime/scheduler.h
+	make runtime_multithread.o -C runtime
+
+stdlib/stdlib.o: stdlib/clam_internal.c stdlib/clam_internal.h stdlib/stdconv.c\
+				 stdlib/stdconv.h stdlib/stdio.c stdlib/stdio.h
 	make -C stdlib
 
 parser.d: lang.peg ParserGenerator/parserGenerator

@@ -11,12 +11,14 @@
 #include "scheduler.h"
 
 static GlobalThreadMem* g_threadManager = NULL;
+#ifdef MULTITHREAD
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t numCores;
 static uint32_t numThreads;
 static pthread_t* kernelThreads;
 static volatile SchedulerData* schedulerData;
 static volatile uint64_t programDone = 0;
+#endif
 
 void printThreadData(ThreadData* curThread, int32_t v)
 {
@@ -162,7 +164,9 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     newThread->regVars = regVars;
     // Number of bytes allocated for arguments on stack
     newThread->stackArgsSize = onStack * 8;
+#ifdef MULTITHREAD
     pthread_mutex_lock(&mutex);
+#endif
     // Put newThread into global thread manager, allocating space for the
     // pointer if necessary. Check first if we need to allocate more memory
     if (g_threadManager->threadArrIndex >= g_threadManager->threadArrLen)
@@ -179,11 +183,15 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
     // Increment index
     g_threadManager->threadArrIndex++;
+#ifdef MULTITHREAD
     pthread_mutex_unlock(&mutex);
+#endif
 }
 
 void execScheduler()
 {
+    // This is a blindingly terrible scheduler
+#ifdef MULTITHREAD
     numCores = sysconf(_SC_NPROCESSORS_ONLN);
     numThreads = numCores;
     kernelThreads = (pthread_t*)malloc(numThreads * sizeof(pthread_t));
@@ -199,11 +207,29 @@ void execScheduler()
         assert(0 == resCode);
     }
     scheduler();
+#else
+    uint32_t i = 0;
+    uint8_t stillValid = 0;
+    for (i = 0; i < g_threadManager->threadArrIndex; i++)
+    {
+        ThreadData* curThread = g_threadManager->threadArr[i];
+        if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
+        {
+            stillValid = 1;
+            callThreadFunc(curThread);
+        }
+        if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
+        {
+            i = -1;
+            stillValid = 0;
+        }
+    }
+#endif
 }
 
+#ifdef MULTITHREAD
 void scheduler()
 {
-    // This is a blindingly terrible scheduler
     int64_t i = 0;
     uint8_t stillValid = 0;
     uint64_t kthreadExecuting = 0;
@@ -288,4 +314,4 @@ void* awaitTask(void* arg)
     }
     return NULL;
 }
-
+#endif

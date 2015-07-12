@@ -19,7 +19,14 @@ import CodeGenerator;
 int main(string[] argv)
 {
     string outfileName = "a.out";
-    string runtimePath = "runtime/runtime.o";
+    version (MULTITHREAD)
+    {
+        string runtimePath = "runtime/runtime_multithread.o";
+    }
+    else
+    {
+        string runtimePath = "runtime/runtime.o";
+    }
     string stdlibPath = "stdlib/stdlib.o";
     bool compileOnly = false;
     bool dump = false;
@@ -166,10 +173,24 @@ EOF".write;
             scope (exit) remove(objectTmpfileName);
             try
             {
-                auto gccPid = spawnProcess(
-                    ["gcc", "-pthread", "-o", outfileName, objectTmpfileName, stdlibPath,
-                    runtimePath]
-                );
+                version (MULTITHREAD)
+                {
+                    auto gccPid = spawnProcess(
+                        [
+                            "gcc", "-pthread", "-o", outfileName,
+                            objectTmpfileName, stdlibPath, runtimePath
+                        ]
+                    );
+                }
+                else
+                {
+                    auto gccPid = spawnProcess(
+                        [
+                            "gcc", "-o", outfileName, objectTmpfileName,
+                            stdlibPath, runtimePath
+                        ]
+                    );
+                }
                 wait(gccPid);
             }
             catch (ProcessException ex)

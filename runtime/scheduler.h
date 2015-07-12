@@ -40,11 +40,13 @@ typedef struct
     void* regVars;
 } ThreadData;
 
+#ifdef MULTITHREAD
 typedef struct
 {
     ThreadData* threadData;
     uint64_t valid;
 } SchedulerData;
+#endif
 
 extern void callFunc(ThreadData* curThread);
 extern void yield();
@@ -80,8 +82,10 @@ void takedownThreadManager();
 
 void execScheduler();
 
+#ifdef MULTITHREAD
 void scheduler();
 
 void* awaitTask(void*);
+#endif
 
 #endif
