@@ -67,6 +67,7 @@ Incomplete list of working features:
 - function templating
 - match statements
 - tuples
+- full M:N multithreading scheduler
 
 
 Incomplete list of unimplemented or broken features:
