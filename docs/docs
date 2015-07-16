@@ -1,7 +1,7 @@
-Clam
+Mellow
 ====
 
-Clam is a language that is designed to give the programmer the tools they need
+Mellow is a language that is designed to give the programmer the tools they need
 to get the job done, without getting in their way. It attempts to offer
 flexibility everywhere it can, and tries to stay out of the way of the
 development process. It exists as nothing more than a tool to accomplish
@@ -82,9 +82,9 @@ Features
   around and stored as with any other value type
 * MAYBE: Attempt to be at least somewhat compatible with the C ABI, in that
   the effort is minimized to utilize C code. Being able to call C is
-  probably not that difficult, but making C able to call Clam code would
+  probably not that difficult, but making C able to call Mellow code would
   require hand-holding of function signatures to ensure the right thing is
-  done, since Clam supports returning tuples
+  done, since Mellow supports returning tuples
 * Simple parametric polymorphism
     * Interfaces can be templated, and so templated code can expect
       an interface to be implemented by some templated type

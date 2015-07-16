@@ -54,14 +54,14 @@ const RETURN_ADDRESS_SIZE = 8;
 const STACK_PROLOGUE_SIZE = RBP_SIZE + RETURN_ADDRESS_SIZE;
 const ENVIRON_PTR_SIZE = 8;
 
-const CLAM_PTR_SIZE = 8; // sizeof(char*))
+const MELLOW_PTR_SIZE = 8; // sizeof(char*))
 const REF_COUNT_SIZE = 4; // sizeof(uint32_t))
 // THe struct buffer bytes are simply so that the elements of the struct are
 // aligned on an eight-byte boundary to begin with
 const STRUCT_BUFFER_SIZE = 4; // sizeof(uint32_t))
-const CLAM_STR_SIZE = 4; // sizeof(uint32_t))
+const MELLOW_STR_SIZE = 4; // sizeof(uint32_t))
 const CHAN_VALID_SIZE = 4; // sizeof(uint32_t))
-const STR_START_OFFSET = REF_COUNT_SIZE + CLAM_STR_SIZE;
+const STR_START_OFFSET = REF_COUNT_SIZE + MELLOW_STR_SIZE;
 const VARIANT_TAG_SIZE = 4; // sizeof(uint32_t))
 
 const INT_REG = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
@@ -1650,7 +1650,7 @@ string compileArrayPattern(ArrayPatternNode node, Context* vars)
                                    ~ getWordSize(valueSize)
                                    ~ " [r8+"
                                    ~ (REF_COUNT_SIZE
-                                    + CLAM_STR_SIZE
+                                    + MELLOW_STR_SIZE
                                     + memberOffset).to!string
                                    ~ "]\n";
             str ~= "    mov    qword [rbp-"
@@ -1746,7 +1746,7 @@ string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
         case 8:
         default:
             str ~= "    add    r8, " ~ (REF_COUNT_SIZE
-                                      + CLAM_STR_SIZE).to!string
+                                      + MELLOW_STR_SIZE).to!string
                                      ~ "\n";
             str ~= "    add    r8, r9\n";
             // Get the value and put it in the top of the match type
@@ -1930,7 +1930,7 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
     case TypeEnum.STRING:
         str ~= "    ; allocate empty string\n";
         str ~= "    mov    rdi, " ~ (REF_COUNT_SIZE
-                                   + CLAM_STR_SIZE).to!string
+                                   + MELLOW_STR_SIZE).to!string
                                   ~ "\n";
         str ~= "    call   malloc\n";
         // Set the refcount to 1, as we're assigning this empty string to a

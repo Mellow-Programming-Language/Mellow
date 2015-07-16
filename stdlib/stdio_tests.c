@@ -3,19 +3,19 @@
 #include <string.h>
 #include <stdint.h>
 #include "stdio.h"
-#include "clam_internal.h"
+#include "mellow_internal.h"
 
-void printClamStringInfo(void* clamStr)
+void printMellowStringInfo(void* mellowStr)
 {
-    printf("Ref-count: %d\n", ((uint32_t*)clamStr)[0]);
-    printf("Length   : %d\n", ((uint32_t*)clamStr)[1]);
+    printf("Ref-count: %d\n", ((uint32_t*)mellowStr)[0]);
+    printf("Length   : %d\n", ((uint32_t*)mellowStr)[1]);
 }
 
 int main(int argc, char** argv)
 {
-    void* testString = clam_allocString("Hello, world!", 13);
-    printClamStringInfo(testString);
-    clam_writeln(testString);
-    clam_freeString(testString);
+    void* testString = mellow_allocString("Hello, world!", 13);
+    printMellowStringInfo(testString);
+    writeln(testString);
+    mellow_freeString(testString);
     return 0;
 }

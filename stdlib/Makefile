@@ -1,6 +1,6 @@
 all: stdlib.o
 
-stdio.o: clam_internal.h stdio.c stdio.h
+stdio.o: mellow_internal.h stdio.c stdio.h
 	gcc -c stdio.c -o stdio.o
 
 stdconv.o: stdconv.h

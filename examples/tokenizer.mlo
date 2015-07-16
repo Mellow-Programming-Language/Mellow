@@ -1,8 +1,8 @@
 
 extern struct File;
-extern func clam_fopen(str: string, mode: FopenMode): Maybe!File;
-extern func clam_fclose(file: File);
-extern func clam_freadln(file: File): Maybe!string;
+extern func mellow_fopen(str: string, mode: FopenMode): Maybe!File;
+extern func mellow_fclose(file: File);
+extern func mellow_freadln(file: File): Maybe!string;
 extern func writeln(str: string);
 extern func ord(c: char): int;
 
@@ -213,8 +213,8 @@ func main(argv: []string) {
         return;
     }
     tokens: []Token;
-    if (clam_fopen(argv[1], Read) is Some (file)) {
-        while (i := 1; clam_freadln(file) is Some (line)) {
+    if (mellow_fopen(argv[1], Read) is Some (file)) {
+        while (i := 1; mellow_freadln(file) is Some (line)) {
             tokens = tokens ~ tokenizer(line, i);
             i = i + 1;
         }

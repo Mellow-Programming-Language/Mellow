@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include "stdio.h"
-#include "clam_internal.h"
+#include "mellow_internal.h"
 
 // Get the power-of-2 size larger than the input size, for use in array size
 // allocations. Arrays are always a power-of-2 in size.
@@ -22,17 +22,17 @@ unsigned long long getAllocSize(unsigned long long x)
     return x+1;
 }
 
-void writeln(void* clamStr)
+void writeln(void* mellowStr)
 {
-    printf("%s\n", (char*)(clamStr + STR_START_OFFSET));
+    printf("%s\n", (char*)(mellowStr + STR_START_OFFSET));
 }
 
-void write(void* clamStr)
+void write(void* mellowStr)
 {
-    printf("%s", (char*)(clamStr + STR_START_OFFSET));
+    printf("%s", (char*)(mellowStr + STR_START_OFFSET));
 }
 
-struct MaybeFile* clam_fopen(void* str, struct FopenMode* mode)
+struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
 {
     // Allocate space for a Maybe!File, which needs space for the ref-count, the
     // variant tag and space for the File ref in Some (File)
@@ -54,8 +54,8 @@ struct MaybeFile* clam_fopen(void* str, struct FopenMode* mode)
     }
     if (file != NULL)
     {
-        struct ClamFile* fileRef = (struct ClamFile*)
-                                   malloc(sizeof(struct ClamFile));
+        struct MellowFile* fileRef = (struct MellowFile*)
+                                   malloc(sizeof(struct MellowFile));
         fileRef->refCount = 1;
         fileRef->openMode = mode->mode;
         fileRef->ptr = file;
@@ -75,7 +75,7 @@ struct MaybeFile* clam_fopen(void* str, struct FopenMode* mode)
     return maybeFile;
 }
 
-void clam_fclose(struct ClamFile* file)
+void mellow_fclose(struct MellowFile* file)
 {
     if (file->isOpen)
     {
@@ -84,7 +84,7 @@ void clam_fclose(struct ClamFile* file)
     }
 }
 
-struct MaybeStr* clam_freadln(struct ClamFile* file)
+struct MaybeStr* mellow_freadln(struct MellowFile* file)
 {
     struct MaybeStr* str = (struct MaybeStr*)malloc(sizeof(struct MaybeStr));
     str->refCount = 0;
@@ -103,19 +103,19 @@ struct MaybeStr* clam_freadln(struct ClamFile* file)
         {
             // Set tag to Some
             str->variantTag = 0;
-            // Clam strings have power-of-2 space allocated for the characters
+            // Mellow strings have power-of-2 space allocated for the characters
             // in the string, not including the null byte
             uint32_t allocSize = getAllocSize(bytesRead);
             // The 1 is for space for the null byte
-            void* clamStr = malloc(
-                REF_COUNT_SIZE + CLAM_STR_SIZE + allocSize + 1
+            void* mellowStr = malloc(
+                REF_COUNT_SIZE + MELLOW_STR_SIZE + allocSize + 1
             );
             // Set the ref count
-            ((uint32_t*)clamStr)[0] = 1;
+            ((uint32_t*)mellowStr)[0] = 1;
             // Set the string length
-            ((uint32_t*)clamStr)[1] = bytesRead;
-            memcpy(clamStr + STR_START_OFFSET, buffer, bytesRead + 1);
-            str->str = clamStr;
+            ((uint32_t*)mellowStr)[1] = bytesRead;
+            memcpy(mellowStr + STR_START_OFFSET, buffer, bytesRead + 1);
+            str->str = mellowStr;
         }
     }
     else

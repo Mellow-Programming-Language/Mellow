@@ -16,18 +16,18 @@ variant Maybe(T) {
 extern struct File;
 extern func writeln(str: string);
 extern func write(str: string);
-extern func clam_fopen(str: string, mode: FopenMode): Maybe!File;
-extern func clam_fclose(file: File);
-extern func clam_freadln(file: File): Maybe!string;
+extern func mellow_fopen(str: string, mode: FopenMode): Maybe!File;
+extern func mellow_fclose(file: File);
+extern func mellow_freadln(file: File): Maybe!string;
 
 func main(argv: []string) {
-    maybeFile := clam_fopen(argv[1], Read);
+    maybeFile := mellow_fopen(argv[1], Read);
     if (maybeFile is Some (file)) {
         writeln("File opened!");
-        while (clam_freadln(file) is Some (line)) {
+        while (mellow_freadln(file) is Some (line)) {
             write(line);
         }
-        clam_fclose(file);
+        mellow_fclose(file);
     }
     else {
         writeln("File not opened!");

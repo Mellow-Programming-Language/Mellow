@@ -3,9 +3,9 @@ extern struct File;
 
 extern func writeln(str: string);
 extern func write(str: string);
-extern func clam_fopen(str: string, mode: FopenMode): Maybe!File;
-extern func clam_fclose(file: File);
-extern func clam_freadln(file: File): Maybe!string;
+extern func mellow_fopen(str: string, mode: FopenMode): Maybe!File;
+extern func mellow_fclose(file: File);
+extern func mellow_freadln(file: File): Maybe!string;
 
 variant FopenMode {
     Read,
@@ -53,63 +53,76 @@ variant Expr {
     Output
 }
 
-struct Pair(T, U) {
-    left: T;
-    right: U;
-}
-
-func tokenizer(source: string): []Token {
-    tokens: []Token;
+func tokenizer(source: string, out: chan!(Maybe!Token)) {
     while (i := 0; i < source.length) {
         match (source[i]) {
-            '>' :: tokens ~= RightWakka;
-            '<' :: tokens ~= LeftWakka;
-            '+' :: tokens ~= Plus;
-            '-' :: tokens ~= Minus;
-            '[' :: tokens ~= LeftBrack;
-            ']' :: tokens ~= RightBrack;
-            '.' :: tokens ~= Period;
-            ',' :: tokens ~= Comma;
+            '>' :: out <-= Some!Token(RightWakka);
+            '<' :: out <-= Some!Token(LeftWakka);
+            '+' :: out <-= Some!Token(Plus);
+            '-' :: out <-= Some!Token(Minus);
+            '[' :: out <-= Some!Token(LeftBrack);
+            ']' :: out <-= Some!Token(RightBrack);
+            '.' :: out <-= Some!Token(Period);
+            ',' :: out <-= Some!Token(Comma);
         }
         i = i + 1;
     }
-    return tokens;
+    out <-= None!Token;
 }
 
-func innerParser(tokens: []Token, index: int): Maybe!(Pair!([]Expr, int)) {
+func balanced(source: string): bool {
+    count := 0;
+    while (i := 0; i < source.length) {
+        if (source[i] == '[') {
+            count = count + 1;
+        }
+        else if (source[i] == ']') {
+            if (count == 0) {
+                return false;
+            }
+            count = count - 1;
+        }
+        i = i + 1;
+    }
+    if (count == 0) {
+        return true;
+    }
+    return false;
+}
+
+func innerParser(tokens: chan!(Maybe!Token)): Maybe!([]Expr) {
     exprs: []Expr;
-    while (i := index; i < tokens.length) {
-        match (tokens[i]) {
+    while (<-tokens is Some(token)) {
+        match (token) {
             LeftWakka  :: exprs ~= MoveLeft;
             RightWakka :: exprs ~= MoveRight;
             Plus       :: exprs ~= Inc;
             Minus      :: exprs ~= Dec;
             Period     :: exprs ~= Output;
             Comma      :: exprs ~= Input;
-            RightBrack ::
-                return Some!(Pair!([]Expr, int))(
-                    Pair!([]Expr, int){
-                        left = exprs, right = i
-                    }
-                );
+            RightBrack :: return Some!([]Expr)(exprs);
             LeftBrack  ::
-                if (innerParser(tokens, i+1) is Some (pair)) {
-                    exprs ~= Loop (pair.left);
-                    i = pair.right;
+                if (innerParser(tokens) is Some(loop)) {
+                    exprs ~= Loop(loop);
                 }
                 else {
-                    return None!(Pair!([]Expr, int));
+                    return None!([]Expr);
                 }
         }
-        i = i + 1;
     }
-    return None!(Pair!([]Expr, int));
+    return None!([]Expr);
 }
 
-func parser(tokens: []Token): Maybe!([]Expr) {
+func parser(source: string): Maybe!([]Expr) {
+    if (!balanced(source)) {
+        writeln("Err: Unbalanced brackets");
+        return None!([]Expr);
+    }
+    tokens: chan!(Maybe!Token);
+    spawn tokenizer(source, tokens);
     exprs: []Expr;
-    while (i := 0; i < tokens.length) {
-        match (tokens[i]) {
+    while (<-tokens is Some(token)) {
+        match (token) {
             LeftWakka  :: exprs ~= MoveLeft;
             RightWakka :: exprs ~= MoveRight;
             Plus       :: exprs ~= Inc;
@@ -121,9 +134,8 @@ func parser(tokens: []Token): Maybe!([]Expr) {
                 return None!([]Expr);
             }
             LeftBrack  :: {
-                if (innerParser(tokens, i+1) is Some (pair)) {
-                    exprs ~= Loop (pair.left);
-                    i = pair.right;
+                if (innerParser(tokens) is Some(loop)) {
+                    exprs ~= Loop(loop);
                 }
                 else {
                     writeln("Err: Unmatched left bracket");
@@ -131,7 +143,6 @@ func parser(tokens: []Token): Maybe!([]Expr) {
                 }
             }
         }
-        i = i + 1;
     }
     return Some!([]Expr)(exprs);
 }
@@ -186,13 +197,15 @@ func innerInterpret(seq: []Expr, tape: []int, i: int): int {
     return i;
 }
 
-func interpret(program: []Expr) {
-    tape: [30000]int;
-    while (i := 0; i < tape.length) {
-        tape[i] = 0;
-        i = i + 1;
+func interpret(source: string) {
+    if (parser(source) is Some(program)) {
+        tape: [30000]int;
+        while (i := 0; i < tape.length) {
+            tape[i] = 0;
+            i = i + 1;
+        }
+        innerInterpret(program, tape, 0);
     }
-    innerInterpret(program, tape, 0);
 }
 
 func main(argv: []string) {
@@ -200,13 +213,11 @@ func main(argv: []string) {
         writeln("Usage: ./bf [filename]");
         return;
     }
-    if (clam_fopen(argv[1], Read) is Some(file)) {
+    if (mellow_fopen(argv[1], Read) is Some(file)) {
         source := "";
-        while (clam_freadln(file) is Some(line)) {
+        while (mellow_freadln(file) is Some(line)) {
             source = source ~ line;
         }
-        if (parser(tokenizer(source)) is Some (program)) {
-            interpret(program);
-        }
+        interpret(source);
     }
 }

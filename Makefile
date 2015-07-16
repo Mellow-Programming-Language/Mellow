@@ -32,8 +32,9 @@ runtime/runtime_multithread.o: runtime/callFunc_multithread.asm\
 							   runtime/scheduler.c runtime/scheduler.h
 	make runtime_multithread.o -C runtime
 
-stdlib/stdlib.o: stdlib/clam_internal.c stdlib/clam_internal.h stdlib/stdconv.c\
-				 stdlib/stdconv.h stdlib/stdio.c stdlib/stdio.h
+stdlib/stdlib.o: stdlib/mellow_internal.c stdlib/mellow_internal.h\
+				 stdlib/stdconv.c stdlib/stdconv.h stdlib/stdio.c\
+				 stdlib/stdio.h
 	make -C stdlib
 
 parser.d: lang.peg ParserGenerator/parserGenerator

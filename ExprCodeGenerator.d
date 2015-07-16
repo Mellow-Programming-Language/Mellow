@@ -432,13 +432,13 @@ string compileStringStringAppend(Context* vars)
     // Prime rdi with starting address of right section in left string
     str ~= "    mov    rdi, r8\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    add    rdi, r10\n";
     // Prime rsi with right string content
     str ~= "    mov    rsi, r9\n";
     str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     // Prime rdx with number of bytes to copy, the size of the right
     // string
@@ -451,7 +451,7 @@ string compileStringStringAppend(Context* vars)
     // Re-add a null byte
     str ~= "    mov    r13, r8\n";
     str ~= "    add    r13, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    add    r13, r10\n";
     str ~= "    add    r13, r11\n";
@@ -474,7 +474,7 @@ string compileStringStringAppend(Context* vars)
     str ~= "    mov    r13, r14\n";
     // Add ref count, string size, and null byte
     str ~= "    add    r13, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE
+                               + MELLOW_STR_SIZE
                                + 1).to!string
                               ~ "\n";
     str ~= "    mov    rdi, r13\n";
@@ -488,18 +488,18 @@ string compileStringStringAppend(Context* vars)
     // Put the null byte at the end of the string
     str ~= "    mov    r13, r15\n";
     str ~= "    add    r13, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    add    r13, rax\n";
     str ~= "    mov    byte [r13], 0\n";
     // Copy left portion of string into new allocation
     str ~= "    mov    rdi, rax\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rsi, r8\n";
     str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rdx, r10\n";
     str ~= compileRegSave(["r8", "r9", "r10", "r11", "rax"], vars);
@@ -508,12 +508,12 @@ string compileStringStringAppend(Context* vars)
     // Copy right portion of string into new allocation
     str ~= "    mov    rdi, rax\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    add    rdi, r10\n";
     str ~= "    mov    rsi, r9\n";
     str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rdx, r11\n";
     str ~= compileRegSave(["r8", "r9", "r10", "r11", "rax"], vars);
@@ -576,13 +576,13 @@ string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
     // Prime rdi with starting address of right section in left array
     str ~= "    mov    rdi, r8\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    add    rdi, r10\n";
     // Prime rsi with right array content
     str ~= "    mov    rsi, r9\n";
     str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     // Prime rdx with number of bytes to copy, the size of the right
     // array
@@ -614,7 +614,7 @@ string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
     str ~= "    mov    r13, r14\n";
     // Add ref count, array size
     str ~= "    add    r13, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rdi, r13\n";
     str ~= compileRegSave(["r8", "r9", "r10", "r11"], vars);
@@ -630,11 +630,11 @@ string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
     // Copy left portion of array into new allocation
     str ~= "    mov    rdi, rax\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rsi, r8\n";
     str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rdx, r10\n";
     str ~= "    imul   rdx, " ~ arrayTypeSize.to!string ~ "\n";
@@ -646,13 +646,13 @@ string compileArrayArrayAppend(Context* vars, uint arrayTypeSize)
     str ~= "    mov    r11, qword [rbp-" ~ r11Save ~ "]\n";
     str ~= "    mov    rdi, rax\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    imul   r10, " ~ arrayTypeSize.to!string ~ "\n";
     str ~= "    add    rdi, r10\n";
     str ~= "    mov    rsi, r9\n";
     str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rdx, r11\n";
     str ~= "    imul   rdx, " ~ arrayTypeSize.to!string ~ "\n";
@@ -711,7 +711,7 @@ string compileArrayElemAppend(Context* vars, uint arrayTypeSize)
     // Prime rdi with starting address of right section in left array
     str ~= "    mov    rdi, r8\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    add    rdi, r10\n";
     str ~= "    mov    " ~ getWordSize(arrayTypeSize)
@@ -732,7 +732,7 @@ string compileArrayElemAppend(Context* vars, uint arrayTypeSize)
     str ~= "    mov    r13, r14\n";
     // Add ref count, array size
     str ~= "    add    r13, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rdi, r13\n";
     str ~= compileRegSave(["r8", "r9", "r10", "r11"], vars);
@@ -747,11 +747,11 @@ string compileArrayElemAppend(Context* vars, uint arrayTypeSize)
     // Copy left portion of array into new allocation
     str ~= "    mov    rdi, rax\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rsi, r8\n";
     str ~= "    add    rsi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rdx, r10\n";
     str ~= "    imul   rdx, " ~ arrayTypeSize.to!string ~ "\n";
@@ -762,7 +762,7 @@ string compileArrayElemAppend(Context* vars, uint arrayTypeSize)
     str ~= "    mov    r10, qword [rbp-" ~ r10Save ~ "]\n";
     str ~= "    mov    rdi, rax\n";
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE
-                               + CLAM_STR_SIZE).to!string
+                               + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    imul   r10, " ~ arrayTypeSize.to!string ~ "\n";
     str ~= "    add    rdi, r10\n";
@@ -1091,7 +1091,7 @@ string compileStringLit(StringLitNode node, Context* vars)
     // and the size of the string itself rounded up to the nearest power of 2 +
     // 1 for the null byte
     auto strAllocSize = getAllocSize(stringLit.length) + REF_COUNT_SIZE
-                                                       + CLAM_STR_SIZE
+                                                       + MELLOW_STR_SIZE
                                                        + 1;
     str ~= "    ; allocate string, [" ~ ((stringLit.length < 10)
                                         ? stringLit
@@ -1112,7 +1112,7 @@ string compileStringLit(StringLitNode node, Context* vars)
     str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], rax\n";
     // Copy the string from the data section
     str ~= "    mov    rdi, rax\n";
-    str ~= "    add    rdi, " ~ (REF_COUNT_SIZE + CLAM_STR_SIZE).to!string
+    str ~= "    add    rdi, " ~ (REF_COUNT_SIZE + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rsi, " ~ label ~ "\n";
     str ~= "    mov    rdx, " ~ (stringLit.length + 1).to!string ~ "\n";

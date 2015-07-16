@@ -1,6 +1,7 @@
-This is a work-in-progress compiler for an imperative language that draws
-influence from D, Go, and functional languages, among others. The compiler
-exclusively targets x86-64 Linux.
+# The Mellow Programming Language
+
+Mellow is an imperative language that draws influence from D, Go, and functional
+languages, among others. This implementation exclusively targets x86-64 Linux.
 
 To build the compiler, run `make` in the toplevel project directory. Note that
 the `make` process will attempt to `git clone` a secondary repository (the
@@ -18,22 +19,22 @@ Programs under examples/ not guaranteed to compile, as some demonstrate
 features that aren't implemented yet.
 
 Interesting compilable examples:
-- intToString.clam
-- features.clam
-- mergesort.clam
-- quicksort.clam
-- isExpr.clam
-- tree.clam
-- LinkedList.clam
-- tokenizer.clam
-- bf_match.clam (a deliberately overengineered bf interpreter with no input
+- intToString.mlo
+- features.mlo
+- mergesort.mlo
+- quicksort.mlo
+- isExpr.mlo
+- tree.mlo
+- LinkedList.mlo
+- tokenizer.mlo
+- bf_match.mlo (a deliberately overengineered bf interpreter with no input
                  support, but should otherwise demonstrate most features, and
                  can handle invalid input. This file is an excellent
                  demonstration of many features)
-- bf_concurrent.clam (as bf_match.clam, while demonstrating concurrency
+- bf_concurrent.mlo (as bf_match.mlo, while demonstrating concurrency
                       features, but doesn't handle invalid input. This file
                       is an excellent demonstration of many features)
-- avl.clam (an implementation of an AVL self-balancing binary tree)
+- avl.mlo (an implementation of an AVL self-balancing binary tree)
 
 Incomplete list of working features:
 - variables
