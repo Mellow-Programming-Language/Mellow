@@ -47,10 +47,10 @@ ParserGenerator:
 	git clone https://github.com/CollinReeser/ParserGenerator.git
 
 clean:
-	rm compiler
-	rm *.o
-	rm runtime/*.o
-	rm stdlib/*.o
+	rm -f compiler
+	rm -f *.o
+	rm -f runtime/*.o
+	rm -f stdlib/*.o
 
 realclean: clean
 	rm -rf ParserGenerator
