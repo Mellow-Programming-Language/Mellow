@@ -32,6 +32,27 @@ void write(void* mellowStr)
     printf("%s", (char*)(mellowStr + STR_START_OFFSET));
 }
 
+void* readln()
+{
+
+    char* buffer = NULL;
+    size_t len = 0;
+
+    size_t bytesRead = getline(&buffer, &len, stdin);
+    uint32_t allocSize = getAllocSize(bytesRead);
+    // The 1 is for space for the null byte
+    void* mellowStr = malloc(
+        REF_COUNT_SIZE + MELLOW_STR_SIZE + allocSize + 1
+    );
+    // Set the ref count
+    ((uint32_t*)mellowStr)[0] = 1;
+    // Set the string length
+    ((uint32_t*)mellowStr)[1] = bytesRead;
+    memcpy(mellowStr + STR_START_OFFSET, buffer, bytesRead + 1);
+    free(buffer);
+    return mellowStr;
+}
+
 struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
 {
     // Allocate space for a Maybe!File, which needs space for the ref-count, the
@@ -115,6 +136,7 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
             // Set the string length
             ((uint32_t*)mellowStr)[1] = bytesRead;
             memcpy(mellowStr + STR_START_OFFSET, buffer, bytesRead + 1);
+            free(buffer);
             str->str = mellowStr;
         }
     }

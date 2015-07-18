@@ -44,6 +44,8 @@ struct MaybeStr
 // Write a mellow-string out to STDOUT
 void writeln(void* str);
 void write(void* str);
+// Read a mellow-string from STDIN
+void* readln();
 
 // Return a Maybe!File for use with file operations
 struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode);
