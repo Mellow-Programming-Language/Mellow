@@ -34,7 +34,6 @@ void write(void* mellowStr)
 
 void* readln()
 {
-
     char* buffer = NULL;
     size_t len = 0;
 
