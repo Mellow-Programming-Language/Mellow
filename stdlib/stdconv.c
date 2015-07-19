@@ -1,4 +1,7 @@
+#include <stdlib.h>
+#include <stdint.h>
 #include "stdconv.h"
+#include "mellow_internal.h"
 
 int ord(char c)
 {
@@ -15,7 +18,7 @@ void* charToString(char c)
     // Set the ref count
     ((uint32_t*)mellowStr)[0] = 1;
     // Set the string length
-    ((uint32_t*)mellowStr)[1] = bytesRead;
+    ((uint32_t*)mellowStr)[1] = 1;
     // Set the char in the string
     ((uint32_t*)mellowStr)[2] = c;
     // Set the null byte

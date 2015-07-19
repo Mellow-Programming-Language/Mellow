@@ -6,22 +6,6 @@
 #include "stdio.h"
 #include "mellow_internal.h"
 
-// Get the power-of-2 size larger than the input size, for use in array size
-// allocations. Arrays are always a power-of-2 in size.
-// Credit: Henry S. Warren, Jr.'s "Hacker's Delight.", and Larry Gritz from
-// http://stackoverflow.com/questions/364985/algorithm-for-finding-the-smallest-power-of-two-thats-greater-or-equal-to-a-giv
-unsigned long long getAllocSize(unsigned long long x)
-{
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    x |= x >> 32;
-    return x+1;
-}
-
 void writeln(void* mellowStr)
 {
     printf("%s\n", (char*)(mellowStr + STR_START_OFFSET));

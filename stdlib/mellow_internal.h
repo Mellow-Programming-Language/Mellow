@@ -26,4 +26,6 @@ void* mellow_allocString(const char* str, const uint32_t length);
 // Deallocate all memory allocated by mellow_allocString()
 void mellow_freeString(void* mellowString);
 
+unsigned long long getAllocSize(unsigned long long x);
+
 #endif
