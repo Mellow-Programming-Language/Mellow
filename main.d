@@ -8,6 +8,7 @@ import std.process;
 import std.file;
 import std.ascii;
 import std.random;
+import std.regex;
 import parser;
 import visitor;
 import Record;
@@ -89,6 +90,7 @@ EOF".write;
         writeln("Error: Could not read file [" ~ infileName ~ "].");
         return 0;
     }
+    source = stripComments(source);
     auto parser = new Parser(source);
     auto topNode = parser.parse();
     if (topNode is null)
@@ -203,6 +205,12 @@ EOF".write;
         }
     }
     return 0;
+}
+
+string stripComments(string source)
+{
+    // FIXME: This does not handle double slash in quotes
+    return replaceAll(source, regex(r"//.*\n", "g"), "\n");
 }
 
 string generateRandomFilename()
