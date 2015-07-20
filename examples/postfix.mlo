@@ -1,0 +1,137 @@
+// This program is a read-eval-print loop that accepts simple postfix
+// arithmetic expressions as input, evaluates the result, prints the result,
+// and waits for more input
+
+extern func writeln(str: string);
+extern func readln(): string;
+extern func ord(ch: char): int;
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant Maybe(T) {
+    Some (T),
+    None
+}
+
+variant Tree {
+    val (int),
+    add (Tree, Tree),
+    sub (Tree, Tree),
+    mul (Tree, Tree),
+    div (Tree, Tree),
+}
+
+variant Token {
+    numTok (int),
+    plusTok,
+    minusTok,
+    starTok,
+    slashTok,
+}
+
+func isANumber(ch: char): bool {
+    if (ch >= '0' && ch <= '9') {
+        return true;
+    }
+    return false;
+}
+
+func consumeNumber(str: string): (Maybe!Token, int) {
+    num := 0;
+    i := 0;
+    while (i < str.length && isANumber(str[i])) {
+        num = num * 10 + (ord(str[i]) - ord('0'));
+        i = i + 1;
+    }
+    if (i == 0) {
+        return (None!Token, 0);
+    }
+    return (Some!Token(numTok(num)), i);
+}
+
+func tokenize(str: string): []Token {
+    toks: []Token;
+    while (i := 0; i < str.length) {
+        match (str[i..]) {
+            [' ', ..] :: i = i + 1;
+            [x, ..] if (isANumber(x)) :: {
+                if ((num, upd) := consumeNumber(str[i..]); num is Some (t)) {
+                    toks = toks ~ t;
+                    i = i + upd;
+                }
+            }
+            ['+', ..] :: {
+                toks = toks ~ plusTok;
+                i = i + 1;
+            }
+            ['-', ..] :: {
+                toks = toks ~ minusTok;
+                i = i + 1;
+            }
+            ['*', ..] :: {
+                toks = toks ~ starTok;
+                i = i + 1;
+            }
+            ['/', ..] :: {
+                toks = toks ~ slashTok;
+                i = i + 1;
+            }
+            _ :: i = i + 1;
+        }
+    }
+    return toks;
+}
+
+func parse(toks: []Token): Maybe!Tree {
+    queue: []Tree;
+    foreach (x; toks) {
+        match (x) {
+            numTok (v) :: queue = queue ~ val (v);
+            plusTok if (queue.length >= 2) ::
+                queue = queue[..$-2] ~ add (queue[$-2], queue[$-1]);
+            minusTok if (queue.length >= 2) ::
+                queue = queue[..$-2] ~ sub (queue[$-2], queue[$-1]);
+            starTok if (queue.length >= 2) ::
+                queue = queue[..$-2] ~ mul (queue[$-2], queue[$-1]);
+            slashTok if (queue.length >= 2) ::
+                queue = queue[..$-2] ~ div (queue[$-2], queue[$-1]);
+            _ :: return None!Tree;
+        }
+    }
+    if (queue.length != 1) {
+        return None!Tree;
+    }
+    return Some!Tree(queue[0]);
+}
+
+func execute(tree: Tree): int {
+    match (tree) {
+        val (v)    :: return v;
+        add (l, r) :: return execute(l) + execute(r);
+        sub (l, r) :: return execute(l) - execute(r);
+        mul (l, r) :: return execute(l) * execute(r);
+        div (l, r) :: return execute(l) / execute(r);
+    }
+}
+
+func main() {
+    in := readln();
+    while (in != "quit\n") {
+        if (parse(tokenize(in)) is Some (t)) {
+            writeln(intToString(execute(t)));
+        }
+        else {
+            writeln("Malformed expression!");
+        }
+        in = readln();
+    }
+}
