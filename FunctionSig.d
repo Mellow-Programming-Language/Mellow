@@ -10,6 +10,24 @@ import typedecl;
 import Record;
 import utils;
 
+debug (FUNCTION_TYPECHECK_TRACE)
+{
+    string traceIndent;
+    string tracer(string funcName)
+    {
+        return `
+            string mixin_funcName = "` ~ funcName ~ `";
+            writeln(traceIndent, "Entered: ", mixin_funcName);
+            traceIndent ~= "  ";
+            scope(success)
+            {
+                traceIndent = traceIndent[0..$-2];
+                writeln(traceIndent, "Exiting: ", mixin_funcName);
+            }
+        `;
+    }
+}
+
 class FunctionSigBuilder : Visitor
 {
     private RecordBuilder records;
@@ -47,6 +65,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(ExternFuncDeclNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ExternFuncDeclNode"));
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         funcName = id;
@@ -65,6 +84,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(FuncDefNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefNode"));
         // Visit FuncSignatureNode
         node.children[0].accept(this);
         funcSig = new FuncSig();
@@ -84,6 +104,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(FuncSignatureNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncSignatureNode"));
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         funcName = id;
@@ -101,11 +122,13 @@ class FunctionSigBuilder : Visitor
 
     void visit(IdentifierNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IdentifierNode"));
         id = (cast(ASTTerminal)node.children[0]).token;
     }
 
     void visit(IdTupleNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("IdTupleNode"));
         idTuple = [];
         foreach (child; node.children)
         {
@@ -116,6 +139,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(FuncDefArgListNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefArgListNode"));
         foreach (child; node.children)
         {
             // Visit FuncSigArgNode
@@ -125,6 +149,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(FuncSigArgNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncSigArgNode"));
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         string argName = id;
@@ -152,6 +177,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(FuncReturnTypeNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncReturnTypeNode"));
         if (node.children.length > 0)
         {
             node.children[0].accept(this);
@@ -168,6 +194,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(VariableTypePairNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VariableTypePairNode"));
         // Visit IdentifierNode, populate 'id'
         node.children[0].accept(this);
         auto varName = id;
@@ -183,6 +210,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(VariableTypePairTupleNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("VariableTypePairTupleNode"));
         foreach (child; node.children)
         {
             child.accept(this);
@@ -191,6 +219,7 @@ class FunctionSigBuilder : Visitor
 
     void visit(UserTypeNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UserTypeNode"));
         node.children[0].accept(this);
         string userTypeName = id;
         auto aggregate = new AggregateType();

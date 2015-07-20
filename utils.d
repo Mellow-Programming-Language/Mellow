@@ -197,7 +197,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
         case TypeEnum.STRING:
         case TypeEnum.TUPLE:
         case TypeEnum.FUNCPTR:
-            return type;
+            break;
         case TypeEnum.AGGREGATE:
             foreach (ref t; type.aggregate.templateInstantiations)
             {
@@ -207,7 +207,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                     t = mappings[t.aggregate.typeName];
                 }
             }
-            return type.normalize(records);
+            return type;
         case TypeEnum.SET:
             if (type.set.setType.tag == TypeEnum.AGGREGATE
                 && type.set.setType.aggregate.typeName in mappings)
@@ -215,7 +215,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                 type.set.setType
                     = mappings[type.set.setType.aggregate.typeName];
             }
-            return type;
+            break;
         case TypeEnum.HASH:
             if (type.hash.keyType.tag == TypeEnum.AGGREGATE
                 && type.hash.keyType.aggregate.typeName in mappings)
@@ -229,7 +229,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                 type.hash.valueType
                     = mappings[type.hash.valueType.aggregate.typeName];
             }
-            return type;
+            break;
         case TypeEnum.ARRAY:
             if (type.array.arrayType.tag == TypeEnum.AGGREGATE
                 && type.array.arrayType.aggregate.typeName in mappings)
@@ -237,6 +237,13 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                 type.array.arrayType
                     = mappings[type.array.arrayType.aggregate.typeName];
             }
+            else if (type.array.arrayType.tag == TypeEnum.AGGREGATE)
+            {
+                type.array.arrayType = _instantiateTypeTemplate(
+                    type.array.arrayType
+                );
+            }
+            break;
         case TypeEnum.CHAN:
             if (type.chan.chanType.tag == TypeEnum.AGGREGATE
                 && type.chan.chanType.aggregate.typeName in mappings)
@@ -244,7 +251,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                 type.chan.chanType
                     = mappings[type.chan.chanType.aggregate.typeName];
             }
-            return type;
+            break;
         case TypeEnum.VARIANT:
             foreach (ref member; type.variantDef.members)
             {
@@ -270,7 +277,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                 member.constructorElems = typeTuple;
             }
             type.variantDef.instantiated = true;
-            return type;
+            break;
         case TypeEnum.STRUCT:
             foreach (ref member; type.structDef.members)
             {
@@ -287,8 +294,9 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
                 member.type = memberType;
             }
             type.structDef.instantiated = true;
-            return type;
+            break;
         }
+        return type;
     }
 
     auto type = templatedType.copy;
@@ -306,23 +314,23 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
     case TypeEnum.STRING:
     case TypeEnum.AGGREGATE:
     case TypeEnum.FUNCPTR:
-        return type;
+        break;
     case TypeEnum.SET:
         type.set.setType = _instantiateTypeTemplate(type.set.setType);
-        return type;
+        break;
     case TypeEnum.HASH:
         type.hash.keyType = _instantiateTypeTemplate(type.hash.keyType);
         type.hash.valueType = _instantiateTypeTemplate(type.hash.valueType);
-        return type;
+        break;
     case TypeEnum.ARRAY:
         type.array.arrayType = _instantiateTypeTemplate(type.array.arrayType);
-        return type;
+        break;
     case TypeEnum.TUPLE:
         foreach (ref tupleType; type.tuple.types)
         {
             tupleType = _instantiateTypeTemplate(tupleType);
         }
-        return type;
+        break;
     case TypeEnum.CHAN:
         if (type.chan.chanType.tag == TypeEnum.AGGREGATE
             && type.chan.chanType.aggregate.typeName in mappings)
@@ -330,7 +338,7 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
             type.chan.chanType
                 = mappings[type.chan.chanType.aggregate.typeName];
         }
-        return type;
+        break;
     case TypeEnum.VARIANT:
         type.variantDef.mappings = mappings;
         auto missing = mappings.keys
@@ -380,7 +388,7 @@ EOF";
             member.constructorElems = typeTuple;
         }
         type.variantDef.instantiated = true;
-        return type;
+        break;
     case TypeEnum.STRUCT:
         type.structDef.mappings = mappings;
         auto missing = mappings.keys
@@ -424,8 +432,9 @@ EOF";
             member.type = memberType;
         }
         type.structDef.instantiated = true;
-        return type;
+        break;
     }
+    return type;
 }
 
 VariantType* variantFromConstructor(RecordBuilder records, string constructor)

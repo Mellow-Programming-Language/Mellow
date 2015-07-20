@@ -99,6 +99,17 @@ EOF".write;
         return 0;
     }
     auto records = new RecordBuilder(cast(ProgramNode)topNode);
+    if (dump)
+    {
+        foreach (structDef; records.structDefs.values)
+        {
+            writeln(structDef.formatFull());
+        }
+        foreach (variantDef; records.variantDefs.values)
+        {
+            writeln(variantDef.format());
+        }
+    }
     // Just do function definitions
     auto funcDefs =
         (cast(ProgramNode)
@@ -115,14 +126,6 @@ EOF".write;
         funcSigs);
     if (dump)
     {
-        foreach (structDef; records.structDefs.values)
-        {
-            writeln(structDef.formatFull());
-        }
-        foreach (variantDef; records.variantDefs.values)
-        {
-            writeln(variantDef.format());
-        }
         foreach (sig; funcSigs)
         {
             sig.format.writeln;
