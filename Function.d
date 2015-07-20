@@ -660,7 +660,9 @@ class FunctionBuilder : Visitor
                         if (!resultType.array.arrayType.cmp(nextType))
                         {
                             throw new Exception(
-                                "Cannot append base type to unlike array type");
+                                "Cannot append base type to unlike array type\n"
+                                ~ "Left : " ~ resultType.format ~ "\n"
+                                ~ "Right: " ~ nextType.format);
                         }
                     }
                     else if (nextType.tag == TypeEnum.ARRAY)
@@ -668,14 +670,18 @@ class FunctionBuilder : Visitor
                         if (!nextType.array.arrayType.cmp(resultType))
                         {
                             throw new Exception(
-                                "Cannot append base type to unlike array type");
+                                "Cannot append base type to unlike array type\n"
+                                ~ "Left : " ~ resultType.format ~ "\n"
+                                ~ "Right: " ~ nextType.format);
                         }
                         resultType = nextType;
                     }
                     else
                     {
                         throw new Exception(
-                            "Cannot append two unlike, non-array types.");
+                            "Cannot append two unlike, non-array types.\n"
+                            ~ "Left : " ~ resultType.format ~ "\n"
+                            ~ "Right: " ~ nextType.format);
                     }
                 }
             }
