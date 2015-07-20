@@ -378,9 +378,52 @@ struct VariantMember
 
     VariantMember copy()
     {
+        // In order to solve the recurse-forever copy() bug, we need to
+        // be sure to transform any references to a variant type _back_ to
+        // an aggregate placeholder. Variant types are the only types that
+        // can be recursive, as it's not possible to write down the
+        // instantiation of a struct that contains itself as a member, but
+        // variant types can be written that way (as an instantiation of such
+        // a type necessitates the existence of a base variant constructor).
+        // So, for any VariantType value, transform it back into an aggregate
+        // placeholder of that type, otherwise just make a straight copy
         auto c = VariantMember();
         c.constructorName = this.constructorName;
-        c.constructorElems = this.constructorElems.copy;
+        if (this.constructorElems.tag == TypeEnum.TUPLE)
+        {
+            auto wrap = new Type();
+            wrap.tag = TypeEnum.TUPLE;
+            wrap.tuple = new TupleType();
+            Type*[] tupleCopy;
+            foreach (elem; this.constructorElems.tuple.types)
+            {
+                if (elem.tag == TypeEnum.VARIANT)
+                {
+                    auto agg = new Type();
+                    agg.tag = TypeEnum.AGGREGATE;
+                    agg.aggregate = new AggregateType();
+                    agg.aggregate.typeName = elem.variantDef.name;
+                    if (elem.variantDef.instantiated)
+                    {
+                        foreach (key; elem.variantDef.templateParams)
+                        {
+                            agg.aggregate.templateInstantiations ~=
+                                elem.variantDef.mappings[key];
+                        }
+                    }
+                }
+                else
+                {
+                    tupleCopy ~= elem.copy;
+                }
+            }
+            wrap.tuple.types = tupleCopy;
+            c.constructorElems = wrap;
+        }
+        else
+        {
+            c.constructorElems = this.constructorElems.copy;
+        }
         return c;
     }
 
