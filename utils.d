@@ -70,19 +70,15 @@ Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
         {
             if (member.type.aggregate.typeName in records.structDefs)
             {
-                auto instance = new Type();
-                instance.tag = TypeEnum.STRUCT;
-                instance.structDef =
-                    records.structDefs[member.type.aggregate.typeName].copy;
-                member.type = instance;
+                member.type = instantiateAggregate(
+                    records, member.type.aggregate
+                );
             }
             else if (member.type.aggregate.typeName in records.variantDefs)
             {
-                auto instance = new Type();
-                instance.tag = TypeEnum.VARIANT;
-                instance.variantDef =
-                    records.variantDefs[member.type.aggregate.typeName].copy;
-                member.type = instance;
+                member.type = instantiateAggregate(
+                    records, member.type.aggregate
+                );
             }
             else
             {
@@ -119,19 +115,15 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
                 }
                 else if (elemType.aggregate.typeName in records.structDefs)
                 {
-                    auto instance = new Type();
-                    instance.tag = TypeEnum.STRUCT;
-                    instance.structDef =
-                        records.structDefs[elemType.aggregate.typeName].copy;
-                    elemType = instance;
+                    elemType = instantiateAggregate(
+                        records, elemType.aggregate
+                    );
                 }
                 else if (elemType.aggregate.typeName in records.variantDefs)
                 {
-                    auto wrap = new Type();
-                    wrap.tag = TypeEnum.VARIANT;
-                    wrap.variantDef =
-                        records.variantDefs[elemType.aggregate.typeName].copy;
-                    elemType = wrap;
+                    elemType = instantiateAggregate(
+                        records, elemType.aggregate
+                    );
                 }
                 else
                 {
