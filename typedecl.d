@@ -411,6 +411,7 @@ struct VariantMember
                                 elem.variantDef.mappings[key];
                         }
                     }
+                    tupleCopy ~= agg;
                 }
                 else
                 {
