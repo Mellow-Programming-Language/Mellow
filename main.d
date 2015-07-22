@@ -45,7 +45,7 @@ int main(string[] argv)
     catch (Exception ex)
     {
         writeln("Error: Unrecognized cmdline argument.");
-        return 0;
+        return 1;
     }
     if (help)
     {
@@ -77,7 +77,7 @@ EOF".write;
     {
         writeln(argv);
         writeln("Error: Exactly one filename must be passed for compilation.");
-        return 0;
+        return 1;
     }
     auto infileName = argv[0];
     auto source = "";
@@ -88,7 +88,7 @@ EOF".write;
     catch (Exception ex)
     {
         writeln("Error: Could not read file [" ~ infileName ~ "].");
-        return 0;
+        return 1;
     }
     source = stripComments(source);
     auto parser = new Parser(source);
@@ -96,7 +96,7 @@ EOF".write;
     if (topNode is null)
     {
         writeln("Error: Could not parse program in file [" ~ infileName ~ "].");
-        return 0;
+        return 1;
     }
     auto records = new RecordBuilder(cast(ProgramNode)topNode);
     if (dump)
@@ -141,7 +141,7 @@ EOF".write;
         catch (Exception ex)
         {
             writeln("Error: Could not write outfile [" ~ outfileName ~ "].");
-            return 0;
+            return 1;
         }
     }
     else
@@ -158,7 +158,7 @@ EOF".write;
             writeln(
                 "Error: Could not write to tempfile [" ~ asmTmpfileName ~ "]."
             );
-            return 0;
+            return 1;
         }
         scope (exit) remove(asmTmpfileName);
         try
@@ -166,7 +166,15 @@ EOF".write;
             auto nasmPid = spawnProcess(
                 ["nasm", "-f", "elf64", "-o", objectTmpfileName, asmTmpfileName]
             );
-            wait(nasmPid);
+            auto retCode = wait(nasmPid);
+            if (retCode != 0)
+            {
+                writeln(
+                    "Error: [nasm -f elf64 -o " ~ objectTmpfileName ~ " "
+                    ~ asmTmpfileName ~ "] failed"
+                );
+                return retCode;
+            }
         }
         catch (ProcessException ex)
         {
@@ -178,32 +186,36 @@ EOF".write;
             scope (exit) remove(objectTmpfileName);
             try
             {
+                string[] cmd;
                 version (MULTITHREAD)
                 {
-                    auto gccPid = spawnProcess(
-                        [
-                            "gcc", "-pthread", "-o", outfileName,
-                            objectTmpfileName, stdlibPath, runtimePath
-                        ]
-                    );
+                    cmd = [
+                        "gcc", "-pthread", "-o", outfileName,
+                        objectTmpfileName, stdlibPath, runtimePath
+                    ];
+                    auto gccPid = spawnProcess(cmd);
                 }
                 else
                 {
-                    auto gccPid = spawnProcess(
-                        [
-                            "gcc", "-o", outfileName, objectTmpfileName,
-                            stdlibPath, runtimePath
-                        ]
-                    );
+                    cmd = [
+                        "gcc", "-o", outfileName, objectTmpfileName,
+                        stdlibPath, runtimePath
+                    ];
+                    auto gccPid = spawnProcess(cmd);
                 }
-                wait(gccPid);
+                auto retCode = wait(gccPid);
+                if (retCode != 0)
+                {
+                    writeln("Error: [" ~ cmd.join(" ") ~ "] failed");
+                    return retCode;
+                }
             }
             catch (ProcessException ex)
             {
                 writeln(
                     "Error: Could not exec [gcc]. Do you have it installed?"
                 );
-                return 0;
+                return 1;
             }
         }
     }
