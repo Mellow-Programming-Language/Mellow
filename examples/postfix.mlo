@@ -39,10 +39,7 @@ variant Token {
 }
 
 func isANumber(ch: char): bool {
-    if (ch >= '0' && ch <= '9') {
-        return true;
-    }
-    return false;
+    return ch >= '0' && ch <= '9';
 }
 
 func consumeNumber(str: string): (Maybe!Token, int) {
