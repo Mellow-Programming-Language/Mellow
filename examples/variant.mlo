@@ -1,6 +1,8 @@
 variant Expr
 {
-    Pass
-    Add (Expr, int)
-    Mult (int, int)
+    Pass,
+    Add (Expr, int),
+    Mult (int, int),
 }
+
+func main() {}
