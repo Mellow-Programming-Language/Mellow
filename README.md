@@ -35,6 +35,7 @@ Interesting compilable examples:
                       features, but doesn't handle invalid input. This file
                       is an excellent demonstration of many features)
 - avl.mlo (an implementation of an AVL self-balancing binary tree)
+- postfix.mlo (A simple commandline postfix expression interpreter)
 
 Incomplete list of working features:
 - variables
