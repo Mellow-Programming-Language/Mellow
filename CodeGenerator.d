@@ -138,6 +138,9 @@ auto getChar(string charRep)
         case '?':
             code = '\?';
             break;
+        case '0':
+            code = '\0';
+            break;
         default:
             code = charRep[1];
             break;
