@@ -1080,6 +1080,15 @@ string compileStringLit(StringLitNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto stringLit = (cast(ASTTerminal)node.children[0]).token[1..$-1];
+    auto strTrueLength = 0;
+    for (auto i = 0; i < stringLit.length; i++)
+    {
+        strTrueLength++;
+        if (stringLit[i] == '\\')
+        {
+            i++;
+        }
+    }
     auto label = vars.getUniqDataLabel();
     auto entry = new DataEntry();
     entry.label = label;
@@ -1090,10 +1099,10 @@ string compileStringLit(StringLitNode node, Context* vars)
     // the size of the refcount section, the size of the string size section,
     // and the size of the string itself rounded up to the nearest power of 2 +
     // 1 for the null byte
-    auto strAllocSize = getAllocSize(stringLit.length) + REF_COUNT_SIZE
-                                                       + MELLOW_STR_SIZE
-                                                       + 1;
-    str ~= "    ; allocate string, [" ~ ((stringLit.length < 10)
+    auto strAllocSize = getAllocSize(strTrueLength) + REF_COUNT_SIZE
+                                                    + MELLOW_STR_SIZE
+                                                    + 1;
+    str ~= "    ; allocate string, [" ~ ((strTrueLength < 10)
                                         ? stringLit
                                         : (stringLit[0..10])
                                        ) ~ "]\n";
@@ -1107,7 +1116,7 @@ string compileStringLit(StringLitNode node, Context* vars)
     // Set the length of the string, where the string size location is just
     // past the ref count
     str ~= "    mov    dword [rax+" ~ REF_COUNT_SIZE.to!string ~ "], "
-        ~ stringLit.length.to!string ~ "\n";
+        ~ strTrueLength.to!string ~ "\n";
     vars.allocateStackSpace(8);
     str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], rax\n";
     // Copy the string from the data section
@@ -1115,7 +1124,7 @@ string compileStringLit(StringLitNode node, Context* vars)
     str ~= "    add    rdi, " ~ (REF_COUNT_SIZE + MELLOW_STR_SIZE).to!string
                               ~ "\n";
     str ~= "    mov    rsi, " ~ label ~ "\n";
-    str ~= "    mov    rdx, " ~ (stringLit.length + 1).to!string ~ "\n";
+    str ~= "    mov    rdx, " ~ (strTrueLength + 1).to!string ~ "\n";
     str ~= "    call   memcpy\n";
     str ~= "    mov    rax, qword [rbp-" ~ vars.getTop.to!string ~ "]\n";
     vars.deallocateStackSpace(8);

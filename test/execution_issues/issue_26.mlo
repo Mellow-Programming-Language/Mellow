@@ -1,0 +1,13 @@
+// ISSUE: 26
+// EXPECTS: "Correct Length! First Things ' Stuff New String"
+
+extern func write(str: string);
+extern func writeln(str: string);
+
+func main() {
+    str := "First " ~ "Things \' Stuff " ~ "New " ~ "String";
+    if (str.length == 31) {
+        write("Correct Length! ");
+    }
+    writeln(str);
+}
