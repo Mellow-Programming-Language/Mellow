@@ -1985,6 +1985,14 @@ class FunctionBuilder : Visitor
             throw new Exception("Variant constructor does not exist");
         }
         auto member = members[0];
+        if (member.constructorElems.tag == TypeEnum.VOID)
+        {
+            throw new Exception(
+                "Variant constructor [" ~ constructorName ~ "] of variant ["
+                ~ matchType.variantDef.format ~ "]\nin `match` does not contain "
+                ~ "any values to deconstruct"
+            );
+        }
         if (member.constructorElems.tuple.types.length
             != node.children[1..$].length)
         {
