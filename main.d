@@ -225,7 +225,7 @@ EOF".write;
 string stripComments(string source)
 {
     // FIXME: This does not handle double slash in quotes
-    return replaceAll(source, regex(r"//.*\n", "g"), "\n");
+    return replaceAll(source, regex(r"//.*$", "g"), "\n");
 }
 
 string generateRandomFilename()
