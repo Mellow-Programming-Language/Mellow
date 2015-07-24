@@ -1,0 +1,232 @@
+// A basic Trie (Digital Tree) implementation as key-value map.
+
+extern func writeln(str: string);
+extern func charToString(c: char): string;
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant Maybe(T) {
+    Some (T),
+    None
+}
+
+variant Trie(T) {
+    Root (Maybe!T, []Trie!T),
+    Node (Maybe!T, char, []Trie!T)
+}
+
+func tryChildren(T)(subTries: []Trie!T, c: char): Maybe!int {
+    foreach (i, child; subTries) {
+        match (child) {
+            Node (_, x, _) if (x == c) :: return Some!int(i);
+        }
+    }
+    return None!int;
+}
+
+func findChild(T)(trie: Trie!T, c: char): Maybe!int {
+    match(trie) {
+        Root (_, subTries) ::
+            return tryChildren!T(subTries, c);
+        Node (_, _, subTries) :: {
+            return tryChildren!T(subTries, c);
+        }
+    }
+}
+
+func find(T)(trie: Trie!T, key: string): Maybe!T {
+    match (trie) {
+        Root (subVal, subTries) if (key == "") :: return subVal;
+        Root (subVal, subTries) :: 
+            match (findChild!T(trie, key[0])) {
+                Some (i) if (key.length > 1) :: return find!T(subTries[i], key[1..]);
+                Some (i)                     :: return find!T(subTries[i], "");
+                _                            :: return None!T;
+            }       
+        Node (subVal, subChar, subTries) if (key == "") :: return subVal;
+        Node (subVal, subChar, subTries) :: 
+            match (findChild!T(trie, key[0])) {
+                Some (i) if (key.length > 1) :: return find!T(subTries[i], key[1..]);
+                Some (i)                     :: return find!T(subTries[i], "");
+                _                            :: return None!T;
+            }
+    }
+}
+
+func printTrieInt(trie: Trie!int) { printTrieIndentInt(trie, ""); }
+func printTrieIndentInt(trie: Trie!int, indent: string) {
+    match (trie) {
+        Root (Some (x), arr) :: {
+            writeln(indent ~ "Root, Val: " ~ intToString(x));
+            foreach (a; arr) {
+                printTrieIndentInt(a, indent ~ "  ");
+            }
+        }
+        Root (None, arr) :: {
+            writeln(indent ~ "Root");
+            foreach (a; arr) {
+                printTrieIndentInt(a, indent ~ "  ");
+            }
+        }
+        Node (Some (x), c, arr) :: {
+            writeln(indent ~ "Node: " ~ charToString(c) ~ ", Val: " ~ intToString(x));
+            foreach (a; arr) {
+                printTrieIndentInt(a, indent ~ "  ");
+            }
+        }
+        Node (None, c, arr) :: {
+            writeln(indent ~ "Node: " ~ charToString(c));
+            foreach (a; arr) {
+                printTrieIndentInt(a, indent ~ "  ");
+            }
+        }
+    }
+}
+
+func printTrieString(trie: Trie!string) { printTrieIndentString(trie, ""); }
+func printTrieIndentString(trie: Trie!string, indent: string) {
+    match (trie) {
+        Root (Some (x), arr) :: {
+            writeln(indent ~ "Root, Val: " ~ x);
+            foreach (a; arr) {
+                printTrieIndentString(a, indent ~ "  ");
+            }
+        }
+        Root (None, arr) :: {
+            writeln(indent ~ "Root");
+            foreach (a; arr) {
+                printTrieIndentString(a, indent ~ "  ");
+            }
+        }
+        Node (Some (x), c, arr) :: {
+            writeln(indent ~ "Node: " ~ charToString(c) ~ ", Val: " ~ x);
+            foreach (a; arr) {
+                printTrieIndentString(a, indent ~ "  ");
+            }
+        }
+        Node (None, c, arr) :: {
+            writeln(indent ~ "Node: " ~ charToString(c));
+            foreach (a; arr) {
+                printTrieIndentString(a, indent ~ "  ");
+            }
+        }
+    }
+}
+
+func insert(T)(trie: Trie!T, key: string, val: T): Trie!T {
+    match (trie) {
+        Root (_, subTries) if (key == "") :: 
+            return Root!T(Some!T(val), subTries);
+        Root (subVal, subTries) ::
+            return Root!T(subVal, insertSubTrie!T(trie, key, val, subTries));        
+        Node (_, subChar, subTries) if (key == "") :: 
+            return Node!T(Some!T(val), subChar, subTries);
+        Node (subVal, subChar, subTries) ::
+            return Node!T(subVal, subChar, insertSubTrie!T(trie, key, val, subTries));
+    }
+}
+
+func insertSubTrie(T)(trie: Trie!T, key: string, val: T, subTries: []Trie!T): []Trie!T {
+    match (findChild!T(trie, key[0])) {
+        Some (i) if (key.length > 1)    ::
+            return subTries[..i] ~ insert!T(subTries[i], key[1..], val) ~ subTries[i+1..];
+        Some (i)                        ::
+            return subTries[..i] ~ insert!T(subTries[i], "", val) ~ subTries[i+1..];
+        None if (key.length > 1)        :: 
+            return subTries ~ insert!T(createNode!T(key[0]), key[1..], val);
+        None                            ::
+            return subTries ~ insert!T(createNode!T(key[0]), "", val);
+    }
+}
+
+func createTrie(T)(): Trie!T {
+    arr: []Trie!T;
+    return Root!T(None!T, arr);
+}
+
+func createNode(T)(c: char): Trie!T {
+    arr: []Trie!T;
+    return Node!T(None!T, c, arr);
+} 
+
+func main() {
+
+    // Manual constuction of integer Trie
+    intArr: []Trie!int;
+    intTrie := Root!int(
+        None!int, [
+            Node!int(
+                Some!int(25), 'I', [
+                    Node!int(Some!int(56), 'S', intArr),
+                    Node!int(Some!int(143), 'N', intArr)
+                ]
+            ), 
+            Node!int(Some!int(13), 'A', intArr)
+        ]
+    );
+    printTrieInt(intTrie);
+
+    // Search for key "IN" in integer trie
+    num := find!int(intTrie, "IN");
+    if (num is Some(x)) {
+        writeln("Found: " ~ intToString(x));
+    } else {
+        writeln("NONE");
+    }
+
+
+    // Manual constuction of string Trie
+    strArr: []Trie!string;
+    strTrie := Root!string(
+        None!string, [
+            Node!string(
+                Some!string("This is I"), 'I', [
+                    Node!string(Some!string("This is S"), 'S', strArr),
+                    Node!string(Some!string("This is N"), 'N', strArr)
+                ]
+            ), 
+            Node!string(Some!string("This is A"), 'A', strArr)
+        ]
+    );
+    printTrieString(strTrie);
+
+    // Search for key "IS" in string trie
+    str := find!string(strTrie, "IS");
+    if (str is Some(x)) {
+        writeln("Found: " ~ x);
+    } else {
+        writeln("NONE");
+    }
+
+
+    // Construct new integer Trie and insert key-value pairs
+    newTrie := createTrie!int();
+    printTrieInt(newTrie);
+    newTrie := insert!int(newTrie, "YES", 1234);
+    newTrie := insert!int(newTrie, "", 1001);
+    newTrie := insert!int(newTrie, "YEAH", 243);
+    newTrie := insert!int(newTrie, "NO", 11243);
+    newTrie := insert!int(newTrie, "NOPE", 2334);
+    newTrie := insert!int(newTrie, "A", 1253);
+    newTrie := insert!int(newTrie, "ALL", 1423);
+    newTrie := insert!int(newTrie, "YEA", 22343);
+    printTrieInt(newTrie);
+
+    // Search for inserted and non-existant keys
+    if (find!int(newTrie, "") is Some(x)) { writeln("Found: \"\" = " ~ intToString(x)); } 
+    if (find!int(newTrie, "IN") is Some(x)) { writeln("Found: IN = " ~ intToString(x)); } 
+    if (find!int(newTrie, "YES") is Some(x)) { writeln("Found: YES = " ~ intToString(x)); } 
+    if (find!int(newTrie, "NO") is Some(x)) { writeln("Found: NO = " ~ intToString(x)); } 
+    if (find!int(newTrie, "ALL") is Some(x)) { writeln("Found: ALL = " ~ intToString(x)); } 
+    if (find!int(newTrie, "YEA") is Some(x)) { writeln("Found: YEA = " ~ intToString(x)); } 
+
+}
