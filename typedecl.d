@@ -1080,7 +1080,11 @@ Type* promoteNumeric(Type* left, Type* right)
 {
     if (!left.isNumeric || !right.isNumeric)
     {
-        throw new Exception("Cannot promote non-numeric type.");
+        throw new Exception(
+            "Cannot promote non-numeric type.\n"
+            ~ "Left Type : " ~ left.format ~ "\n"
+            ~ "Right Type: " ~ right.format
+        );
     }
     auto promote = new Type;
     switch (left.tag)
