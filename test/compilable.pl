@@ -19,12 +19,12 @@ my @examplesFiles = grep {
 } readdir(DIR);
 closedir(DIR);
 
+chdir($binDir);
+
 unless (-x $compiler) {
-    chdir($binDir);
     unless (system("make") == 0 && -x $compiler) {
         die "Failed to 'make' non-existing $compiler\n";
     }
-    chdir($scriptDir);
 }
 
 foreach my $file (@examplesFiles) {
@@ -37,5 +37,7 @@ foreach my $file (@examplesFiles) {
 if (-e $dummyFile) {
     unlink $dummyFile;
 }
+
+chdir($scriptDir);
 
 done_testing;
