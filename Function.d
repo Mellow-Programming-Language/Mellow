@@ -442,7 +442,9 @@ class FunctionBuilder : Visitor
                 {
                     throw new Exception(
                         "Mismatched types for equality cmp in function ["
-                        ~ funcSigs[$-1].funcName ~ "]"
+                        ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "Left Type : " ~ resultType.format ~ "\n"
+                        ~ "Right Type: " ~ nextType.format
                     );
                 }
                 break;
@@ -452,8 +454,10 @@ class FunctionBuilder : Visitor
                     || !resultType.set.setType.cmp(nextType.set.setType))
                 {
                     throw new Exception(
-                        "Mismatched types in <in> op in function ["
-                        ~ funcSigs[$-1].funcName ~ "]"
+                        "Mismatched types in `<in>` op in function ["
+                        ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "Left Type : " ~ resultType.format ~ "\n"
+                        ~ "Right Type: " ~ nextType.format
                     );
                 }
                 break;
@@ -462,8 +466,10 @@ class FunctionBuilder : Visitor
                     || !nextType.set.setType.cmp(resultType))
                 {
                     throw new Exception(
-                        "Mismatched types in in op in function ["
-                        ~ funcSigs[$-1].funcName ~ "]"
+                        "Mismatched types in `in` op in function ["
+                        ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "Left Type : " ~ resultType.format ~ "\n"
+                        ~ "Right Type: " ~ nextType.format
                     );
                 }
                 break;
