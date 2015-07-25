@@ -46,14 +46,14 @@ func findChild(T)(trie: Trie!T, c: char): Maybe!int {
 func find(T)(trie: Trie!T, key: string): Maybe!T {
     match (trie) {
         Root (subVal, subTries) if (key == "") :: return subVal;
-        Root (subVal, subTries) :: 
+        Root (subVal, subTries) ::
             match (findChild!T(trie, key[0])) {
                 Some (i) if (key.length > 1) :: return find!T(subTries[i], key[1..]);
                 Some (i)                     :: return find!T(subTries[i], "");
                 _                            :: return None!T;
-            }       
+            }
         Node (subVal, subChar, subTries) if (key == "") :: return subVal;
-        Node (subVal, subChar, subTries) :: 
+        Node (subVal, subChar, subTries) ::
             match (findChild!T(trie, key[0])) {
                 Some (i) if (key.length > 1) :: return find!T(subTries[i], key[1..]);
                 Some (i)                     :: return find!T(subTries[i], "");
@@ -124,11 +124,11 @@ func printTrieIndentString(trie: Trie!string, indent: string) {
 
 func insert(T)(trie: Trie!T, key: string, val: T): Trie!T {
     match (trie) {
-        Root (_, subTries) if (key == "") :: 
+        Root (_, subTries) if (key == "") ::
             return Root!T(Some!T(val), subTries);
         Root (subVal, subTries) ::
-            return Root!T(subVal, insertSubTrie!T(trie, key, val, subTries));        
-        Node (_, subChar, subTries) if (key == "") :: 
+            return Root!T(subVal, insertSubTrie!T(trie, key, val, subTries));
+        Node (_, subChar, subTries) if (key == "") ::
             return Node!T(Some!T(val), subChar, subTries);
         Node (subVal, subChar, subTries) ::
             return Node!T(subVal, subChar, insertSubTrie!T(trie, key, val, subTries));
@@ -141,7 +141,7 @@ func insertSubTrie(T)(trie: Trie!T, key: string, val: T, subTries: []Trie!T): []
             return subTries[..i] ~ insert!T(subTries[i], key[1..], val) ~ subTries[i+1..];
         Some (i)                        ::
             return subTries[..i] ~ insert!T(subTries[i], "", val) ~ subTries[i+1..];
-        None if (key.length > 1)        :: 
+        None if (key.length > 1)        ::
             return subTries ~ insert!T(createNode!T(key[0]), key[1..], val);
         None                            ::
             return subTries ~ insert!T(createNode!T(key[0]), "", val);
@@ -149,28 +149,25 @@ func insertSubTrie(T)(trie: Trie!T, key: string, val: T, subTries: []Trie!T): []
 }
 
 func createTrie(T)(): Trie!T {
-    arr: []Trie!T;
-    return Root!T(None!T, arr);
+    return Root!T(None!T, []);
 }
 
 func createNode(T)(c: char): Trie!T {
-    arr: []Trie!T;
-    return Node!T(None!T, c, arr);
-} 
+    return Node!T(None!T, c, []);
+}
 
 func main() {
 
     // Manual constuction of integer Trie
-    intArr: []Trie!int;
     intTrie := Root!int(
         None!int, [
             Node!int(
                 Some!int(25), 'I', [
-                    Node!int(Some!int(56), 'S', intArr),
-                    Node!int(Some!int(143), 'N', intArr)
+                    Node!int(Some!int(56), 'S', []),
+                    Node!int(Some!int(143), 'N', [])
                 ]
-            ), 
-            Node!int(Some!int(13), 'A', intArr)
+            ),
+            Node!int(Some!int(13), 'A', [])
         ]
     );
     printTrieInt(intTrie);
@@ -185,16 +182,15 @@ func main() {
 
 
     // Manual constuction of string Trie
-    strArr: []Trie!string;
     strTrie := Root!string(
         None!string, [
             Node!string(
                 Some!string("This is I"), 'I', [
-                    Node!string(Some!string("This is S"), 'S', strArr),
-                    Node!string(Some!string("This is N"), 'N', strArr)
+                    Node!string(Some!string("This is S"), 'S', []),
+                    Node!string(Some!string("This is N"), 'N', [])
                 ]
-            ), 
-            Node!string(Some!string("This is A"), 'A', strArr)
+            ),
+            Node!string(Some!string("This is A"), 'A', [])
         ]
     );
     printTrieString(strTrie);
@@ -222,11 +218,11 @@ func main() {
     printTrieInt(newTrie);
 
     // Search for inserted and non-existant keys
-    if (find!int(newTrie, "") is Some(x)) { writeln("Found: \"\" = " ~ intToString(x)); } 
-    if (find!int(newTrie, "IN") is Some(x)) { writeln("Found: IN = " ~ intToString(x)); } 
-    if (find!int(newTrie, "YES") is Some(x)) { writeln("Found: YES = " ~ intToString(x)); } 
-    if (find!int(newTrie, "NO") is Some(x)) { writeln("Found: NO = " ~ intToString(x)); } 
-    if (find!int(newTrie, "ALL") is Some(x)) { writeln("Found: ALL = " ~ intToString(x)); } 
-    if (find!int(newTrie, "YEA") is Some(x)) { writeln("Found: YEA = " ~ intToString(x)); } 
+    if (find!int(newTrie, "") is Some(x)) { writeln("Found: \"\" = " ~ intToString(x)); }
+    if (find!int(newTrie, "IN") is Some(x)) { writeln("Found: IN = " ~ intToString(x)); }
+    if (find!int(newTrie, "YES") is Some(x)) { writeln("Found: YES = " ~ intToString(x)); }
+    if (find!int(newTrie, "NO") is Some(x)) { writeln("Found: NO = " ~ intToString(x)); }
+    if (find!int(newTrie, "ALL") is Some(x)) { writeln("Found: ALL = " ~ intToString(x)); }
+    if (find!int(newTrie, "YEA") is Some(x)) { writeln("Found: YEA = " ~ intToString(x)); }
 
 }
