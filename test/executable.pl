@@ -19,6 +19,8 @@ my @executableFiles = grep {
 } readdir(DIR);
 closedir(DIR);
 
+@executableFiles = sort @executableFiles;
+
 chdir($binDir);
 
 unless (-x $compiler) {

@@ -1,0 +1,6 @@
+// ISSUE: 25
+// EXPECTS: failure
+
+func main() {
+    arr := [];
+}

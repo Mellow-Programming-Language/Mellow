@@ -1,0 +1,52 @@
+// ISSUE: 25
+// EXPECTS: "3, 0, 3, 0, 3, 0, "
+
+extern func writeln(str: string);
+extern func write(str: string);
+
+func intToString(val: int): string {
+    if (val < 0) {
+        return "-" ~ intToString(val * -1);
+    }
+    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (val < 10) {
+        return convert[val];
+    }
+    return intToString(val / 10) ~ intToString(val % 10);
+}
+
+variant TestVariant {
+    Value ([]int),
+    Leaf
+}
+
+struct TestStruct {
+    values: []int;
+    i: int;
+}
+
+func testFunc(arr: []int) {
+    write(intToString(arr.length) ~ ", ");
+}
+
+func main() {
+    testFunc([1, 2, 3]);
+    testFunc([]);
+    s1 := TestStruct {
+        i = 1, values = [1, 2, 3]
+    };
+    s2 := TestStruct {
+        i = 1, values = []
+    };
+    v1 := Value ([1, 2, 3]);
+    v2 := Value ([]);
+    testFunc(s1.values);
+    testFunc(s2.values);
+    if (v1 is Value (vs)) {
+        testFunc(vs);
+    }
+    if (v2 is Value (vs)) {
+        testFunc(vs);
+    }
+    writeln("");
+}

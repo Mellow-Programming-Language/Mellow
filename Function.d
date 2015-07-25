@@ -925,6 +925,13 @@ class FunctionBuilder : Visitor
         {
             auto assignedType = memberAssigns[key];
             auto expectedType = membersActual[key];
+            // Handle case of instantiating array as "[]"
+            if (assignedType.tag == TypeEnum.ARRAY
+                && assignedType.array.arrayType.tag == TypeEnum.VOID
+                && expectedType.tag == TypeEnum.ARRAY)
+            {
+                assignedType = expectedType.copy;
+            }
             if (!assignedType.cmp(expectedType))
             {
                 throw new Exception(
@@ -944,25 +951,34 @@ class FunctionBuilder : Visitor
     void visit(ArrayLiteralNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ArrayLiteralNode"));
-        node.children[0].accept(this);
-        auto valType = builderStack[$-1][$-1];
-        builderStack[$-1] = builderStack[$-1][0..$-1];
-        foreach (child; node.children[1..$])
-        {
-            child.accept(this);
-            auto nextType = builderStack[$-1][$-1];
-            builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (!valType.cmp(nextType))
-            {
-                throw new Exception(
-                    "Non-uniform type in array literal in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
-                );
-            }
-        }
         auto arrayType = new ArrayType();
-        arrayType.arrayType = valType;
         auto type = new Type();
+        if (node.children.length == 0)
+        {
+            auto voidType = new Type();
+            voidType.tag = TypeEnum.VOID;
+            arrayType.arrayType = voidType;
+        }
+        else
+        {
+            node.children[0].accept(this);
+            auto valType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            foreach (child; node.children[1..$])
+            {
+                child.accept(this);
+                auto nextType = builderStack[$-1][$-1];
+                builderStack[$-1] = builderStack[$-1][0..$-1];
+                if (!valType.cmp(nextType))
+                {
+                    throw new Exception(
+                        "Non-uniform type in array literal in function ["
+                        ~ funcSigs[$-1].funcName ~ "]"
+                    );
+                }
+            }
+            arrayType.arrayType = valType;
+        }
         type.tag = TypeEnum.ARRAY;
         type.array = arrayType;
         builderStack[$-1] ~= type;
@@ -1135,6 +1151,13 @@ class FunctionBuilder : Visitor
             }
             foreach (varName, varType; lockstep(varNames, tupleTypes))
             {
+                if (varType.tag == TypeEnum.ARRAY
+                    && varType.array.arrayType.tag == TypeEnum.VOID)
+                {
+                    throw new Exception(
+                        "Cannot infer contained type of empty array literal"
+                    );
+                }
                 auto pair = new VarTypePair();
                 pair.varName = varName;
                 pair.type = varType;
@@ -1147,6 +1170,13 @@ class FunctionBuilder : Visitor
             string varName = id;
             node.children[1].accept(this);
             auto varType = builderStack[$-1][$-1];
+            if (varType.tag == TypeEnum.ARRAY
+                && varType.array.arrayType.tag == TypeEnum.VOID)
+            {
+                throw new Exception(
+                    "Cannot infer contained type of empty array literal"
+                );
+            }
             builderStack[$-1] = builderStack[$-1][0..$-1];
             auto pair = new VarTypePair();
             pair.varName = varName;
@@ -1516,6 +1546,14 @@ class FunctionBuilder : Visitor
                 auto argPassed = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
                 argExpected.type = normalize(argExpected.type, records);
+                // Reconcile case of having passed a "[]" as an array literal
+                // for this argument to the function
+                if (argPassed.tag == TypeEnum.ARRAY
+                    && argPassed.array.arrayType.tag == TypeEnum.VOID
+                    && argExpected.type.tag == TypeEnum.ARRAY)
+                {
+                    argPassed = argExpected.type.copy;
+                }
                 if (!argPassed.cmp(argExpected.type))
                 {
                     throw new Exception(
@@ -1557,6 +1595,14 @@ class FunctionBuilder : Visitor
                 auto typeGot = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
                 typeExpected = normalize(typeExpected, records);
+                // Reconcile case of passing empty array literal "[]" as value
+                // in instantiating this variant constructor
+                if (typeGot.tag == TypeEnum.ARRAY
+                    && typeGot.array.arrayType.tag == TypeEnum.VOID
+                    && typeExpected.tag == TypeEnum.ARRAY)
+                {
+                    typeGot = typeExpected.copy;
+                }
                 if (!typeExpected.cmp(typeGot))
                 {
                     throw new Exception(

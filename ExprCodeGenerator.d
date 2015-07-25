@@ -1013,7 +1013,11 @@ string compileParenExpr(ParenExprNode node, Context* vars)
 string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    auto elemSize = node.children[0].data["type"].get!(Type*).size;
+    auto elemSize = 0;
+    if (node.children.length > 0)
+    {
+        elemSize = node.children[0].data["type"].get!(Type*).size;
+    }
     auto numElems = node.children.length;
     auto allocLength = getAllocSize(numElems);
     // The 8 is the ref count area and the array length area, each 4 bytes

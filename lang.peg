@@ -184,7 +184,7 @@ ValueTuple :: #"(" BoolExpr (#"," BoolExpr)+ #")";
 
 ParenExpr :: #"(" BoolExpr #")";
 
-ArrayLiteral :: #"[" Value (#"," Value)* #"]";
+ArrayLiteral :: #"[" (Value (#"," Value)* #","?)? #"]";
 
 Number :: FloatNum | IntNum;
 CharLit :: /'(?:\\.|[^'\\])'/;
