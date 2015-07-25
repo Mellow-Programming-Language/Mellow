@@ -15,8 +15,7 @@ the Netwide Assembler `nasm` are installed.
 
 Note that the docs/ directory is woefully out of date.
 
-Programs under examples/ not guaranteed to compile, as some demonstrate
-features that aren't implemented yet.
+All of the files listed under examples/ can be compiled.
 
 Interesting compilable examples:
 - intToString.mlo
@@ -59,17 +58,17 @@ Incomplete list of working features:
 - green threads (spawn(), yield)
 - channels (both read and write, with implicit yield)
 - expressions
-- extern func semantics
+- extern func semantics (Simple FFI to C)
 - integer comparison operators
 - logical operators (&&, ||, !)
 - array .length property
 - templated structs
 - templated, recursively-defined variants
-- 'is' expressions
+- 'is' expressions (Lightweight `match` shorthand)
 - string comparison operators
 - function templating
 - match statements
-- tuples
+- returning multiple values from a function
 - full M:N multithreading scheduler
 
 
