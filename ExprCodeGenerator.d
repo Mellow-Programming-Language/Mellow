@@ -1275,9 +1275,26 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         auto startIndexLoc = vars.getTop.to!string;
         str ~= "    mov    qword [rbp-" ~ startIndexLoc ~ "], r8\n";
         scope (exit) vars.deallocateStackSpace(8);
-        // Get the total size of the slice
+        auto nonsenseSliceLabel = vars.getUniqLabel;
+        auto sliceEndLabel = vars.getUniqLabel;
+        auto acceptableEndIndexLabel = vars.getUniqLabel;
+        // Compare start index to size of original array, and if it's larger,
+        // allocate an empty array
+        str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
+        str ~= "    mov    r10d, dword [r10+4]\n";
+        str ~= "    cmp    r10, r8\n";
+        str ~= "    jbe    " ~ nonsenseSliceLabel ~ "\n";
+        // Force the end index to be within the bounds of the array
+        str ~= "    cmp    r10, r9\n";
+        str ~= "    jae    " ~ acceptableEndIndexLabel ~ "\n";
+        str ~= "    mov    r9, r10\n";
+        str ~= acceptableEndIndexLabel ~ ":\n";
+        // The start index is within the bounds of the array, so get the total
+        // size of the slice
         str ~= "    mov    r10, r9\n";
         str ~= "    sub    r10, r8\n";
+        // If the slice size is negative or zero, allocate empty array
+        str ~= "    jbe    " ~ nonsenseSliceLabel ~ "\n";
         // Store the length of the slice in a callee-saved register
         str ~= "    mov    r12, r10\n";
         // Get the alloc size of the slice
@@ -1327,6 +1344,37 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
             str ~= "    mov    byte [rax], 0\n";
         }
         str ~= "    mov    r8, qword [rbp-" ~ newAllocLoc ~ "]\n";
+        str ~= "    jmp    " ~ sliceEndLabel ~ "\n";
+        // If we're dealing with a "nonsense" slice, then create an array of
+        // size zero with zero elements and no allocation for data (1 byte for
+        // null byte if string)
+        str ~= nonsenseSliceLabel ~ ":\n";
+        str ~= "    mov    rdi, 0\n";
+        // Add 8 for the ref count and array size
+        str ~= "    add    rdi, 8\n";
+        if (arrayType.tag == TypeEnum.STRING)
+        {
+            // Add the null byte to the memory allocation
+            str ~= "    add    rdi, 1\n";
+        }
+        // Get the allocated memory pointer in rax
+        str ~= "    call   malloc\n";
+        // Store the new allocation pointer
+        vars.allocateStackSpace(8);
+        auto emptyAllocLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ emptyAllocLoc ~ "], rax\n";
+        scope (exit) vars.deallocateStackSpace(8);
+        // Set the ref-count to 0
+        str ~= "    mov    dword [rax], 0\n";
+        // Set the array length to 0
+        str ~= "    mov    dword [rax+4], 0\n";
+        // Place a null byte into the single data byte allocated, if a string
+        if (arrayType.tag == TypeEnum.STRING)
+        {
+            str ~= "    mov    byte [rax+8], 0\n";
+        }
+        str ~= "    mov    r8, qword [rbp-" ~ emptyAllocLoc ~ "]\n";
+        str ~= sliceEndLabel ~ ":\n";
     }
     else
     {
