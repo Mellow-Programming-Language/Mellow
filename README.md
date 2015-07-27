@@ -35,6 +35,7 @@ Interesting compilable examples:
                       is an excellent demonstration of many features)
 - avl.mlo (an implementation of an AVL self-balancing binary tree)
 - postfix.mlo (A simple commandline postfix expression interpreter)
+- infix.mlo (A simple commandline infix expression interpreter)
 - trie.mlo (A basic Trie (Digital Tree) implementation as key-value map.)
 
 Incomplete list of working features:
