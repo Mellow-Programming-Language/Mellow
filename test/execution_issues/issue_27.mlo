@@ -1,0 +1,14 @@
+// ISSUE: 27
+// EXPECTS: "Hello! Hello! Hello! ello "
+
+extern func writeln(str: string);
+extern func write(str: string);
+
+func main() {
+    str_1 := "Hello!";
+    write(str_1[0..6] ~ " ");
+    write(str_1[0..] ~ " ");
+    write(str_1[..6] ~ " ");
+    write(str_1[1..5] ~ " ");
+    writeln("");
+}
