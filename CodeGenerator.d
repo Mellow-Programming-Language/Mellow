@@ -1044,6 +1044,7 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
 string compileForStmt(ForStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
