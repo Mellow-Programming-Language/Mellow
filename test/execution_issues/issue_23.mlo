@@ -1,5 +1,5 @@
 // ISSUE: 23
-// EXPECTS: "Size = 5, 5, 5, 5, 3, 1, 0, 0, 0, 0, 5, "
+// EXPECTS: "Size = 5, 5, 5, 5, 3, 1, 0, 0, 0, 0, 5, true"
 
 extern func writeln(str: string);
 extern func write(str: string);
@@ -39,5 +39,9 @@ func main() {
     write(intToString(arr_8.length) ~ ", "); // 0
     write(intToString(arr_9.length) ~ ", "); // 0
     write(intToString(arr_10.length) ~ ", "); // 5
+    str := "Hello!";
+    if (str[6..] == "") {
+        write("true");
+    }
     writeln("");
 }
