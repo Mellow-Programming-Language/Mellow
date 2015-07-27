@@ -1572,8 +1572,7 @@ string compileDotAccess(DotAccessNode node, Context* vars)
         if (id == "length")
         {
             // Grab the length of the string or array and throw it back into r8
-            str ~= "    mov    r9, r8\n";
-            str ~= "    mov    r8d, dword [r9+4]\n";
+            str ~= "    mov    r8d, dword [r8+4]\n";
         }
     }
     else if (accessedType.tag == TypeEnum.STRUCT)
