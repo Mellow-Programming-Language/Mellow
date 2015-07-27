@@ -1417,12 +1417,12 @@ class FunctionBuilder : Visitor
         // The type of the array we're indexing
         node.data["parenttype"] = builderStack[$-1][$-1];
         node.children[0].accept(this);
+        // The type yielded after indexing
+        node.data["type"] = builderStack[$-1][$-1];
         if (node.children.length > 1)
         {
             node.children[1].accept(this);
         }
-        // The type yielded after indexing
-        node.data["type"] = builderStack[$-1][$-1];
     }
 
     void visit(TemplateInstanceMaybeTrailerNode node)
