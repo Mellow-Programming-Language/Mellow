@@ -2,27 +2,27 @@ all: compiler runtime/runtime.o stdlib/stdlib.o
 
 compiler: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
 		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d\
-		  TemplateInstantiator.d
+		  TemplateInstantiator.d Namespace.d
 	dmd -ofcompiler main.d Function.d FunctionSig.d Record.d parser.d\
 		visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
-		ExprCodeGenerator.d TemplateInstantiator.d
+		ExprCodeGenerator.d TemplateInstantiator.d Namespace.d
 
 compiler_debug: main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
 		  ASTUtils.d typedecl.d utils.d CodeGenerator.d ExprCodeGenerator.d\
-		  TemplateInstantiator.d\
+		  TemplateInstantiator.d Namespace.d\
 		  runtime/runtime.o
 	dmd -ofcompiler_debug main.d Function.d FunctionSig.d Record.d parser.d\
 		visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
-		ExprCodeGenerator.d TemplateInstantiator.d\
+		ExprCodeGenerator.d TemplateInstantiator.d Namespace.d\
 		-debug=COMPILE_TRACE -debug=TRACE
 
 compiler_multithread: main.d Function.d FunctionSig.d Record.d parser.d\
 		  visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
-		  ExprCodeGenerator.d TemplateInstantiator.d\
+		  ExprCodeGenerator.d TemplateInstantiator.d Namespace.d\
 		  runtime/runtime_multithread.o
 	dmd -ofcompiler_multithread main.d Function.d FunctionSig.d Record.d\
 		parser.d visitor.d ASTUtils.d typedecl.d utils.d CodeGenerator.d\
-		ExprCodeGenerator.d TemplateInstantiator.d\
+		ExprCodeGenerator.d TemplateInstantiator.d Namespace.d\
 		-version=MULTITHREAD
 
 runtime/runtime.o: runtime/callFunc.asm runtime/scheduler.c runtime/scheduler.h

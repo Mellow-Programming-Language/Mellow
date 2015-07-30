@@ -16,38 +16,51 @@ import typedecl;
 import Function;
 import FunctionSig;
 import CodeGenerator;
+import Namespace;
+
+struct TopLevelContext
+{
+    ModuleNamespace*[string] namespaces;
+    string outfileName;
+    string stdlibPath;
+    string runtimePath;
+    bool compileOnly;
+    bool dump;
+    bool help;
+}
 
 int main(string[] argv)
 {
-    string outfileName = "a.out";
+    auto context = new TopLevelContext;
     version (MULTITHREAD)
     {
-        string runtimePath = "runtime/runtime_multithread.o";
+        context.runtimePath = "runtime/runtime_multithread.o";
     }
     else
     {
-        string runtimePath = "runtime/runtime.o";
+        context.runtimePath = "runtime/runtime.o";
     }
-    string stdlibPath = "stdlib/stdlib.o";
-    bool compileOnly = false;
-    bool dump = false;
-    bool help = false;
+    context.outfileName = "a.out";
+    context.stdlibPath = "stdlib/stdlib.o";
+    context.compileOnly = false;
+    context.dump = false;
+    context.help = false;
     try
     {
         getopt(argv,
-            "outfile|o", &outfileName,
-            "runtime", &runtimePath,
-            "stdlib", &stdlibPath,
-            "S", &compileOnly,
-            "dump", &dump,
-            "help", &help);
+            "outfile|o", &context.outfileName,
+            "runtime", &context.runtimePath,
+            "stdlib", &context.stdlibPath,
+            "S", &context.compileOnly,
+            "dump", &context.dump,
+            "help", &context.help);
     }
     catch (Exception ex)
     {
         writeln("Error: Unrecognized cmdline argument.");
         return 1;
     }
-    if (help)
+    if (context.help)
     {
 q"EOF
 All arguments must be prefaced by double dashes, as in --help or --o.
@@ -73,13 +86,47 @@ EOF".write;
     }
     // Strip program name from arguments
     argv = argv[1..$];
-    if (argv.length != 1)
+    foreach (infileName; argv)
     {
-        writeln(argv);
-        writeln("Error: Exactly one filename must be passed for compilation.");
-        return 1;
+        ModuleNamespace* newNamespace;
+        try
+        {
+            newNamespace = extractNamespace(infileName);
+        }
+        catch (Exception e)
+        {
+            return 1;
+        }
+        context.namespaces[infileName] = newNamespace;
+        if (context.dump)
+        {
+            foreach (structDef; newNamespace.records.structDefs.values)
+            {
+                structDef.formatFull.writeln;
+            }
+            foreach (variantDef; newNamespace.records.variantDefs.values)
+            {
+                variantDef.formatFull.writeln;
+            }
+            foreach (sig; newNamespace.funcSigs)
+            {
+                sig.format.writeln;
+            }
+        }
     }
-    auto infileName = argv[0];
+    foreach (infileName; argv)
+    {
+        auto retcode = compileFile(infileName, context);
+        if (retcode != 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+ModuleNamespace* extractNamespace(string infileName)
+{
     auto source = "";
     try
     {
@@ -88,7 +135,7 @@ EOF".write;
     catch (Exception ex)
     {
         writeln("Error: Could not read file [" ~ infileName ~ "].");
-        return 1;
+        throw new Exception("");
     }
     source = stripComments(source);
     auto parser = new Parser(source);
@@ -96,51 +143,45 @@ EOF".write;
     if (topNode is null)
     {
         writeln("Error: Could not parse program in file [" ~ infileName ~ "].");
-        return 1;
+        throw new Exception("");
     }
     auto records = new RecordBuilder(cast(ProgramNode)topNode);
-    if (dump)
-    {
-        foreach (structDef; records.structDefs.values)
-        {
-            writeln(structDef.formatFull());
-        }
-        foreach (variantDef; records.variantDefs.values)
-        {
-            writeln(variantDef.format());
-        }
-    }
     // Just do function definitions
-    auto funcDefs =
-        (cast(ProgramNode)
-        topNode).children
-               .filter!(a => typeid(a) == typeid(FuncDefNode)
-                          || typeid(a) == typeid(ExternFuncDeclNode));
+    auto funcDefs = (cast(ProgramNode)topNode)
+        .children
+        .filter!(a => typeid(a) == typeid(FuncDefNode)
+                   || typeid(a) == typeid(ExternFuncDeclNode));
     FuncSig*[] funcSigs;
     foreach (funcDef; funcDefs)
     {
         auto builder = new FunctionSigBuilder(funcDef, records);
         funcSigs ~= builder.funcSig;
     }
-    auto funcs = new FunctionBuilder(cast(ProgramNode)topNode, records,
-        funcSigs);
-    if (dump)
-    {
-        foreach (sig; funcSigs)
-        {
-            sig.format.writeln;
-        }
-    }
-    auto fullAsm = compileProgram(records, funcs);
-    if (compileOnly)
+    return new ModuleNamespace(
+        infileName, cast(ProgramNode)topNode, records, funcSigs
+    );
+}
+
+int compileFile(string infileName, TopLevelContext* context)
+{
+    auto namespace = context.namespaces[infileName];
+    auto funcs = new FunctionBuilder(
+        namespace.topNode,
+        namespace.records,
+        namespace.funcSigs
+    );
+    auto fullAsm = compileProgram(namespace.records, funcs);
+    if (context.compileOnly)
     {
         try
         {
-            std.file.write(outfileName, fullAsm);
+            std.file.write(context.outfileName, fullAsm);
         }
         catch (Exception ex)
         {
-            writeln("Error: Could not write outfile [" ~ outfileName ~ "].");
+            writeln(
+                "Error: Could not write outfile [" ~ context.outfileName ~ "]."
+            );
             return 1;
         }
     }
@@ -198,8 +239,8 @@ EOF".write;
                 else
                 {
                     cmd = [
-                        "gcc", "-o", outfileName, objectTmpfileName,
-                        stdlibPath, runtimePath
+                        "gcc", "-o", context.outfileName, objectTmpfileName,
+                        context.stdlibPath, context.runtimePath
                     ];
                     auto gccPid = spawnProcess(cmd);
                 }
