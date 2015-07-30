@@ -3,11 +3,14 @@ Program :: ( VariantDef
            | FuncDef
            | ExternStructDecl
            | ExternFuncDecl
+           | ImportStmt
            | InterfaceDef
            )+
            ;
 
 Sp :: /\s+/;
+
+ImportStmt :: #'import' #Sp StringLit #";";
 
 ExternStructDecl :: #'extern' #Sp #'struct' #Sp Identifier #";";
 ExternFuncDecl   :: #'extern' #Sp #'func'   #Sp Identifier

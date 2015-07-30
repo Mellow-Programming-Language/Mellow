@@ -336,6 +336,7 @@ class FunctionSigBuilder : Visitor
     void visit(StructMemberConstructorNode node) {}
     void visit(ASTTerminal node) {}
     void visit(ExternStructDeclNode node) {}
+    void visit(ImportStmtNode node) {}
     void visit(StructDefNode node) {}
     void visit(StructBodyNode node) {}
     void visit(StructEntryNode node) {}

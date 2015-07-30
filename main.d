@@ -151,6 +151,13 @@ ModuleNamespace* extractNamespace(string infileName)
         .children
         .filter!(a => typeid(a) == typeid(FuncDefNode)
                    || typeid(a) == typeid(ExternFuncDeclNode));
+    auto imports = (cast(ProgramNode)topNode)
+                  .children
+                  .filter!(a => typeid(a) == typeid(ImportStmtNode))
+                  .map!(a => cast(ImportStmtNode)a)
+                  .map!(a => cast(StringLitNode)(a.children[0]))
+                  .map!(a => (cast(ASTTerminal)(a.children[0])).token[1..$-1])
+                  .array;
     FuncSig*[] funcSigs;
     foreach (funcDef; funcDefs)
     {

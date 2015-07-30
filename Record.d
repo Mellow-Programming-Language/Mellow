@@ -212,6 +212,7 @@ class RecordBuilder : Visitor
 
     void visit(ProgramNode node) {}
     void visit(ExternFuncDeclNode node) {}
+    void visit(ImportStmtNode node) {}
     void visit(FuncDefNode node) {}
     void visit(FuncSignatureNode node) {}
     void visit(FuncBodyBlocksNode node) {}
