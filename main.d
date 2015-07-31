@@ -9,6 +9,7 @@ import std.file;
 import std.ascii;
 import std.random;
 import std.regex;
+import std.path;
 import parser;
 import visitor;
 import Record;
@@ -17,17 +18,6 @@ import Function;
 import FunctionSig;
 import CodeGenerator;
 import Namespace;
-
-struct TopLevelContext
-{
-    ModuleNamespace*[string] namespaces;
-    string outfileName;
-    string stdlibPath;
-    string runtimePath;
-    bool compileOnly;
-    bool dump;
-    bool help;
-}
 
 int main(string[] argv)
 {
@@ -41,14 +31,16 @@ int main(string[] argv)
         context.runtimePath = "runtime/runtime.o";
     }
     context.outfileName = "a.out";
-    context.stdlibPath = "stdlib/stdlib.o";
+    context.stdlibPath = "stdlib";
     context.compileOnly = false;
     context.dump = false;
     context.help = false;
+    context.keepObjs = false;
     try
     {
         getopt(argv,
             "outfile|o", &context.outfileName,
+            "keep", &context.keepObjs,
             "runtime", &context.runtimePath,
             "stdlib", &context.stdlibPath,
             "S", &context.compileOnly,
@@ -74,58 +66,158 @@ All arguments must be prefaced by double dashes, as in --help or --o.
 --o S           Provide a string S which will act as the filename of the
                 generated outfile.
 
+--keep          Don't delete the generated object files.
+
 --runtime S     Provide the path to the runtime object file, if the default is
                 incorrect.
 
 --S             Only generate the assembly file, don't assemble or link.
 
---stdlib S      Provide the path to the stdlib object file, if the default is
-                incorrect.
+--stdlib S      Provide the path to the stdlib directory.
 EOF".write;
         return 0;
     }
     // Strip program name from arguments
     argv = argv[1..$];
-    foreach (infileName; argv)
+    bool[string] names;
+    foreach (a; argv)
     {
-        ModuleNamespace* newNamespace;
-        try
+        auto abs = a.absolutePath
+                    .stripTrailingSlash;
+        names[abs] = true;
+    }
+    string[] stdObjs;
+    foreach (infileName; names.byKey())
+    {
+        if (infileName !in context.namespaces)
         {
-            newNamespace = extractNamespace(infileName);
-        }
-        catch (Exception e)
-        {
-            return 1;
-        }
-        context.namespaces[infileName] = newNamespace;
-        if (context.dump)
-        {
-            foreach (structDef; newNamespace.records.structDefs.values)
+            ModuleNamespace* newNamespace;
+            try
             {
-                structDef.formatFull.writeln;
+                newNamespace = extractNamespace(infileName, context);
             }
-            foreach (variantDef; newNamespace.records.variantDefs.values)
+            catch (Exception e)
             {
-                variantDef.formatFull.writeln;
+                return 1;
             }
-            foreach (sig; newNamespace.funcSigs)
+            context.namespaces[infileName] = newNamespace;
+            if (context.dump)
             {
-                sig.format.writeln;
+                foreach (structDef; newNamespace.records.structDefs.values)
+                {
+                    structDef.formatFull.writeln;
+                }
+                foreach (variantDef; newNamespace.records.variantDefs.values)
+                {
+                    variantDef.formatFull.writeln;
+                }
+                foreach (sig; newNamespace.funcSigs)
+                {
+                    sig.format.writeln;
+                }
+            }
+            foreach (absPath; newNamespace.imports)
+            {
+                if (absPath.path !in names
+                    && absPath.path !in context.namespaces)
+                {
+                    if (absPath.isStd)
+                    {
+                        stdObjs ~= [absPath.path ~ ".o"];
+                    }
+                    try
+                    {
+                        newNamespace = extractNamespace(
+                            absPath.path ~ ".mlo", context
+                        );
+                        newNamespace.isStd = absPath.isStd;
+                    }
+                    catch (Exception e)
+                    {
+                        writeln(
+                            "Error: Could not find file [" ~ absPath.path
+                                                           ~ ".mlo"
+                                                           ~ "]"
+                        );
+                        return 1;
+                    }
+                    context.namespaces[absPath.path] = newNamespace;
+                    if (context.dump)
+                    {
+                        foreach (structDef; newNamespace.records.structDefs.values)
+                        {
+                            structDef.formatFull.writeln;
+                        }
+                        foreach (variantDef; newNamespace.records.variantDefs.values)
+                        {
+                            variantDef.formatFull.writeln;
+                        }
+                        foreach (sig; newNamespace.funcSigs)
+                        {
+                            sig.format.writeln;
+                        }
+                    }
+                }
             }
         }
     }
-    foreach (infileName; argv)
+    string[] objFileNames;
+    foreach (infileName; context.namespaces.byKey)
     {
-        auto retcode = compileFile(infileName, context);
-        if (retcode != 0)
+        if (!context.namespaces[infileName].isStd)
         {
-            return 1;
+            auto objFileName = compileFile(infileName, context);
+            if (objFileName == "")
+            {
+                return 1;
+            }
+            objFileNames ~= objFileName;
         }
     }
+
+    try
+    {
+        string[] cmd;
+        version (MULTITHREAD)
+        {
+            cmd = ["gcc", "-pthread", "-o"];
+        }
+        else
+        {
+            cmd = ["gcc", "-o"];
+        }
+        cmd ~= [context.outfileName]
+            ~ objFileNames
+            ~ stdObjs
+            ~ [context.runtimePath]
+            ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)];
+        auto gccPid = spawnProcess(cmd);
+        auto retCode = wait(gccPid);
+        if (retCode != 0)
+        {
+            writeln("Error: [" ~ cmd.join(" ") ~ "] failed");
+            return retCode;
+        }
+    }
+    catch (ProcessException ex)
+    {
+        writeln(
+            "Error: Could not exec [gcc]. Do you have it installed?"
+        );
+        return 1;
+    }
+    if (!context.keepObjs)
+    {
+        foreach (obj; objFileNames)
+        {
+            remove(obj);
+        }
+    }
+
     return 0;
 }
 
-ModuleNamespace* extractNamespace(string infileName)
+ModuleNamespace* extractNamespace(string infileName, TopLevelContext* context)
 {
     auto source = "";
     try
@@ -155,8 +247,9 @@ ModuleNamespace* extractNamespace(string infileName)
                   .children
                   .filter!(a => typeid(a) == typeid(ImportStmtNode))
                   .map!(a => cast(ImportStmtNode)a)
-                  .map!(a => cast(StringLitNode)(a.children[0]))
-                  .map!(a => (cast(ASTTerminal)(a.children[0])).token[1..$-1])
+                  .map!(a => cast(ImportLitNode)(a.children[0]))
+                  .map!(a => (cast(ASTTerminal)(a.children[0])).token.to!string)
+                  .map!(a => a.translateImportToPath(context))
                   .array;
     FuncSig*[] funcSigs;
     foreach (funcDef; funcDefs)
@@ -165,13 +258,36 @@ ModuleNamespace* extractNamespace(string infileName)
         funcSigs ~= builder.funcSig;
     }
     return new ModuleNamespace(
-        infileName, cast(ProgramNode)topNode, records, funcSigs
+        infileName, cast(ProgramNode)topNode, records, funcSigs, imports
     );
 }
 
-int compileFile(string infileName, TopLevelContext* context)
+string compileFile(string infileName, TopLevelContext* context)
 {
     auto namespace = context.namespaces[infileName];
+    foreach (imp; namespace.imports)
+    {
+        foreach (sd; context.namespaces[imp.path].records.structDefs.byKey())
+        {
+            if (sd !in namespace.records.structDefs)
+            {
+                namespace.records.structDefs[sd] = context.namespaces[imp.path]
+                                                          .records
+                                                          .structDefs[sd];
+            }
+        }
+        foreach (vd; context.namespaces[imp.path].records.variantDefs.byKey())
+        {
+            if (vd !in namespace.records.variantDefs)
+            {
+                namespace.records.variantDefs[vd] = context.namespaces[imp.path]
+                                                           .records
+                                                           .variantDefs[vd];
+            }
+        }
+        namespace.funcSigs ~= context.namespaces[imp.path]
+                                     .funcSigs;
+    }
     auto funcs = new FunctionBuilder(
         namespace.topNode,
         namespace.records,
@@ -189,13 +305,13 @@ int compileFile(string infileName, TopLevelContext* context)
             writeln(
                 "Error: Could not write outfile [" ~ context.outfileName ~ "]."
             );
-            return 1;
+            return "";
         }
     }
     else
     {
         auto asmTmpfileName = generateRandomFilename() ~ ".asm";
-        auto objectTmpfileName = generateRandomFilename() ~ ".o";
+        auto objectTmpfileName = infileName ~ ".o";
         try
         {
             auto tempAsmFile = File(asmTmpfileName, "wx");
@@ -206,7 +322,7 @@ int compileFile(string infileName, TopLevelContext* context)
             writeln(
                 "Error: Could not write to tempfile [" ~ asmTmpfileName ~ "]."
             );
-            return 1;
+            return "";
         }
         scope (exit) remove(asmTmpfileName);
         try
@@ -221,53 +337,20 @@ int compileFile(string infileName, TopLevelContext* context)
                     "Error: [nasm -f elf64 -o " ~ objectTmpfileName ~ " "
                     ~ asmTmpfileName ~ "] failed"
                 );
-                return retCode;
+                return "";
             }
         }
         catch (ProcessException ex)
         {
             writeln("Error: Could not exec [nasm]. Do you have it installed?");
-            return 0;
+            return "";
         }
         if (exists(objectTmpfileName))
         {
-            scope (exit) remove(objectTmpfileName);
-            try
-            {
-                string[] cmd;
-                version (MULTITHREAD)
-                {
-                    cmd = [
-                        "gcc", "-pthread", "-o", outfileName,
-                        objectTmpfileName, stdlibPath, runtimePath
-                    ];
-                    auto gccPid = spawnProcess(cmd);
-                }
-                else
-                {
-                    cmd = [
-                        "gcc", "-o", context.outfileName, objectTmpfileName,
-                        context.stdlibPath, context.runtimePath
-                    ];
-                    auto gccPid = spawnProcess(cmd);
-                }
-                auto retCode = wait(gccPid);
-                if (retCode != 0)
-                {
-                    writeln("Error: [" ~ cmd.join(" ") ~ "] failed");
-                    return retCode;
-                }
-            }
-            catch (ProcessException ex)
-            {
-                writeln(
-                    "Error: Could not exec [gcc]. Do you have it installed?"
-                );
-                return 1;
-            }
+            return objectTmpfileName;
         }
     }
-    return 0;
+    return "";
 }
 
 string stripComments(string source)
@@ -378,8 +461,11 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs)
                          .map!(a => a.label ~ ": dq " ~ a.floatStr ~ "\n")
                          .reduce!((a, b) => a ~ b);
     }
-    header ~= "    SECTION .text\n"
-            ~ "    global main\n";
+    header ~= "    SECTION .text\n";
+    if ("main" in context.externFuncs || "main" in context.compileFuncs)
+    {
+        header ~= "    global main\n";
+    }
     auto full = header ~ str;
     return full;
 }

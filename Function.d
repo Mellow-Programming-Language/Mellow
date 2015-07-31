@@ -2513,6 +2513,7 @@ class FunctionBuilder : Visitor
     void visit(ExternStructDeclNode node) {}
     void visit(ExternFuncDeclNode node) {}
     void visit(ImportStmtNode node) {}
+    void visit(ImportLitNode node) {}
     void visit(FuncDefArgListNode node) {}
     void visit(FuncSigArgNode node) {}
     void visit(FuncReturnTypeNode node) {}

@@ -10,7 +10,8 @@ Program :: ( VariantDef
 
 Sp :: /\s+/;
 
-ImportStmt :: #'import' #Sp StringLit #";";
+ImportStmt :: #'import' #Sp ImportLit #";";
+ImportLit :: /[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*/;
 
 ExternStructDecl :: #'extern' #Sp #'struct' #Sp Identifier #";";
 ExternFuncDecl   :: #'extern' #Sp #'func'   #Sp Identifier

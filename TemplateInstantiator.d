@@ -866,6 +866,7 @@ class TemplateInstantiator : Visitor
     void visit(ExternStructDeclNode node) {}
     void visit(ExternFuncDeclNode node) {}
     void visit(ImportStmtNode node) {}
+    void visit(ImportLitNode node) {}
     void visit(StructDefNode node) {}
     void visit(StructBodyNode node) {}
     void visit(StructEntryNode node) {}
