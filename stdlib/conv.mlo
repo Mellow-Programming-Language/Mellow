@@ -1,2 +1,5 @@
 
+import std.core;
+
 extern func ord(c: char): int;
+extern func chr(i: int): Maybe!char;
