@@ -111,10 +111,6 @@ EOF".write;
                 {
                     variantDef.formatFull.writeln;
                 }
-                foreach (sig; newNamespace.funcSigs)
-                {
-                    sig.format.writeln;
-                }
             }
             foreach (absPath; newNamespace.imports)
             {
@@ -152,14 +148,14 @@ EOF".write;
                         {
                             variantDef.formatFull.writeln;
                         }
-                        foreach (sig; newNamespace.funcSigs)
-                        {
-                            sig.format.writeln;
-                        }
                     }
                 }
             }
         }
+    }
+    foreach (infileName; context.namespaces.byKey)
+    {
+        context.namespaces[infileName] = extractFuncSigs(infileName, context);
     }
     string[] objFileNames;
     foreach (infileName; context.namespaces.byKey)
@@ -238,11 +234,6 @@ ModuleNamespace* extractNamespace(string infileName, TopLevelContext* context)
         throw new Exception("");
     }
     auto records = new RecordBuilder(cast(ProgramNode)topNode);
-    // Just do function definitions
-    auto funcDefs = (cast(ProgramNode)topNode)
-        .children
-        .filter!(a => typeid(a) == typeid(FuncDefNode)
-                   || typeid(a) == typeid(ExternFuncDeclNode));
     auto imports = (cast(ProgramNode)topNode)
                   .children
                   .filter!(a => typeid(a) == typeid(ImportStmtNode))
@@ -251,15 +242,49 @@ ModuleNamespace* extractNamespace(string infileName, TopLevelContext* context)
                   .map!(a => (cast(ASTTerminal)(a.children[0])).token.to!string)
                   .map!(a => a.translateImportToPath(context))
                   .array;
+    return new ModuleNamespace(
+        infileName, cast(ProgramNode)topNode, records, imports
+    );
+}
+
+ModuleNamespace* extractFuncSigs(string infileName, TopLevelContext* context)
+{
+    auto namespace = context.namespaces[infileName];
+    foreach (imp; namespace.imports)
+    {
+        foreach (sd; context.namespaces[imp.path].records.structDefs.byKey())
+        {
+            if (sd !in namespace.records.structDefs)
+            {
+                namespace.records.structDefs[sd] = context.namespaces[imp.path]
+                                                          .records
+                                                          .structDefs[sd];
+            }
+        }
+        foreach (vd; context.namespaces[imp.path].records.variantDefs.byKey())
+        {
+            if (vd !in namespace.records.variantDefs)
+            {
+                namespace.records.variantDefs[vd] = context.namespaces[imp.path]
+                                                           .records
+                                                           .variantDefs[vd];
+            }
+        }
+    }
+    // Just do function definitions
+    auto funcDefs = namespace
+        .topNode
+        .children
+        .filter!(a => typeid(a) == typeid(FuncDefNode)
+                   || typeid(a) == typeid(ExternFuncDeclNode));
     FuncSig*[] funcSigs;
     foreach (funcDef; funcDefs)
     {
-        auto builder = new FunctionSigBuilder(funcDef, records);
+        auto builder = new FunctionSigBuilder(funcDef, namespace.records);
         funcSigs ~= builder.funcSig;
     }
-    return new ModuleNamespace(
-        infileName, cast(ProgramNode)topNode, records, funcSigs, imports
-    );
+    namespace.funcSigs = funcSigs;
+    return namespace;
 }
 
 string compileFile(string infileName, TopLevelContext* context)

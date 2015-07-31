@@ -1,3 +1,19 @@
 
+import std.core;
+
+variant FopenMode {
+    Read,
+    Write,
+    Append,
+    ReadUpdate,
+    WriteUpdate,
+    AppendUpdate
+}
+
+extern struct File;
 extern func writeln(str: string);
 extern func write(str: string);
+extern func readln(): string;
+extern func mellow_fopen(str: string, mode: FopenMode): Maybe!File;
+extern func mellow_fclose(file: File);
+extern func mellow_freadln(file: File): Maybe!string;

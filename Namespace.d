@@ -28,13 +28,11 @@ struct ModuleNamespace
     bool isStd;
 
     this (string moduleName, ProgramNode topNode,
-          RecordBuilder records, FuncSig*[] funcSigs,
-          ImportPath*[] imports)
+          RecordBuilder records, ImportPath*[] imports)
     {
         this.moduleName = moduleName;
         this.topNode = topNode;
         this.records = records;
-        this.funcSigs = funcSigs;
         this.imports = imports;
         this.isStd = false;
     }
