@@ -1,0 +1,3 @@
+
+extern func writeln(str: string);
+extern func write(str: string);

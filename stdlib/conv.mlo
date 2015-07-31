@@ -1,0 +1,2 @@
+
+extern func ord(c: char): int;

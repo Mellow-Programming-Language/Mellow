@@ -1,4 +1,7 @@
-all: io.o conv.o stdlib.o
+all: io.o conv.o stdlib.o core.o
+
+core.o: core.c
+	gcc -c core.c -o core.o
 
 stdio.o: stdio.c stdio.h mellow_internal.h mellow_internal.c
 	gcc -c stdio.c -o stdio.o
