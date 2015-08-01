@@ -1,8 +1,7 @@
 // ISSUE: 27
 // EXPECTS: "Hello! Hello! Hello! ello "
 
-extern func writeln(str: string);
-extern func write(str: string);
+import std.io;
 
 func main() {
     str_1 := "Hello!";

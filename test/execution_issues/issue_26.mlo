@@ -1,8 +1,7 @@
 // ISSUE: 26
 // EXPECTS: "Correct Length! First Things ' Stuff New String"
 
-extern func write(str: string);
-extern func writeln(str: string);
+import std.io;
 
 func main() {
     str := "First " ~ "Things \' Stuff " ~ "New " ~ "String";

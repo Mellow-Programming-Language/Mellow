@@ -1,6 +1,5 @@
 
-extern func writeln(str: string);
-extern func readln(): string;
+import std.io;
 
 func chomp(str: string): string {
     if (str[$-1] == '\n') {

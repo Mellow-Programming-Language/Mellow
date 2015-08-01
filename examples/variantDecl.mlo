@@ -1,4 +1,6 @@
 
+import std.core;
+
 variant Expr {
     Add (Expr, Expr),
     Val (int)
@@ -7,11 +9,6 @@ variant Expr {
 variant Tree(T) {
     Branch (Tree!T, T, Tree!T),
     Leaf
-}
-
-variant Maybe(T) {
-    Some (T),
-    None
 }
 
 func main() {

@@ -1,16 +1,6 @@
 
-extern func writeln(str: string);
-
-func intToString(val: int): string {
-    if (val < 0) {
-        return "-" ~ intToString(val * -1);
-    }
-    convert := ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-    if (val < 10) {
-        return convert[val];
-    }
-    return intToString(val / 10) ~ intToString(val % 10);
-}
+import std.io;
+import std.conv;
 
 variant Tree(T) {
     Branch (Tree!T, T, Tree!T),
