@@ -1,0 +1,6 @@
+before_install:
+  - sudo apt-get install nasm dmd
+script:
+  - make
+  - perl test/compilable.pl
+  - perl test/executable.pl
