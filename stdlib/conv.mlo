@@ -4,3 +4,4 @@ import std.core;
 extern func ord(c: char): int;
 extern func chr(i: int): Maybe!char;
 extern func charToString(c: char): string;
+extern func intToString(i: int): string;

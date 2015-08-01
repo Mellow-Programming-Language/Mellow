@@ -12,8 +12,11 @@ io.o: stdio.o
 stdconv.o: stdconv.h mellow_internal.c mellow_internal.h
 	gcc -c stdconv.c -o stdconv.o
 
-conv.o: stdconv.o
-	ld -r stdconv.o -o conv.o
+conv_mlo.o: conv_mlo.mlo
+	../compiler -c conv_mlo.mlo
+
+conv.o: stdconv.o conv_mlo.o
+	ld -r stdconv.o conv_mlo.o -o conv.o
 
 mellow_internal.o: mellow_internal.h mellow_internal.c
 	gcc -c mellow_internal.c -o mellow_internal.o
