@@ -1,10 +1,12 @@
+sudo: false
+addons:
+  apt:
+    packages:
+    - nasm
 language: d
 d:
   - dmd
-before_install:
-  - sudo apt-get install nasm
 script:
-  - nasm -v
   - make
   - perl test/compilable.pl
   - perl test/executable.pl
