@@ -79,79 +79,14 @@ EOF".write;
     }
     // Strip program name from arguments
     argv = argv[1..$];
-    bool[string] names;
-    foreach (a; argv)
-    {
-        auto abs = a.absolutePath
-                    .stripTrailingSlash;
-        names[abs] = true;
-    }
     string[] stdObjs;
-    foreach (infileName; names.byKey())
+    try
     {
-        if (infileName !in context.namespaces)
-        {
-            ModuleNamespace* newNamespace;
-            try
-            {
-                newNamespace = extractNamespace(infileName, context);
-            }
-            catch (Exception e)
-            {
-                return 1;
-            }
-            context.namespaces[infileName] = newNamespace;
-            if (context.dump)
-            {
-                foreach (structDef; newNamespace.records.structDefs.values)
-                {
-                    structDef.formatFull.writeln;
-                }
-                foreach (variantDef; newNamespace.records.variantDefs.values)
-                {
-                    variantDef.formatFull.writeln;
-                }
-            }
-            foreach (absPath; newNamespace.imports)
-            {
-                if (absPath.path !in names
-                    && absPath.path !in context.namespaces)
-                {
-                    if (absPath.isStd)
-                    {
-                        stdObjs ~= [absPath.path ~ ".o"];
-                    }
-                    try
-                    {
-                        newNamespace = extractNamespace(
-                            absPath.path ~ ".mlo", context
-                        );
-                        newNamespace.isStd = absPath.isStd;
-                    }
-                    catch (Exception e)
-                    {
-                        writeln(
-                            "Error: Could not find file [" ~ absPath.path
-                                                           ~ ".mlo"
-                                                           ~ "]"
-                        );
-                        return 1;
-                    }
-                    context.namespaces[absPath.path] = newNamespace;
-                    if (context.dump)
-                    {
-                        foreach (structDef; newNamespace.records.structDefs.values)
-                        {
-                            structDef.formatFull.writeln;
-                        }
-                        foreach (variantDef; newNamespace.records.variantDefs.values)
-                        {
-                            variantDef.formatFull.writeln;
-                        }
-                    }
-                }
-            }
-        }
+        stdObjs = extractNamespacesIntoContext(argv, context);
+    }
+    catch (Exception e)
+    {
+        return 1;
     }
     foreach (infileName; context.namespaces.byKey)
     {
@@ -211,6 +146,100 @@ EOF".write;
     }
 
     return 0;
+}
+
+string[] extractNamespacesIntoContext(string[] filenames,
+                                      TopLevelContext* context)
+{
+    bool[string] names;
+    foreach (a; filenames)
+    {
+        auto abs = a.absolutePath
+                    .stripTrailingSlash;
+        names[abs] = true;
+    }
+    string[] stdObjs;
+    foreach (infileName; names.byKey())
+    {
+        if (infileName !in context.namespaces)
+        {
+            ModuleNamespace* newNamespace;
+            newNamespace = extractNamespace(infileName, context);
+            context.namespaces[infileName] = newNamespace;
+            if (context.dump)
+            {
+                foreach (structDef; newNamespace.records.structDefs.values)
+                {
+                    structDef.formatFull.writeln;
+                }
+                foreach (variantDef; newNamespace.records.variantDefs.values)
+                {
+                    variantDef.formatFull.writeln;
+                }
+            }
+            bool[string] decendImports;
+            ImportPath*[] newImports = newNamespace.imports;
+            ImportPath*[] buildImports;
+            foreach (imp; newImports)
+            {
+                decendImports[imp.path] = true;
+            }
+            while (newImports.length > 0)
+            {
+                foreach (absPath; newImports)
+                {
+                    if (absPath.path !in names
+                        && absPath.path !in context.namespaces)
+                    {
+                        if (absPath.isStd)
+                        {
+                            stdObjs ~= [absPath.path ~ ".o"];
+                        }
+                        try
+                        {
+                            newNamespace = extractNamespace(
+                                absPath.path ~ ".mlo", context
+                            );
+                        }
+                        catch (Exception e)
+                        {
+                            writeln(
+                                "Error: Could not find file [" ~ absPath.path
+                                                               ~ ".mlo"
+                                                               ~ "]"
+                            );
+                            throw e;
+                        }
+                        newNamespace.isStd = absPath.isStd;
+                        buildImports ~= newNamespace.imports;
+                        context.namespaces[absPath.path] = newNamespace;
+                        if (context.dump)
+                        {
+                            foreach (structDef; newNamespace.records.structDefs.values)
+                            {
+                                structDef.formatFull.writeln;
+                            }
+                            foreach (variantDef; newNamespace.records.variantDefs.values)
+                            {
+                                variantDef.formatFull.writeln;
+                            }
+                        }
+                    }
+                }
+                newImports = [];
+                foreach (imp; buildImports)
+                {
+                    if (imp.path !in decendImports)
+                    {
+                        newImports ~= imp;
+                        decendImports[imp.path] = true;
+                    }
+                }
+                buildImports = [];
+            }
+        }
+    }
+    return stdObjs;
 }
 
 ModuleNamespace* extractNamespace(string infileName, TopLevelContext* context)
