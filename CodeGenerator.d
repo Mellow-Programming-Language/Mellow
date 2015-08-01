@@ -729,6 +729,7 @@ string compileFunction(FuncSig* sig, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto funcHeader = "";
+    funcHeader ~= "    global " ~ sig.funcName ~ "\n";
     funcHeader ~= sig.funcName ~ ":\n";
     funcHeader ~= "    push   rbp         ; set up stack frame\n";
     funcHeader ~= "    mov    rbp, rsp\n";

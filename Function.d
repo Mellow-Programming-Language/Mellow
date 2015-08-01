@@ -157,6 +157,7 @@ class FunctionBuilder : Visitor
     private RecordBuilder records;
     private string id;
     private FuncSig*[] toplevelFuncs;
+    private FuncSig*[] importedFuncSigs;
     private FuncSig*[] funcSigs;
     private FuncSig*[] callSigs;
     private FuncSig* curFuncCallSig;
@@ -192,7 +193,7 @@ class FunctionBuilder : Visitor
     FuncSig*[] getExternFuncSigs()
     {
         return toplevelFuncs.filter!(a => a.funcDefNode is null)
-                            .array;
+                            .array ~ importedFuncSigs;
     }
 
     // TODO update this so templated functions are handled correctly, ie, their
@@ -208,11 +209,13 @@ class FunctionBuilder : Visitor
         }
     }
 
-    this (ProgramNode node, RecordBuilder records, FuncSig*[] sigs)
+    this (ProgramNode node, RecordBuilder records, FuncSig*[] sigs,
+          FuncSig*[] importedFuncSigs)
     {
         this.topNode = node;
         this.records = records;
         this.toplevelFuncs = sigs;
+        this.importedFuncSigs = importedFuncSigs;
         builderStack.length++;
         for (auto i = 0; i < node.children.length; i++)
         {
@@ -258,7 +261,9 @@ class FunctionBuilder : Visitor
             return;
         }
         this.stackVarAllocSize[curFuncName] = 0;
-        auto lookup = funcSigLookup(toplevelFuncs, funcName);
+        auto lookup = funcSigLookup(
+            toplevelFuncs ~ importedFuncSigs, funcName
+        );
         if (lookup.success)
         {
             funcSigs ~= lookup.sig;
@@ -731,7 +736,9 @@ class FunctionBuilder : Visitor
             node.children[0].accept(this);
             auto name = id;
             auto varLookup = funcScopes.scopeLookup(name);
-            auto funcLookup = funcSigLookup(toplevelFuncs, name);
+            auto funcLookup = funcSigLookup(
+                toplevelFuncs ~ importedFuncSigs, name
+            );
             auto variant = variantFromConstructor(records, name);
             if (!varLookup.success && !funcLookup.success && variant is null)
             {
@@ -1439,7 +1446,7 @@ class FunctionBuilder : Visitor
                 curFuncCallSig, templateInstantiations
             );
             auto funcLookup = funcSigLookup(
-                toplevelFuncs, curFuncCallSig.funcName
+                toplevelFuncs ~ importedFuncSigs, curFuncCallSig.funcName
             );
             if (!funcLookup.success)
             {
@@ -1626,7 +1633,9 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallNode"));
         node.children[0].accept(this);
         auto name = id;
-        auto funcLookup = funcSigLookup(toplevelFuncs, name);
+        auto funcLookup = funcSigLookup(
+            toplevelFuncs ~ importedFuncSigs, name
+        );
         if (!funcLookup.success)
         {
             throw new Exception("No function[" ~ name ~ "].");
@@ -1645,7 +1654,7 @@ class FunctionBuilder : Visitor
                 curFuncCallSig, templateInstantiations
             );
             auto existsLookup = funcSigLookup(
-                toplevelFuncs, curFuncCallSig.funcName
+                toplevelFuncs ~ importedFuncSigs, curFuncCallSig.funcName
             );
             if (!existsLookup.success)
             {
@@ -1736,7 +1745,9 @@ class FunctionBuilder : Visitor
         // It's some other type, meaning this must be UFCS
         else
         {
-            auto funcLookup = funcSigLookup(toplevelFuncs, name);
+            auto funcLookup = funcSigLookup(
+                toplevelFuncs ~ importedFuncSigs, name
+            );
             if (!funcLookup.success)
             {
                 throw new Exception("No function[" ~ name ~ "].");
@@ -2472,7 +2483,9 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SpawnStmtNode"));
         node.children[0].accept(this);
         auto name = id;
-        auto funcLookup = funcSigLookup(toplevelFuncs, name);
+        auto funcLookup = funcSigLookup(
+            toplevelFuncs ~ importedFuncSigs, name
+        );
         if (!funcLookup.success)
         {
             throw new Exception("No function " ~ name ~ " to spawn");

@@ -16,6 +16,7 @@ struct TopLevelContext
     bool dump;
     bool help;
     bool keepObjs;
+    bool assembleOnly;
 }
 
 struct ModuleNamespace
@@ -24,6 +25,7 @@ struct ModuleNamespace
     ProgramNode topNode;
     RecordBuilder records;
     FuncSig*[] funcSigs;
+    FuncSig*[] externFuncSigs;
     ImportPath*[] imports;
     bool isStd;
 

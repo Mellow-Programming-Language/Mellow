@@ -36,11 +36,13 @@ int main(string[] argv)
     context.dump = false;
     context.help = false;
     context.keepObjs = false;
+    context.assembleOnly = false;
     try
     {
         getopt(argv,
             "outfile|o", &context.outfileName,
-            "keep", &context.keepObjs,
+            "keep|k", &context.keepObjs,
+            "c", &context.assembleOnly,
             "runtime", &context.runtimePath,
             "stdlib", &context.stdlibPath,
             "S", &context.compileOnly,
@@ -51,6 +53,10 @@ int main(string[] argv)
     {
         writeln("Error: Unrecognized cmdline argument.");
         return 1;
+    }
+    if (context.assembleOnly)
+    {
+        context.keepObjs = true;
     }
     if (context.help)
     {
@@ -66,12 +72,15 @@ All arguments must be prefaced by double dashes, as in --help or --o.
 --o S           Provide a string S which will act as the filename of the
                 generated outfile.
 
---keep          Don't delete the generated object files.
+--keep
+--k             Don't delete the generated object files.
+
+--c             Compile and assemble only, don't link. (Implies --keep)
 
 --runtime S     Provide the path to the runtime object file, if the default is
                 incorrect.
 
---S             Only generate the assembly file, don't assemble or link.
+--S             Compile only, don't assemble or link.
 
 --stdlib S      Provide the path to the stdlib directory.
 EOF".write;
@@ -106,36 +115,36 @@ EOF".write;
         }
     }
 
-    try
+    if (!context.assembleOnly)
     {
-        string[] cmd;
-        version (MULTITHREAD)
+        try
         {
-            cmd = ["gcc", "-pthread", "-o"];
+            string[] cmd = ["gcc"];
+            version (MULTITHREAD)
+            {
+                cmd = ["-pthread"];
+            }
+            cmd ~= ["-o"]
+                ~ [context.outfileName]
+                ~ objFileNames
+                ~ stdObjs
+                ~ [context.runtimePath]
+                ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)];
+            auto gccPid = spawnProcess(cmd);
+            auto retCode = wait(gccPid);
+            if (retCode != 0)
+            {
+                writeln("Error: [" ~ cmd.join(" ") ~ "] failed");
+                return retCode;
+            }
         }
-        else
+        catch (ProcessException ex)
         {
-            cmd = ["gcc", "-o"];
+            writeln(
+                "Error: Could not exec [gcc]. Do you have it installed?"
+            );
+            return 1;
         }
-        cmd ~= [context.outfileName]
-            ~ objFileNames
-            ~ stdObjs
-            ~ [context.runtimePath]
-            ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)];
-        auto gccPid = spawnProcess(cmd);
-        auto retCode = wait(gccPid);
-        if (retCode != 0)
-        {
-            writeln("Error: [" ~ cmd.join(" ") ~ "] failed");
-            return retCode;
-        }
-    }
-    catch (ProcessException ex)
-    {
-        writeln(
-            "Error: Could not exec [gcc]. Do you have it installed?"
-        );
-        return 1;
     }
     if (!context.keepObjs)
     {
@@ -339,13 +348,14 @@ string compileFile(string infileName, TopLevelContext* context)
                                                            .variantDefs[vd];
             }
         }
-        namespace.funcSigs ~= context.namespaces[imp.path]
-                                     .funcSigs;
+        namespace.externFuncSigs ~= context.namespaces[imp.path]
+                                           .funcSigs;
     }
     auto funcs = new FunctionBuilder(
         namespace.topNode,
         namespace.records,
-        namespace.funcSigs
+        namespace.funcSigs,
+        namespace.externFuncSigs
     );
     auto fullAsm = compileProgram(namespace.records, funcs);
     if (context.compileOnly)
@@ -365,7 +375,8 @@ string compileFile(string infileName, TopLevelContext* context)
     else
     {
         auto asmTmpfileName = generateRandomFilename() ~ ".asm";
-        auto objectTmpfileName = infileName ~ ".o";
+        auto objectTmpfileName = infileName.baseName(".mlo")
+                                           .absolutePath ~ ".o";
         try
         {
             auto tempAsmFile = File(asmTmpfileName, "wx");
