@@ -375,8 +375,7 @@ string compileFile(string infileName, TopLevelContext* context)
     else
     {
         auto asmTmpfileName = generateRandomFilename() ~ ".asm";
-        auto objectTmpfileName = infileName.baseName(".mlo")
-                                           .absolutePath ~ ".o";
+        auto objectTmpfileName = infileName.stripExtension ~ ".o";
         try
         {
             auto tempAsmFile = File(asmTmpfileName, "wx");
