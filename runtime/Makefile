@@ -14,17 +14,17 @@ callFunc_multithread.o: callFunc_multithread.asm
 	nasm -f elf64 callFunc_multithread.asm
 
 scheduler.o: scheduler.c scheduler.h
-	gcc -c scheduler.c
+	gcc -Wall -c scheduler.c
 
 scheduler_multithread.o: scheduler.c scheduler.h
-	gcc -D MULTITHREAD -pthread -c scheduler.c -o scheduler_multithread.o
+	gcc -Wall -D MULTITHREAD -pthread -c scheduler.c -o scheduler_multithread.o
 
 tls.o: tls.asm
 	as tls.asm -o tls.o
 
 # Provided so that the invocation used to produce tls.asm is recorded
 tls.asm: tls.c
-	gcc -O3 -pthread -S -c tls.c -masm=intel -o tls.asm
+	gcc -Wall -O3 -pthread -S -c tls.c -masm=intel -o tls.asm
 
 clean:
 	-rm *.o

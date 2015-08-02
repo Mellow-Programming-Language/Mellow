@@ -1,0 +1,19 @@
+// ISSUE: 29
+// EXPECTS: "Hello! One! Two! Three! "
+
+extern func writeln(str: string);
+extern func write(str: string);
+
+func test(): (string, string, string) {
+    return ("One! ", "Two! ", "Three! ");
+}
+
+func main() {
+    str: string = "Hello! ";
+    (s1: string, s2: string, s3: string) = test();
+    write(str);
+    write(s1);
+    write(s2);
+    write(s3);
+    writeln("");
+}

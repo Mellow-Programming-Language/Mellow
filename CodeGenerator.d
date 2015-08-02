@@ -1044,6 +1044,7 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
 string compileForStmt(ForStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
@@ -1947,8 +1948,10 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         str ~= "    mov    r8, rax\n";
         break;
     case TypeEnum.SET:
+        assert(false, "Unimplemented");
         break;
     case TypeEnum.HASH:
+        assert(false, "Unimplemented");
         break;
     case TypeEnum.ARRAY:
         auto elemSize = pair.type.array.arrayType.size;
@@ -1985,10 +1988,13 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         }
         break;
     case TypeEnum.FUNCPTR:
+        assert(false, "Unimplemented");
         break;
     case TypeEnum.STRUCT:
+        assert(false, "Unimplemented");
         break;
     case TypeEnum.VARIANT:
+        assert(false, "Unimplemented");
         break;
     case TypeEnum.CHAN:
         auto elemSize = pair.type.chan.chanType.size;
@@ -2014,10 +2020,12 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         break;
     case TypeEnum.FLOAT:
     case TypeEnum.DOUBLE:
+        assert(false, "Unimplemented");
         break;
     case TypeEnum.TUPLE:
     case TypeEnum.AGGREGATE:
     case TypeEnum.VOID:
+        assert(false, "Unimplemented");
         break;
     }
     str ~= vars.compileVarSet(pair.varName);
@@ -2335,8 +2343,87 @@ string compileAssignment(AssignmentNode node, Context* vars)
 string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
+    auto left = node.children[0];
+    auto right = node.children[1];
     auto str = "";
+    auto type = right.data["type"].get!(Type*);
+    if (cast(VariableTypePairNode)left)
+    {
+        str ~= compileExpression(cast(BoolExprNode)right, vars);
+        auto varName = getIdentifier(
+            cast(IdentifierNode)((cast(VariableTypePairNode)left).children[0])
+        );
+        auto var = new VarTypePair;
+        var.varName = varName;
+        var.type = type;
+        vars.addStackVar(var);
+        // Increase the ref-count by 1 for dynamically allocated types
+        if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING
+            || type.tag == TypeEnum.VARIANT || type.tag == TypeEnum.STRUCT
+            || type.tag == TypeEnum.HASH || type.tag == TypeEnum.SET)
+        {
+            str ~= "    add    dword [r8], 1\n";
+        }
+        // Note the use of str in the expression, which is why we're not ~=ing
+        str = "    ; var infer assign [" ~ varName
+                                         ~ "]\n"
+                                         ~ str
+                                         ~ vars.compileVarSet(varName);
+    }
+    else
+    {
+        auto identifiers = (cast(VariableTypePairTupleNode)left)
+                           .children
+                           .map!(a => (cast(VariableTypePairNode)a).children[0])
+                           .map!(a => cast(IdentifierNode)a)
+                           .map!(a => getIdentifier(a))
+                           .array;
+        auto types = right.data["type"]
+                          .get!(Type*)
+                          .tuple
+                          .types;
+        str ~= compileExpression(cast(BoolExprNode)right, vars);
+        auto var = new VarTypePair;
+        var.varName = identifiers[0];
+        var.type = types[0];
+        vars.addStackVar(var);
+        str ~= vars.compileVarSet(identifiers[0]);
+        auto sizes = types[1..$].map!(a => a.size)
+                                .array;
+        foreach (i, ident, type; lockstep(identifiers[1..$], types[1..$]))
+        {
+            auto alignedIndex = sizes.getAlignedIndexOffset(i);
+            auto size = sizes[i];
+            switch (size)
+            {
+            case 16:
+                // Fat ptr case
+                break;
+            case 1:
+            case 2:
+            case 4:
+            case 8:
+            default:
+                str ~= "    mov    r8" ~ getRRegSuffix(size)
+                                       ~ ", "
+                                       ~ getWordSize(size)
+                                       ~ " [rsp+"
+                                       ~ alignedIndex.to!string
+                                       ~ "]"
+                                       ~ "\n";
+                var = new VarTypePair;
+                var.varName = ident;
+                var.type = type;
+                vars.addStackVar(var);
+                str ~= vars.compileVarSet(ident);
+                break;
+            }
+        }
+        str ~= "    add    rsp, " ~ (sizes.getAlignedSize
+                                   + getPadding(sizes.getAlignedSize, 16)
+                                    ).to!string
+                                  ~ "\n";
+    }
     return str;
 }
 

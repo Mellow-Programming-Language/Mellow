@@ -77,14 +77,14 @@ callFunc:
     mov     rcx, qword [rax+24]
     mov     r8, qword [rax+32]
     mov     r9, qword [rax+40]
-    movsd   xmm0, qword [rax+48]
-    movsd   xmm1, qword [rax+56]
-    movsd   xmm2, qword [rax+64]
-    movsd   xmm3, qword [rax+72]
-    movsd   xmm4, qword [rax+80]
-    movsd   xmm5, qword [rax+88]
-    movsd   xmm6, qword [rax+96]
-    movsd   xmm7, qword [rax+104]
+    movsd   xmm0, [rax+48]
+    movsd   xmm1, [rax+56]
+    movsd   xmm2, [rax+64]
+    movsd   xmm3, [rax+72]
+    movsd   xmm4, [rax+80]
+    movsd   xmm5, [rax+88]
+    movsd   xmm6, [rax+96]
+    movsd   xmm7, [rax+104]
 
     jmp     r11                     ; Call function
 

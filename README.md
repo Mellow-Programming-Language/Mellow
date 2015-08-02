@@ -1,95 +1,89 @@
-# The Mellow Programming Language
+The Mellow Programming Language
+===============================
+
+[![Build Status](https://travis-ci.org/Mellow-Programming-Language/Mellow.svg?branch=master)](https://travis-ci.org/Mellow-Programming-Language/Mellow)
 
 Mellow is an imperative language that draws influence from D, Go, and functional
 languages, among others. This implementation exclusively targets x86-64 Linux.
 
-To build the compiler, run `make` in the toplevel project directory. Note that
-the `make` process will attempt to `git clone` a secondary repository (the
-parser generator project at https://github.com/CollinReeser/ParserGenerator),
-which is necessary to build the compiler.
+Building
+--------
 
 The build process assumes that the D Language compiler `dmd`, `gcc`, `git`, and
 the Netwide Assembler `nasm` are installed.
 
+To build the compiler, run `make` in the toplevel project directory. With the
+proper dependencies installed, and an internet connection, a simple `make`
+should build the full compiler. Note that the `make` process will attempt to
+`git clone` a secondary repository (the parser generator project at
+https://github.com/CollinReeser/ParserGenerator), which is necessary to build
+the compiler.
+
+Help
+----
+
 `./compiler --help` will provide a summary of options.
 
-Note that the docs/ directory is woefully out of date.
+Examples
+--------
 
-All of the files listed under examples/ can be compiled.
+The programs under examples/ demonstrate the syntax and semantics of the Mellow
+language.
 
-Interesting compilable examples:
-- intToString.mlo
-- features.mlo
-- mergesort.mlo
-- quicksort.mlo
-- isExpr.mlo
-- tree.mlo
-- LinkedList.mlo
-- tokenizer.mlo
-- bf_match.mlo (a deliberately overengineered bf interpreter with no input
-                 support, but should otherwise demonstrate most features, and
-                 can handle invalid input. This file is an excellent
-                 demonstration of many features)
-- bf_concurrent.mlo (as bf_match.mlo, while demonstrating concurrency
-                      features, but doesn't handle invalid input. This file
-                      is an excellent demonstration of many features)
-- avl.mlo (an implementation of an AVL self-balancing binary tree)
-- postfix.mlo (A simple commandline postfix expression interpreter)
-- trie.mlo (A basic Trie (Digital Tree) implementation as key-value map.)
+List of working features:
+------------------------------------
 
-Incomplete list of working features:
-- variables
-- functions
-- function arguments
-- function return values
-- if/else if/else statements with optional variable declarations
-- while loops with optional variable declarations
-- foreach loops with optional index variable
-- strings
-- bools
-- integers
-- floats can be declared
-- array literals
-- array slice ranges
-- array-element append
-- array-array append
-- string-string append
-- array-element append-equals
-- green threads (spawn(), yield)
-- channels (both read and write, with implicit yield)
-- expressions
-- extern func semantics (Simple FFI to C)
-- integer comparison operators
-- logical operators (&&, ||, !)
-- array .length property
-- templated structs
-- templated, recursively-defined variants
-- 'is' expressions (Lightweight `match` shorthand)
-- string comparison operators
-- function templating
-- match statements
-- returning multiple values from a function
-- full M:N multithreading scheduler
+  * variables
+  * functions
+  * function arguments
+  * function return values (including multiple-return)
+  * `if`, `else if`, `else` statements with optional variable declarations
+  * `while` loops with optional variable declarations
+  * `foreach` loops with optional index variable
+  * strings
+  * bools
+  * integers
+  * floats can be declared
+  * array literals
+  * array slice ranges
+  * array-element append
+  * array-array append
+  * string-string append
+  * array-element append-equals
+  * green threads (`spawn`, `yield`)
+  * channels (both read and write, with implicit yield)
+  * expressions
+  * `extern func` FFI semantics
+  * integer comparison operators
+  * logical operators (&&, ||, !)
+  * array `.length` property
+  * templated structs
+  * templated, recursively-defined variants
+  * `is` expressions
+  * string comparison operators
+  * function templating
+  * `match` statements
+  * full M:N multithreading scheduler
 
 
-Incomplete list of unimplemented or broken features:
-- array-array append-equals
-- string-string append-equals
-- string-char append-equals
-- string-char append
-- closures
-- meaningful ref-counting
-- all op-equals operators besides aforementioned append-equals exceptions
-- in blocks
-- out blocks
-- return blocks
-- const semantics
-- interface semantics (pending removal from language)
-- for statement
-- sets
-- hashes
-- function pointers
-- float comparison operators
-- float arithmetic
-- lambdas
-- any sort of module system whatsoever
+List of unimplemented or broken features:
+-----------------------------------------
+
+  * array-array append-equals
+  * string-string append-equals
+  * string-char append-equals
+  * string-char append
+  * closures
+  * meaningful ref-counting
+  * all op-equals operators besides aforementioned append-equals exceptions
+  * `in` blocks
+  * `out` blocks
+  * `const` semantics
+  * `for` statement
+  * sets
+  * hashes
+  * function pointers
+  * float comparison operators
+  * float arithmetic
+  * lambdas
+  * any sort of module system whatsoever

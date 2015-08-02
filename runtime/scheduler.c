@@ -23,13 +23,13 @@ static volatile uint64_t programDone = 0;
 void printThreadData(ThreadData* curThread, int32_t v)
 {
     printf("Print Thread Data:\n");
-    printf("    ThreadData* curThread %d: %X\n", v, curThread);
-    printf("    funcAddr              %d: %X\n", v, curThread->funcAddr);
-    printf("    curFuncAddr           %d: %X\n", v, curThread->curFuncAddr);
-    printf("    t_StackBot            %d: %X\n", v, curThread->t_StackBot);
-    printf("    t_StackCur            %d: %X\n", v, curThread->t_StackCur);
-    printf("    t_StackRaw            %d: %X\n", v, curThread->t_StackRaw);
-    printf("    t_rbp                 %d: %X\n", v, curThread->t_rbp);
+    printf("    ThreadData* curThread %d: %p\n", v, curThread);
+    printf("    funcAddr              %d: %p\n", v, curThread->funcAddr);
+    printf("    curFuncAddr           %d: %p\n", v, curThread->curFuncAddr);
+    printf("    t_StackBot            %d: %p\n", v, curThread->t_StackBot);
+    printf("    t_StackCur            %d: %p\n", v, curThread->t_StackCur);
+    printf("    t_StackRaw            %d: %p\n", v, curThread->t_StackRaw);
+    printf("    t_rbp                 %d: %p\n", v, curThread->t_rbp);
     printf("    stillValid            %d: %u\n", v, curThread->stillValid);
 }
 

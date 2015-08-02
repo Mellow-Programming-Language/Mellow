@@ -24,42 +24,64 @@ variant Trie(T) {
     Node (Maybe!T, char, []Trie!T)
 }
 
-func tryChildren(T)(subTries: []Trie!T, c: char): Maybe!int {
-    foreach (i, child; subTries) {
-        match (child) {
+func trySubTries(T)(subTries: []Trie!T, c: char): Maybe!int {
+    foreach (i, subTrie; subTries) {
+        match (subTrie) {
             Node (_, x, _) if (x == c) :: return Some!int(i);
         }
     }
     return None!int;
 }
 
-func findChild(T)(trie: Trie!T, c: char): Maybe!int {
+func findSubTrie(T)(trie: Trie!T, c: char): Maybe!int {
     match(trie) {
         Root (_, subTries) ::
-            return tryChildren!T(subTries, c);
+            return trySubTries!T(subTries, c);
         Node (_, _, subTries) :: {
-            return tryChildren!T(subTries, c);
+            return trySubTries!T(subTries, c);
         }
     }
 }
 
 func find(T)(trie: Trie!T, key: string): Maybe!T {
     match (trie) {
-        Root (subVal, subTries) if (key == "") :: return subVal;
-        Root (subVal, subTries) ::
-            match (findChild!T(trie, key[0])) {
-                Some (i) if (key.length > 1) :: return find!T(subTries[i], key[1..]);
-                Some (i)                     :: return find!T(subTries[i], "");
-                _                            :: return None!T;
+        Root (subVal, _) if (key == "") :: return subVal;
+        Root (_, subTries) ::
+            match (findSubTrie!T(trie, key[0])) {
+                Some (i)    :: return find!T(subTries[i], key[1..]);
+                _           :: return None!T;
             }
-        Node (subVal, subChar, subTries) if (key == "") :: return subVal;
-        Node (subVal, subChar, subTries) ::
-            match (findChild!T(trie, key[0])) {
-                Some (i) if (key.length > 1) :: return find!T(subTries[i], key[1..]);
-                Some (i)                     :: return find!T(subTries[i], "");
-                _                            :: return None!T;
+        Node (subVal, _, _) if (key == "") :: return subVal;
+        Node (_, _, subTries) ::
+            match (findSubTrie!T(trie, key[0])) {
+                Some (i)    :: return find!T(subTries[i], key[1..]);
+                _           :: return None!T;
             }
     }
+}
+
+func insertSubTrie(T)(trie: Trie!T, key: string, val: T, subTries: []Trie!T): []Trie!T {
+    if (findSubTrie!T(trie, key[0]) is Some (i)) {
+        return subTries[..i] ~ insert!T(subTries[i], key[1..], val) ~ subTries[i+1..];
+    }
+    return subTries ~ insert!T(Node!T(None!T, key[0], []), key[1..], val);
+}
+
+func insert(T)(trie: Trie!T, key: string, val: T): Trie!T {
+    match (trie) {
+        Root (_, subTries) if (key == "") ::
+            return Root!T(Some!T(val), subTries);
+        Root (subVal, subTries) ::
+            return Root!T(subVal, insertSubTrie!T(trie, key, val, subTries));
+        Node (_, subChar, subTries) if (key == "") ::
+            return Node!T(Some!T(val), subChar, subTries);
+        Node (subVal, subChar, subTries) ::
+            return Node!T(subVal, subChar, insertSubTrie!T(trie, key, val, subTries));
+    }
+}
+
+func createTrie(T)(): Trie!T {
+    return Root!T(None!T, []);
 }
 
 func printTrieInt(trie: Trie!int) { printTrieIndentInt(trie, ""); }
@@ -120,40 +142,6 @@ func printTrieIndentString(trie: Trie!string, indent: string) {
             }
         }
     }
-}
-
-func insert(T)(trie: Trie!T, key: string, val: T): Trie!T {
-    match (trie) {
-        Root (_, subTries) if (key == "") ::
-            return Root!T(Some!T(val), subTries);
-        Root (subVal, subTries) ::
-            return Root!T(subVal, insertSubTrie!T(trie, key, val, subTries));
-        Node (_, subChar, subTries) if (key == "") ::
-            return Node!T(Some!T(val), subChar, subTries);
-        Node (subVal, subChar, subTries) ::
-            return Node!T(subVal, subChar, insertSubTrie!T(trie, key, val, subTries));
-    }
-}
-
-func insertSubTrie(T)(trie: Trie!T, key: string, val: T, subTries: []Trie!T): []Trie!T {
-    match (findChild!T(trie, key[0])) {
-        Some (i) if (key.length > 1)    ::
-            return subTries[..i] ~ insert!T(subTries[i], key[1..], val) ~ subTries[i+1..];
-        Some (i)                        ::
-            return subTries[..i] ~ insert!T(subTries[i], "", val) ~ subTries[i+1..];
-        None if (key.length > 1)        ::
-            return subTries ~ insert!T(createNode!T(key[0]), key[1..], val);
-        None                            ::
-            return subTries ~ insert!T(createNode!T(key[0]), "", val);
-    }
-}
-
-func createTrie(T)(): Trie!T {
-    return Root!T(None!T, []);
-}
-
-func createNode(T)(c: char): Trie!T {
-    return Node!T(None!T, c, []);
 }
 
 func main() {
