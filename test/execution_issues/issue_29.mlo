@@ -1,8 +1,7 @@
 // ISSUE: 29
 // EXPECTS: "Hello! One! Two! Three! "
 
-extern func writeln(str: string);
-extern func write(str: string);
+import std.io;
 
 func test(): (string, string, string) {
     return ("One! ", "Two! ", "Three! ");
