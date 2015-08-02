@@ -1,0 +1,18 @@
+// ISSUE: 13
+// EXPECTS: success
+
+variant Tree(T) {
+    Branch (Tree, T, Tree),
+    Leaf
+}
+
+struct Test {
+    x: int;
+    y: int;
+}
+
+func main() {
+    tests: []Test;
+    trees: []Tree!int;
+    ints: [1000]int;
+}

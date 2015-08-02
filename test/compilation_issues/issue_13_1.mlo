@@ -1,0 +1,12 @@
+// ISSUE: 13
+// EXPECTS: failure
+
+
+struct Test {
+    x: int;
+    y: int;
+}
+
+func main() {
+    tests: [1000]Test;
+}
