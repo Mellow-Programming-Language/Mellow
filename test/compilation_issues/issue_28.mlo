@@ -1,3 +1,5 @@
+// ISSUE: 28
+// EXPECTS: success
 
 extern func writeln(str: string);
 
