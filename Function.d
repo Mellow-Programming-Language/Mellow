@@ -1062,12 +1062,19 @@ class FunctionBuilder : Visitor
         }
         else
         {
+            if (varType.tag == TypeEnum.ARRAY
+                && varType.array.arrayType.tag == TypeEnum.VOID
+                && decls[$-1].type.tag == TypeEnum.ARRAY)
+            {
+                varType = decls[$-1].type.copy;
+            }
             if (!decls[$-1].type.cmp(varType))
             {
-                writeln(decls[$-1].type.format);
-                writeln("vs.");
-                writeln(varType.format);
-                throw new Exception("Type mismatch in decl assignment.");
+                throw new Exception(
+                    "Type mismatch in decl assignment.\n"
+                    ~ "Expects: " ~ decls[$-1].type.format ~ "\n"
+                    ~ "But got: " ~ varType.format
+                );
             }
         }
         foreach (decl; decls)
@@ -1087,6 +1094,13 @@ class FunctionBuilder : Visitor
         node.children[2].accept(this);
         auto varType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
+        // Cover the case of assigning an empty array literal
+        if (varType.tag == TypeEnum.ARRAY
+            && varType.array.arrayType.tag == TypeEnum.VOID
+            && left.tag == TypeEnum.ARRAY)
+        {
+            varType = left.copy;
+        }
         final switch (op)
         {
         case "=":

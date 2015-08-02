@@ -1,0 +1,12 @@
+sudo: false
+addons:
+  apt:
+    packages:
+    - nasm
+language: d
+d:
+  - dmd
+script:
+  - make
+  - perl test/compilable.pl
+  - perl test/executable.pl
