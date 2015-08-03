@@ -420,7 +420,7 @@ string compileFile(string infileName, TopLevelContext* context)
 string stripComments(string source)
 {
     // FIXME: This does not handle double slash in quotes
-    return replaceAll(source, regex(r"//.*$", "gm"), "\n");
+    return replaceAll(source, regex(r"//.*$", "gm"), "");
 }
 
 string generateRandomFilename()

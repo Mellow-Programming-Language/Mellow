@@ -1165,7 +1165,10 @@ mixin template TypeVisitors()
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!isIntegral(allocType))
             {
-                throw new Exception("Can only use integral value to prealloc");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Can only use integral value to prealloc"
+                );
             }
             node.children[1].accept(this);
         }
@@ -1174,6 +1177,14 @@ mixin template TypeVisitors()
             node.children[0].accept(this);
         }
         array.arrayType = builderStack[$-1][$-1];
+        if (node.children.length > 1 && (array.arrayType.tag == TypeEnum.STRUCT
+            || array.arrayType.tag == TypeEnum.VARIANT))
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Cannot preallocate space for arrays of structs or variants"
+            );
+        }
         auto type = new Type();
         type.tag = TypeEnum.ARRAY;
         type.array = array;
