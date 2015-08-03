@@ -7,7 +7,9 @@ void* mellow_allocString(const char* str, const uint32_t strLength) {
     // The length of the array of characters plus the bytes allocated to hold
     // the ref-count plus the bytes allocated to hold the string length plus
     // a byte to hold the null byte
-    const uint32_t totalSize = strLength + REF_COUNT_SIZE + MELLOW_STR_SIZE + 1;
+    const uint32_t totalSize = REF_COUNT_SIZE + MELLOW_STR_SIZE
+                                              + getAllocSize(strLength)
+                                              + 1;
     void* mellowString = malloc(totalSize);
     // Set the ref-count to 1
     ((uint32_t*)mellowString)[0] = 1;
@@ -18,6 +20,14 @@ void* mellow_allocString(const char* str, const uint32_t strLength) {
     // Add the null byte
     ((char*)mellowString)[totalSize-1] = '\0';
     return mellowString;
+}
+
+void* mellow_copyString(void* str)
+{
+    return mellow_allocString(
+        (char*)(str + REF_COUNT_SIZE + MELLOW_STR_SIZE),
+        ((uint32_t*)(str + REF_COUNT_SIZE))[0]
+    );
 }
 
 void mellow_freeString(void* mellowString) {

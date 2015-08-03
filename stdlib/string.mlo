@@ -1,0 +1,3 @@
+
+extern func toLower(str: string): string;
+extern func toUpper(str: string): string;

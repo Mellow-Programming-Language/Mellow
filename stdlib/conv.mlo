@@ -5,3 +5,5 @@ extern func ord(c: char): int;
 extern func chr(i: int): Maybe!char;
 extern func charToString(c: char): string;
 extern func intToString(i: int): string;
+extern func stringToChars(str: string): []char;
+extern func charsToString(chs: []char): string;

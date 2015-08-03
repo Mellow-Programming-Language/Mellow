@@ -11,5 +11,7 @@ struct MaybeChar
 int ord(char c);
 void* chr(int c);
 void* charToString(char c);
+void* stringToChars(void* str);
+void* charsToString(void* chs);
 
 #endif

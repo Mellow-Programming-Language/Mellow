@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "stdconv.h"
+#include <string.h>
 #include "mellow_internal.h"
 
 int ord(char c)
@@ -43,4 +44,27 @@ void* charToString(char c)
     // Set the null byte
     ((uint32_t*)mellowStr)[3] = '\0';
     return mellowStr;
+}
+
+void* stringToChars(void* str) {
+    uint32_t strLen = ((uint32_t*)(str + REF_COUNT_SIZE))[0];
+    const uint32_t totalSize = REF_COUNT_SIZE
+                             + MELLOW_STR_SIZE
+                             + getAllocSize(strLen);
+    void* mellowArr = malloc(totalSize);
+    ((uint32_t*)mellowArr)[0] = 1;
+    ((uint32_t*)mellowArr)[1] = strLen;
+    memcpy(
+        mellowArr + REF_COUNT_SIZE + MELLOW_STR_SIZE,
+        str + REF_COUNT_SIZE + MELLOW_STR_SIZE,
+        strLen
+    );
+    return mellowArr;
+}
+
+void* charsToString(void* chs) {
+    return mellow_allocString(
+        chs + REF_COUNT_SIZE + MELLOW_STR_SIZE,
+        ((uint32_t*)(chs + REF_COUNT_SIZE))[0]
+    );
 }

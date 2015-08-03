@@ -22,6 +22,8 @@
 // length field, copy c-string into allocated space for string, add null byte to
 // end, and return pointer to beginning of allocated memory for mellow-string
 void* mellow_allocString(const char* str, const uint32_t length);
+// Make a copy of the string, with a ref-count of 1
+void* mellow_copyString(void* str);
 
 // Deallocate all memory allocated by mellow_allocString()
 void mellow_freeString(void* mellowString);

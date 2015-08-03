@@ -1288,10 +1288,22 @@ class FunctionBuilder : Visitor
                 node.children[1].accept(this);
             }
         }
-        else if (cast(SingleIndexNode)node.children[0]) {
-            if (lvalue.tag != TypeEnum.ARRAY)
+        else if (cast(SingleIndexNode)node.children[0])
+        {
+            if (lvalue.tag == TypeEnum.STRING)
             {
-                throw new Exception("Cannot index non-array type");
+                throw new Exception(
+                    "Cannot lvalue index immutable type [string].\n"
+                    ~ "Consider using [stringToChars()] and "
+                    ~ "[charsToString()] in [std.conv]"
+                );
+            }
+            else if (lvalue.tag != TypeEnum.ARRAY)
+            {
+                throw new Exception(
+                    "Cannot lvalue index non-array type ["
+                    ~ lvalue.format ~ "]"
+                );
             }
             insideSlice++;
             node.children[0].accept(this);
