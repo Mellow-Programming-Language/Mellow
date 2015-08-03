@@ -331,7 +331,8 @@ class FunctionBuilder : Visitor
             if (!returnType.cmp(funcSigs[$-1].returnType))
             {
                 throw new Exception(
-                    "Wrong type for return in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Wrong type for return in function ["
                     ~ funcSigs[$-1].funcName ~ "]:\n"
                     ~ "  Expects: " ~ funcSigs[$-1].returnType.format ~ "\n"
                     ~ "  But got: " ~ returnType.format
@@ -362,7 +363,8 @@ class FunctionBuilder : Visitor
                 || nextType.tag != TypeEnum.BOOL)
             {
                 throw new Exception(
-                    "Non-bool type in LOGIC-OR in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-bool type in LOGIC-OR in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
@@ -386,7 +388,8 @@ class FunctionBuilder : Visitor
                 || nextType.tag != TypeEnum.BOOL)
             {
                 throw new Exception(
-                    "Non-bool type in LOGIC-AND in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-bool type in LOGIC-AND in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
@@ -404,7 +407,8 @@ class FunctionBuilder : Visitor
             if (builderStack[$-1][$-1].tag != TypeEnum.BOOL)
             {
                 throw new Exception(
-                    "Cannot negate non-bool type in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot negate non-bool type in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
@@ -441,7 +445,8 @@ class FunctionBuilder : Visitor
                 else
                 {
                     throw new Exception(
-                        "Mismatched types for equality cmp in function ["
+                        errorHeader(node) ~ "\n"
+                        ~ "Mismatched types for equality cmp in function ["
                         ~ funcSigs[$-1].funcName ~ "]\n"
                         ~ "Left Type : " ~ resultType.format ~ "\n"
                         ~ "Right Type: " ~ nextType.format
@@ -454,7 +459,8 @@ class FunctionBuilder : Visitor
                     || !resultType.set.setType.cmp(nextType.set.setType))
                 {
                     throw new Exception(
-                        "Mismatched types in `<in>` op in function ["
+                        errorHeader(node) ~ "\n"
+                        ~ "Mismatched types in `<in>` op in function ["
                         ~ funcSigs[$-1].funcName ~ "]\n"
                         ~ "Left Type : " ~ resultType.format ~ "\n"
                         ~ "Right Type: " ~ nextType.format
@@ -466,7 +472,8 @@ class FunctionBuilder : Visitor
                     || !nextType.set.setType.cmp(resultType))
                 {
                     throw new Exception(
-                        "Mismatched types in `in` op in function ["
+                        errorHeader(node) ~ "\n"
+                        ~ "Mismatched types in `in` op in function ["
                         ~ funcSigs[$-1].funcName ~ "]\n"
                         ~ "Left Type : " ~ resultType.format ~ "\n"
                         ~ "Right Type: " ~ nextType.format
@@ -505,7 +512,8 @@ class FunctionBuilder : Visitor
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
                 throw new Exception(
-                    "Non-integral type in BIT-OR operation in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-integral type in BIT-OR operation in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
@@ -528,7 +536,8 @@ class FunctionBuilder : Visitor
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
                 throw new Exception(
-                    "Non-integral type in BIT-XOR operation in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-integral type in BIT-XOR operation in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
@@ -551,7 +560,8 @@ class FunctionBuilder : Visitor
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
                 throw new Exception(
-                    "Non-integral type in BIT-AND operation in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-integral type in BIT-AND operation in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
@@ -574,7 +584,8 @@ class FunctionBuilder : Visitor
             if (!resultType.isIntegral || !nextType.isIntegral)
             {
                 throw new Exception(
-                    "Non-integral type in shift operation in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-integral type in shift operation in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
             }
@@ -609,7 +620,10 @@ class FunctionBuilder : Visitor
                     || resultType.tag != TypeEnum.SET
                     || nextType.tag != TypeEnum.SET)
                 {
-                    throw new Exception("Type mismatch in set operation.");
+                    throw new Exception(
+                        errorHeader(node) ~ "\n"
+                        ~ "Type mismatch in set operation."
+                    );
                 }
                 break;
             case "~":
@@ -621,7 +635,8 @@ class FunctionBuilder : Visitor
                         && nextType.tag != TypeEnum.STRING)
                     {
                         throw new Exception(
-                            "String append without char or string."
+                            errorHeader(node) ~ "\n"
+                            ~ "String append without char or string."
                         );
                     }
                 }
@@ -633,7 +648,8 @@ class FunctionBuilder : Visitor
                         && resultType.tag != TypeEnum.STRING)
                     {
                         throw new Exception(
-                            "String append without char or string."
+                            errorHeader(node) ~ "\n"
+                            ~ "String append without char or string."
                         );
                     }
                     resultType = nextType.copy;
@@ -666,9 +682,11 @@ class FunctionBuilder : Visitor
                         if (!resultType.array.arrayType.cmp(nextType))
                         {
                             throw new Exception(
-                                "Cannot append base type to unlike array type\n"
+                                errorHeader(node) ~ "\n"
+                                ~ "Cannot append type to unlike array type\n"
                                 ~ "Left : " ~ resultType.format ~ "\n"
-                                ~ "Right: " ~ nextType.format);
+                                ~ "Right: " ~ nextType.format
+                            );
                         }
                     }
                     else if (nextType.tag == TypeEnum.ARRAY)
@@ -676,18 +694,22 @@ class FunctionBuilder : Visitor
                         if (!nextType.array.arrayType.cmp(resultType))
                         {
                             throw new Exception(
-                                "Cannot append base type to unlike array type\n"
+                                errorHeader(node) ~ "\n"
+                                ~ "Cannot append type to unlike array type\n"
                                 ~ "Left : " ~ resultType.format ~ "\n"
-                                ~ "Right: " ~ nextType.format);
+                                ~ "Right: " ~ nextType.format
+                            );
                         }
                         resultType = nextType;
                     }
                     else
                     {
                         throw new Exception(
-                            "Cannot append two unlike, non-array types.\n"
+                            errorHeader(node) ~ "\n"
+                            ~ "Cannot append two unlike, non-array types.\n"
                             ~ "Left : " ~ resultType.format ~ "\n"
-                            ~ "Right: " ~ nextType.format);
+                            ~ "Right: " ~ nextType.format
+                        );
                     }
                 }
             }
@@ -710,11 +732,17 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!resultType.isNumeric || !nextType.isNumeric)
             {
-                throw new Exception("Cannot perform " ~ op ~ " on non-arith.");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot perform " ~ op ~ " on non-arith."
+                );
             }
             if (op == "%" && (resultType.isFloat || nextType.isFloat))
             {
-                throw new Exception("% (modulus) undefined for float types.");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "% (modulus) undefined for float types."
+                );
             }
             resultType = promoteNumeric(resultType, nextType);
         }
@@ -736,7 +764,8 @@ class FunctionBuilder : Visitor
             if (!varLookup.success && !funcLookup.success && variant is null)
             {
                 throw new Exception(
-                    "No variable, function, or variant constructor ["
+                    errorHeader(node) ~ "\n"
+                    ~ "No variable, function, or variant constructor ["
                     ~ name ~ "] in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
@@ -773,15 +802,16 @@ class FunctionBuilder : Visitor
                           (cast(TrailerNode)node.children[1]).children[0]
                            is null)
                     {
-                        auto str = "";
-                        str ~= "Cannot instantiate templated variant "
+                        throw new Exception(
+                            errorHeader(node) ~ "\n"
+                            ~ "Cannot instantiate templated variant "
                             ~ "constructor ["
                             ~ name
                             ~ "] of variant ["
                             ~ variant.format
                             ~ "] without a template instantiation in function ["
-                            ~ funcSigs[$-1].funcName ~ "]";
-                        throw new Exception(str);
+                            ~ funcSigs[$-1].funcName ~ "]"
+                        );
                     }
                 }
                 curVariant = new Type();
@@ -900,7 +930,8 @@ class FunctionBuilder : Visitor
             if (memberName in memberAssigns)
             {
                 throw new Exception(
-                    "A struct member must appear only once in a constructor"
+                    errorHeader(node) ~ "\n"
+                    ~ "A struct member must appear only once in a constructor"
                 );
             }
             memberAssigns[memberName] = valType;
@@ -918,7 +949,8 @@ class FunctionBuilder : Visitor
                                .walkLength > 0)
         {
             throw new Exception(
-                "Incorrect struct member arguments in constructor"
+                errorHeader(node) ~ "\n"
+                ~ "Incorrect struct member arguments in constructor"
             );
         }
         foreach (key; memberAssigns.keys)
@@ -935,7 +967,8 @@ class FunctionBuilder : Visitor
             if (!assignedType.cmp(expectedType))
             {
                 throw new Exception(
-                    "Type mismatch in struct constructor:\n"
+                    errorHeader(node) ~ "\n"
+                    ~ "Type mismatch in struct constructor:\n"
                     ~ "  Member [" ~ key ~ "]\n"
                     ~ "  Expects type: " ~ expectedType.format ~ "\n"
                     ~ "  But got type: " ~ assignedType.format
@@ -972,7 +1005,8 @@ class FunctionBuilder : Visitor
                 if (!valType.cmp(nextType))
                 {
                     throw new Exception(
-                        "Non-uniform type in array literal in function ["
+                        errorHeader(node) ~ "\n"
+                        ~ "Non-uniform type in array literal in function ["
                         ~ funcSigs[$-1].funcName ~ "]"
                     );
                 }
@@ -1000,7 +1034,8 @@ class FunctionBuilder : Visitor
             || varType.tag == TypeEnum.VARIANT)
         {
             throw new Exception(
-                "Cannot declare but not initialize struct or variant types.\n"
+                errorHeader(node) ~ "\n"
+                ~ "Cannot declare but not initialize struct or variant types.\n"
                 ~ "  For [" ~ varName ~ ": " ~ varType.format ~ ";]\n"
                 ~ "  Use the appropriate value constructor"
             );
@@ -1043,13 +1078,19 @@ class FunctionBuilder : Visitor
             auto tupleTypes = varType.tuple.types;
             if (tupleTypes.length != decls.length)
             {
-                throw new Exception("Tuple member count mismatch.");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Tuple member count mismatch."
+                );
             }
             foreach (decl, varType; lockstep(decls, tupleTypes))
             {
                 if (!decl.type.cmp(varType))
                 {
-                    throw new Exception("Type mismatch in tuple unpack.");
+                    throw new Exception(
+                        errorHeader(node) ~ "\n"
+                        ~ "Type mismatch in tuple unpack."
+                    );
                 }
             }
         }
@@ -1064,7 +1105,8 @@ class FunctionBuilder : Visitor
             if (!decls[$-1].type.cmp(varType))
             {
                 throw new Exception(
-                    "Type mismatch in decl assignment.\n"
+                    errorHeader(node) ~ "\n"
+                    ~ "Type mismatch in decl assignment.\n"
                     ~ "Expects: " ~ decls[$-1].type.format ~ "\n"
                     ~ "But got: " ~ varType.format
                 );
@@ -1100,7 +1142,8 @@ class FunctionBuilder : Visitor
             if (!left.cmp(varType))
             {
                 throw new Exception(
-                    "Type mismatch in assign-existing in function ["
+                    errorHeader(node) ~ "\n"
+                    ~ "Type mismatch in assign-existing in function ["
                     ~ funcSigs[$-1].funcName ~ "]\n"
                     ~ "  Expects: " ~ left.format ~ "\n"
                     ~ "  But got: " ~ varType.format
@@ -1113,19 +1156,28 @@ class FunctionBuilder : Visitor
         case "*=":
             if (!left.isNumeric || !varType.isNumeric)
             {
-                throw new Exception("Non-numeric type in arithmetic assign-eq");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-numeric type in arithmetic assign-eq"
+                );
             }
             break;
         case "%=":
             if (!left.isIntegral || !varType.isIntegral)
             {
-                throw new Exception("Non-integral type in mod-assign-eq");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-integral type in mod-assign-eq"
+                );
             }
             break;
         case "~=":
             if (left.tag != TypeEnum.ARRAY)
             {
-                throw new Exception("Cannot append-equal to non-array type");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot append-equal to non-array type"
+                );
             }
             else if (varType.tag == TypeEnum.ARRAY)
             {
@@ -1133,11 +1185,17 @@ class FunctionBuilder : Visitor
                 {
                     break;
                 }
-                throw new Exception("Cannot append unlike array types");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot append unlike array types"
+                );
             }
             else if (!left.array.arrayType.cmp(varType))
             {
-                throw new Exception("Cannot append type to unlike array type");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot append type to unlike array type"
+                );
             }
             break;
         }
@@ -1156,12 +1214,18 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (varTuple.tag != TypeEnum.TUPLE)
             {
-                throw new Exception("Non-Tuple type!");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-Tuple type!"
+                );
             }
             auto tupleTypes = varTuple.tuple.types;
             if (tupleTypes.length != varNames.length)
             {
-                throw new Exception("Tuple member count mismatch.");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Tuple member count mismatch."
+                );
             }
             foreach (varName, varType; lockstep(varNames, tupleTypes))
             {
@@ -1169,7 +1233,8 @@ class FunctionBuilder : Visitor
                     && varType.array.arrayType.tag == TypeEnum.VOID)
                 {
                     throw new Exception(
-                        "Cannot infer contained type of empty array literal"
+                        errorHeader(node) ~ "\n"
+                        ~ "Cannot infer contained type of empty array literal"
                     );
                 }
                 auto pair = new VarTypePair();
@@ -1188,7 +1253,8 @@ class FunctionBuilder : Visitor
                 && varType.array.arrayType.tag == TypeEnum.VOID)
             {
                 throw new Exception(
-                    "Cannot infer contained type of empty array literal"
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot infer contained type of empty array literal"
                 );
             }
             builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1238,7 +1304,10 @@ class FunctionBuilder : Visitor
         auto lookup = funcScopes.scopeLookup(varName);
         if (!lookup.success)
         {
-            throw new Exception("Cannot assign to undeclared variable.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Cannot assign to undeclared variable."
+            );
         }
         auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
                                                    .decls[varName]
@@ -1258,7 +1327,10 @@ class FunctionBuilder : Visitor
         if (cast(IdentifierNode)node.children[0]) {
             if (lvalue.tag != TypeEnum.STRUCT)
             {
-                throw new Exception("Member access only valid on struct type");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Member access only valid on struct type"
+                );
             }
             node.children[0].accept(this);
             auto memberName = id;
@@ -1274,7 +1346,10 @@ class FunctionBuilder : Visitor
             }
             if (!found)
             {
-                throw new Exception(memberName ~ " is not member of struct");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ memberName ~ " is not member of struct"
+                );
             }
             if (node.children.length > 1)
             {
@@ -1284,7 +1359,10 @@ class FunctionBuilder : Visitor
         else if (cast(SingleIndexNode)node.children[0]) {
             if (lvalue.tag != TypeEnum.ARRAY)
             {
-                throw new Exception("Cannot index non-array type");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot index non-array type"
+                );
             }
             insideSlice++;
             node.children[0].accept(this);
@@ -1307,7 +1385,10 @@ class FunctionBuilder : Visitor
         if (arrayType.tag != TypeEnum.ARRAY
             && arrayType.tag != TypeEnum.STRING)
         {
-            throw new Exception("Cannot slice non-array, non-string type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Cannot slice non-array, non-string type."
+            );
         }
         node.children[0].accept(this);
         auto sliceType = builderStack[$-1][$-1];
@@ -1344,7 +1425,10 @@ class FunctionBuilder : Visitor
         auto indexType = builderStack[$-1][$-1];
         if (!indexType.isIntegral)
         {
-            throw new Exception("Index type must be integral.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Index type must be integral."
+            );
         }
     }
 
@@ -1362,7 +1446,10 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (!indexType.isIntegral)
         {
-            throw new Exception("Index type must be integral.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Index type must be integral."
+            );
         }
         auto indexEnd = new Type();
         indexEnd.tag = TypeEnum.LONG;
@@ -1382,7 +1469,10 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (!indexType.isIntegral)
         {
-            throw new Exception("Index type must be integral.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Index type must be integral."
+            );
         }
         auto indexEnd = new Type();
         indexEnd.tag = TypeEnum.LONG;
@@ -1402,14 +1492,20 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (!indexStart.isIntegral)
         {
-            throw new Exception("Index type must be integral.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Index type must be integral."
+            );
         }
         node.children[1].accept(this);
         auto indexEnd = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (!indexEnd.isIntegral)
         {
-            throw new Exception("Index type must be integral.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Index type must be integral."
+            );
         }
         auto range = new TupleType();
         range.types = [indexStart] ~ [indexEnd];
@@ -1496,7 +1592,10 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("SliceLengthSentinelNode"));
         if (insideSlice < 1)
         {
-            throw new Exception("$ operator only valid inside slice");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "$ operator only valid inside slice"
+            );
         }
         auto valType = new Type();
         valType.tag = TypeEnum.INT;
@@ -1549,7 +1648,8 @@ class FunctionBuilder : Visitor
             if (funcArgs.length != node.children.length)
             {
                 throw new Exception(
-                    "Incorrect number of arguments passed for call of "
+                    errorHeader(node) ~ "\n"
+                    ~ "Incorrect number of arguments passed for call of "
                     ~ "function [" ~ funcSig.funcName ~ "] in function ["
                     ~ funcSigs[$-1].funcName ~ "]"
                 );
@@ -1571,7 +1671,8 @@ class FunctionBuilder : Visitor
                 if (!argPassed.cmp(argExpected.type))
                 {
                     throw new Exception(
-                        "Mismatch between expected and passed arg type for "
+                        errorHeader(node) ~ "\n"
+                        ~ "Mismatch between expected and passed arg type for "
                         ~ "call of function [" ~ funcSig.funcName
                         ~ "] in function [" ~ funcSigs[$-1].funcName ~ "]\n"
                         ~ "  Expects: " ~ argExpected.type.format ~ "\n"
@@ -1593,7 +1694,8 @@ class FunctionBuilder : Visitor
             if (member.constructorElems.tag == TypeEnum.VOID)
             {
                 throw new Exception(
-                    "Constructor [" ~ curConstructor
+                    errorHeader(node) ~ "\n"
+                    ~ "Constructor [" ~ curConstructor
                                    ~ "] of variant ["
                                    ~ variant.variantDef.format
                                    ~ "] cannot have value arguments"
@@ -1620,7 +1722,8 @@ class FunctionBuilder : Visitor
                 if (!typeExpected.cmp(typeGot))
                 {
                     throw new Exception(
-                        "Mismatch between expected and passed variant "
+                        errorHeader(node) ~ "\n"
+                        ~ "Mismatch between expected and passed variant "
                         "constructor instantiation type: \n"
                       ~ "  Expected: " ~ typeExpected.formatFull ~ "\n"
                       ~ "  Got: " ~ typeGot.formatFull
@@ -1643,7 +1746,10 @@ class FunctionBuilder : Visitor
         auto funcLookup = funcSigLookup(toplevelFuncs, name);
         if (!funcLookup.success)
         {
-            throw new Exception("No function[" ~ name ~ "].");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "No function[" ~ name ~ "]."
+            );
         }
         curFuncCallSig = funcLookup.sig;
         if (cast(TemplateInstantiationNode)node.children[1])
@@ -1719,7 +1825,10 @@ class FunctionBuilder : Visitor
             }
             if (!found)
             {
-                throw new Exception(name ~ " is not member of struct");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ name ~ " is not member of struct"
+                );
             }
 
             // TODO check to see if it's a UFCS call or a member function call
@@ -1753,7 +1862,10 @@ class FunctionBuilder : Visitor
             auto funcLookup = funcSigLookup(toplevelFuncs, name);
             if (!funcLookup.success)
             {
-                throw new Exception("No function[" ~ name ~ "].");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "No function[" ~ name ~ "]."
+                );
             }
             curFuncCallSig = funcLookup.sig;
             node.children[1].accept(this);
@@ -1776,7 +1888,10 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (boolType.tag != TypeEnum.BOOL)
         {
-            throw new Exception("Non-bool expr in if statement expr.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Non-bool expr in if statement expr."
+            );
         }
         // BareBlockNode
         node.children[2].accept(this);
@@ -1808,7 +1923,10 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (boolType.tag != TypeEnum.BOOL)
         {
-            throw new Exception("Non-bool expr in if statement expr.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Non-bool expr in if statement expr."
+            );
         }
         // BareBlockNode
         node.children[2].accept(this);
@@ -1836,7 +1954,10 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (boolType.tag != TypeEnum.BOOL)
         {
-            throw new Exception("Non-bool expr in while statement expr.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Non-bool expr in while statement expr."
+            );
         }
         // BareBlockNode
         node.children[2].accept(this);
@@ -1879,7 +2000,9 @@ class FunctionBuilder : Visitor
                 if (type.tag != TypeEnum.ARRAY && type.tag != TypeEnum.STRING)
                 {
                     throw new Exception(
-                        "Cannot loop over non-array/string types in loop tuple"
+                        errorHeader(node) ~ "\n"
+                        ~ "Cannot loop over non-array/string types in loop "
+                        ~ "tuple"
                     );
                 }
                 loopTypes ~= type;
@@ -1887,13 +2010,17 @@ class FunctionBuilder : Visitor
         }
         else
         {
-            throw new Exception("Cannot loop over non-array types");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Cannot loop over non-array types"
+            );
         }
         if (foreachArgs.length != loopTypes.length
             && foreachArgs.length - 1 != loopTypes.length)
         {
             throw new Exception(
-                "Foreach args must match loop types in number, plus optional "
+                errorHeader(node) ~ "\n"
+                ~ "Foreach args must match loop types in number, plus optional "
                 "index counter"
             );
         }
@@ -2000,7 +2127,8 @@ class FunctionBuilder : Visitor
             if (boolType.tag != TypeEnum.BOOL)
             {
                 throw new Exception(
-                    "Non-bool expr in match guard clause expr."
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-bool expr in match guard clause expr."
                 );
             }
         }
@@ -2025,8 +2153,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.VARIANT)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not variant type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not variant type."
+            );
         }
         auto matchTypeSave = matchType;
         matchType = normalizeVariantDefs(records, matchType.variantDef);
@@ -2042,21 +2173,28 @@ class FunctionBuilder : Visitor
                                 .array;
         if (members.length == 0)
         {
-            throw new Exception("Variant constructor does not exist");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Variant constructor does not exist"
+            );
         }
         auto member = members[0];
         if (member.constructorElems.tag == TypeEnum.VOID)
         {
             throw new Exception(
-                "Variant constructor [" ~ constructorName ~ "] of variant ["
-                ~ matchType.variantDef.format ~ "]\nin `match` does not contain "
-                ~ "any values to deconstruct"
+                errorHeader(node) ~ "\n"
+                ~ "Variant constructor [" ~ constructorName ~ "] of variant ["
+                ~ matchType.variantDef.format ~ "]\nin `match` does not "
+                ~ "contain any values to deconstruct"
             );
         }
         if (member.constructorElems.tuple.types.length
             != node.children[1..$].length)
         {
-            throw new Exception("Pattern sub-element quantity mismatch");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Pattern sub-element quantity mismatch"
+            );
         }
         foreach (child, subtype; lockstep(node.children[1..$],
                                           member.constructorElems.tuple.types))
@@ -2073,8 +2211,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.STRUCT)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not struct type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not struct type."
+            );
         }
         auto matchTypeSave = matchType;
         auto i = 0;
@@ -2089,7 +2230,8 @@ class FunctionBuilder : Visitor
             if (matchType.structDef.name != structName)
             {
                 throw new Exception(
-                    "Wrong optional struct name in match"
+                    errorHeader(node) ~ "\n"
+                    ~ "Wrong optional struct name in match"
                 );
             }
         }
@@ -2106,7 +2248,8 @@ class FunctionBuilder : Visitor
             if (memberName !in members)
             {
                 throw new Exception(
-                    "Struct deconstruction match with unknown member:\n"
+                    errorHeader(node) ~ "\n"
+                    ~ "Struct deconstruction match with unknown member:\n"
                     ~ "  [" ~ memberName ~ "]\n"
                     ~ "  expecting member from struct: "
                     ~ matchTypeSave.structDef.format
@@ -2115,7 +2258,8 @@ class FunctionBuilder : Visitor
             if (memberName in accessed)
             {
                 throw new Exception(
-                    "Multiple match clauses for member\n"
+                    errorHeader(node) ~ "\n"
+                    ~ "Multiple match clauses for member\n"
                     ~ "  [" ~ memberName ~ "]\n"
                     ~ "  in struct: " ~ matchTypeSave.structDef.format
                 );
@@ -2133,8 +2277,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.BOOL)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not bool type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not bool type."
+            );
         }
     }
 
@@ -2144,8 +2291,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.STRING)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not string type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not string type."
+            );
         }
     }
 
@@ -2155,8 +2305,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.CHAR)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not char type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not char type."
+            );
         }
     }
 
@@ -2166,8 +2319,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (!isIntegral(matchType))
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not integer type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not integer type."
+            );
         }
     }
 
@@ -2177,8 +2333,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (!isFloat(matchType))
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not floating type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not floating type."
+            );
         }
     }
 
@@ -2188,14 +2347,18 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.TUPLE)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not tuple type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not tuple type."
+            );
         }
         auto matchTypeSave = matchType;
         if (matchType.tuple.types.length != node.children.length)
         {
             throw new Exception(
-                "Bad tuple match unpack: element quantity mismatch"
+                errorHeader(node) ~ "\n"
+                ~ "Bad tuple match unpack: element quantity mismatch"
             );
         }
         foreach (child, subtype; lockstep(node.children,
@@ -2213,8 +2376,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.ARRAY)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not array type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not array type."
+            );
         }
     }
 
@@ -2224,8 +2390,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.ARRAY && matchType.tag != TypeEnum.STRING)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not array or string type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not array or string type."
+            );
         }
         auto matchTypeSave = matchType;
         auto endIndex = node.children.length;
@@ -2271,8 +2440,11 @@ class FunctionBuilder : Visitor
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.ARRAY && matchType.tag != TypeEnum.STRING)
         {
-            throw new Exception("Must match on " ~ matchType.tag.format
-                ~ ", not array or string type.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Must match on " ~ matchType.tag.format
+                ~ ", not array or string type."
+            );
         }
         auto matchTypeSave = matchType;
         auto startIndex = 0;
@@ -2325,7 +2497,8 @@ class FunctionBuilder : Visitor
             if (matchType.tag != TypeEnum.VARIANT)
             {
                 throw new Exception(
-                    "Matched type is not a variant type, but got constructor:\n"
+                    errorHeader(node) ~ "\n"
+                    ~ "Matched type is not variant type, but got constructor:\n"
                     ~ "  " ~ var ~ "\n"
                     ~ "  for variant: " ~ maybeVariantDef.format
                 );
@@ -2333,7 +2506,8 @@ class FunctionBuilder : Visitor
             if (!matchType.variantDef.isMember(var))
             {
                 throw new Exception(
-                    "Constructor for wrong variant definition:\n"
+                    errorHeader(node) ~ "\n"
+                    ~ "Constructor for wrong variant definition:\n"
                     ~ "  Expects: " ~ matchType.format ~ "\n"
                     ~ "  But got: " ~ maybeVariantDef.format
                 );
@@ -2342,7 +2516,8 @@ class FunctionBuilder : Visitor
             if (member.constructorElems.tag != TypeEnum.VOID)
             {
                 throw new Exception(
-                    "Cannot have empty variant match on non-empty constructor"
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot have empty variant match on non-empty constructor"
                 );
             }
         }
@@ -2376,7 +2551,8 @@ class FunctionBuilder : Visitor
         if (exprType.tag != TypeEnum.VARIANT)
         {
             throw new Exception(
-                "Left side of `is` expression must be a variant type"
+                errorHeader(node) ~ "\n"
+                ~ "Left side of `is` expression must be a variant type"
             );
         }
         if (variantDef !is null)
@@ -2384,8 +2560,9 @@ class FunctionBuilder : Visitor
             if (!exprType.variantDef.isMember(constructorName))
             {
                 throw new Exception(
-                    "Right side of `is` expression must be a valid constructor"
-                    " for the left side variant type"
+                    errorHeader(node) ~ "\n"
+                    ~ "Right side of `is` expression must be a valid "
+                    "constructor for the left side variant type"
                 );
             }
             auto member = exprType.variantDef
@@ -2394,7 +2571,8 @@ class FunctionBuilder : Visitor
                 && node.children[2..$].length > 0)
             {
                 throw new Exception(
-                    "Cannot bind variables in empty constructor"
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot bind variables in empty constructor"
                 );
             }
             if (member.constructorElems.tag != TypeEnum.VOID)
@@ -2403,7 +2581,8 @@ class FunctionBuilder : Visitor
                     != node.children[2..$].length)
                 {
                     throw new Exception(
-                        "Pattern sub-element quantity mismatch"
+                        errorHeader(node) ~ "\n"
+                        ~ "Pattern sub-element quantity mismatch"
                     );
                 }
                 foreach (child, subtype;
@@ -2433,7 +2612,8 @@ class FunctionBuilder : Visitor
         else
         {
             throw new Exception(
-                "Variant constructor " ~ constructorName ~ " does not exist"
+                errorHeader(node) ~ "\n"
+                ~ "Variant constructor " ~ constructorName ~ " does not exist"
             );
         }
         node.data["type"] = exprType;
@@ -2459,11 +2639,17 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (leftType.tag != TypeEnum.CHAN)
         {
-            throw new Exception("Can't chan-write to non-channel");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Can't chan-write to non-channel"
+            );
         }
         else if (!leftType.chan.chanType.cmp(rightType))
         {
-            throw new Exception("Can't chan-write mismatched types");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Can't chan-write mismatched types"
+            );
         }
     }
 
@@ -2475,7 +2661,10 @@ class FunctionBuilder : Visitor
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (type.tag != TypeEnum.CHAN)
         {
-            throw new Exception("Cannot chan-read from non-channel");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Cannot chan-read from non-channel"
+            );
         }
         builderStack[$-1] ~= type.chan.chanType.copy;
         node.data["type"] = type.chan.chanType.copy;
@@ -2489,11 +2678,17 @@ class FunctionBuilder : Visitor
         auto funcLookup = funcSigLookup(toplevelFuncs, name);
         if (!funcLookup.success)
         {
-            throw new Exception("No function " ~ name ~ " to spawn");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "No function " ~ name ~ " to spawn"
+            );
         }
         if (funcLookup.sig.returnType.tag != TypeEnum.VOID)
         {
-            throw new Exception("Cannot spawn non-void function");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Cannot spawn non-void function"
+            );
         }
         curFuncCallSig = funcLookup.sig;
         node.data["sig"] = funcLookup.sig;

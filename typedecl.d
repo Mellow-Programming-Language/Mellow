@@ -1165,7 +1165,10 @@ mixin template TypeVisitors()
             builderStack[$-1] = builderStack[$-1][0..$-1];
             if (!isIntegral(allocType))
             {
-                throw new Exception("Can only use integral value to prealloc");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Can only use integral value to prealloc"
+                );
             }
             node.children[1].accept(this);
         }
@@ -1178,7 +1181,8 @@ mixin template TypeVisitors()
             || array.arrayType.tag == TypeEnum.VARIANT))
         {
             throw new Exception(
-                "Cannot preallocate space for arrays of structs or variants"
+                errorHeader(node) ~ "\n"
+                ~ "Cannot preallocate space for arrays of structs or variants"
             );
         }
         auto type = new Type();
