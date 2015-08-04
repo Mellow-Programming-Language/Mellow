@@ -5,9 +5,12 @@ CC_FLAGS = -Wall
 ASM = nasm
 ASM_FLAGS = -f elf64
 CC_MULTITHREAD = -D MULTITHREAD -pthread
-# Find all unique directories libpthread-related files exist, and construct a
-# string of "-L libdir -L libdir ..."
-LD_LIBS = $(shell locate libpthread | xargs dirname | uniq | perl -e 'print join " ", map {$$t = $$_; chomp $$t; "-L $$t"} <STDIN>')
+# Find all directories libpthread-related files exist within, and construct a
+# string of "-L libdir -L libdir ...". The list may contain duplicates, but
+# ld doesn't appear to mind. This was originally written with
+# `locate libpthread | xargs dirname | uniq | <perl script>` but Travis CI
+# doesn't have `locate` and appears to choke on the `xargs dirname`
+LD_LIBS = $(shell find / -name 'libpthread.*' -print 2> /dev/null | perl -MFile::Basename -e 'print join " ", map {$$t = $$_; chomp $$t; (undef, $$t, undef) = fileparse $$t; "-L $$t"} <STDIN>')
 LD_MULTITHREAD = $(LD_LIBS) -lpthread
 
 runtime.o: callFunc.o scheduler.o
