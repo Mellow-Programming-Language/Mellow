@@ -5,7 +5,10 @@ CC_FLAGS = -Wall
 ASM = nasm
 ASM_FLAGS = -f elf64
 CC_MULTITHREAD = -D MULTITHREAD -pthread
-LD_MULTITHREAD = -L /usr/lib -lpthread
+# Find all unique directories libpthread-related files exist, and construct a
+# string of "-L libdir -L libdir ..."
+LD_LIBS = $(shell locate libpthread | xargs dirname | uniq | perl -e 'print join " ", map {$$t = $$_; chomp $$t; "-L $$t"} <STDIN>')
+LD_MULTITHREAD = $(LD_LIBS) -lpthread
 
 runtime.o: callFunc.o scheduler.o
 	ld -r callFunc.o scheduler.o -o runtime.o
