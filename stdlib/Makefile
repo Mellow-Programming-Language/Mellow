@@ -1,34 +1,45 @@
-all: io.o conv.o stdlib.o core.o string.o
+MELLOW_INTERNAL = mellow_internal.h mellow_internal.c
+STDLIB = stdlib.o core.o conv.o io.o string.o
 
-core.o: core.c
-	gcc -c core.c -o core.o
+all: $(STDLIB)
 
-stdio.o: stdio.c stdio.h mellow_internal.h mellow_internal.c
-	gcc -c stdio.c -o stdio.o
+conv.o: stdconv.o conv_mlo.o
+	ld -r stdconv.o conv_mlo.o -o conv.o
+
+core.o: stdcore.c
+	gcc -c stdcore.c -o core.o
 
 io.o: stdio.o
 	ld -r stdio.o -o io.o
 
-stdconv.o: stdconv.h stdconv.c mellow_internal.c mellow_internal.h
+string.o: stdstring.o string_mlo.o
+	ld -r stdstring.o string_mlo.o -o string.o
+
+stdconv.o: stdconv.h stdconv.c $(MELLOW_INTERNAL)
 	gcc -c stdconv.c -o stdconv.o
 
 conv_mlo.o: conv_mlo.mlo
 	../compiler -c conv_mlo.mlo
 
-conv.o: stdconv.o conv_mlo.o
-	ld -r stdconv.o conv_mlo.o -o conv.o
+stdio.o: stdio.c stdio.h $(MELLOW_INTERNAL)
+	gcc -c stdio.c -o stdio.o
 
-stdstring.o: stdstring.h stdstring.c mellow_internal.h mellow_internal.c
+stdstring.o: stdstring.h stdstring.c $(MELLOW_INTERNAL)
 	gcc -c stdstring.c -o stdstring.o
 
 string_mlo.o: string_mlo.mlo
 	../compiler -c string_mlo.mlo
 
-string.o: stdstring.o string_mlo.o
-	ld -r stdstring.o string_mlo.o -o string.o
+stdlib.o: stdio.o stdconv.o mellow_internal.o
+	ld -r mellow_internal.o -o stdlib.o
 
-mellow_internal.o: mellow_internal.h mellow_internal.c
+mellow_internal.o: $(MELLOW_INTERNAL)
 	gcc -c mellow_internal.c -o mellow_internal.o
 
-stdlib.o: mellow_internal.o
-	ld -r mellow_internal.o -o stdlib.o
+.PHONY: clean
+clean:
+	rm -f *.o
+
+.PHONY: realclean
+realclean:
+

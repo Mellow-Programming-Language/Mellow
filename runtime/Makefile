@@ -1,30 +1,42 @@
-all: runtime.o
+all: runtime.o runtime_multithread.o
+
+CC = gcc
+CC_FLAGS = -Wall
+ASM = nasm
+ASM_FLAGS = -f elf64
+CC_MULTITHREAD = -D MULTITHREAD -pthread
+LD_MULTITHREAD = -L /usr/lib -lpthread
 
 runtime.o: callFunc.o scheduler.o
 	ld -r callFunc.o scheduler.o -o runtime.o
 
 runtime_multithread.o: callFunc_multithread.o scheduler_multithread.o tls.o
-	ld -L /usr/lib -lpthread -r callFunc_multithread.o scheduler_multithread.o \
+	ld $(LD_MULTITHREAD) -r callFunc_multithread.o scheduler_multithread.o \
 	tls.o -o runtime_multithread.o
 
 callFunc.o: callFunc.asm
-	nasm -f elf64 callFunc.asm
+	$(ASM) $(ASM_FLAGS) callFunc.asm
 
 callFunc_multithread.o: callFunc_multithread.asm
-	nasm -f elf64 callFunc_multithread.asm
+	$(ASM) $(ASM_FLAGS) callFunc_multithread.asm
 
 scheduler.o: scheduler.c scheduler.h
-	gcc -Wall -c scheduler.c
+	$(CC) $(CC_FLAGS) -c scheduler.c
 
 scheduler_multithread.o: scheduler.c scheduler.h
-	gcc -Wall -D MULTITHREAD -pthread -c scheduler.c -o scheduler_multithread.o
+	$(CC) $(CC_FLAGS) $(CC_MULTITHREAD) -c scheduler.c \
+	-o scheduler_multithread.o
 
 tls.o: tls.asm
 	as tls.asm -o tls.o
 
 # Provided so that the invocation used to produce tls.asm is recorded
 tls.asm: tls.c
-	gcc -Wall -O3 -pthread -S -c tls.c -masm=intel -o tls.asm
+	$(CC) $(CC_FLAGS) -O3 -pthread -S -c tls.c -masm=intel -o tls.asm
 
+.PHONY: clean
 clean:
-	-rm *.o
+	rm -f *.o
+
+.PHONY: realclean
+realclean:
