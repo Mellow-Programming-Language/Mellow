@@ -5,9 +5,14 @@ use warnings;
 use FindBin;
 use Test::More;
 
+my $compiler_exe = "compiler";
+if (@ARGV) {
+    $compiler_exe = shift @ARGV;
+}
+
 my $scriptDir = "$FindBin::Bin";
 my $binDir = "$scriptDir/../";
-my $compiler = "$scriptDir/../compiler";
+my $compiler = "$scriptDir/../$compiler_exe";
 my $dummyFile = "TEST_RESULT_FILE";
 
 # Test the examples in the examples directory
@@ -32,7 +37,7 @@ closedir(DIR);
 chdir($binDir);
 
 unless (-x $compiler) {
-    unless (system("make") == 0 && -x $compiler) {
+    unless (system("make", "$compiler_exe") == 0 && -x $compiler) {
         die "Failed to 'make' non-existing $compiler\n";
     }
 }

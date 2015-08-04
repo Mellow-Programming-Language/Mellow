@@ -10,8 +10,10 @@ extra: compiler_debug compiler_multithread
 
 .PHONY: test
 test:
-	perl test/compilable.pl
-	perl test/executable.pl
+	perl test/compilable.pl compiler
+	perl test/executable.pl compiler
+	perl test/compilable.pl compiler_multithread
+	perl test/executable.pl compiler_multithread
 
 compiler: $(FILES)
 	dmd -ofcompiler $(FILES)

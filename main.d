@@ -122,7 +122,7 @@ EOF".write;
             string[] cmd = ["gcc"];
             version (MULTITHREAD)
             {
-                cmd = ["-pthread"];
+                cmd ~= ["-pthread"];
             }
             cmd ~= ["-o"]
                 ~ [context.outfileName]
