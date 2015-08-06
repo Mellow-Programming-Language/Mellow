@@ -610,7 +610,9 @@ class FunctionBuilder : Visitor
             {
             case "+":
             case "-":
-                resultType = promoteNumeric(resultType, nextType);
+                resultType = promoteNumeric(
+                    resultType, nextType, node.children[i-1]
+                );
                 break;
             case "<|>":
             case "<&>":
@@ -744,7 +746,9 @@ class FunctionBuilder : Visitor
                     ~ "% (modulus) undefined for float types."
                 );
             }
-            resultType = promoteNumeric(resultType, nextType);
+            resultType = promoteNumeric(
+                resultType, nextType, node.children[i-1]
+            );
         }
         builderStack[$-1] ~= resultType;
         node.data["type"] = builderStack[$-1][$-1];
