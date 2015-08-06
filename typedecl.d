@@ -876,9 +876,13 @@ bool cmp(Type* me, Type* o)
 
 bool softcmp(Type* me, Type* o)
 {
-    if (me.tag == o.tag && me.isBasic && o.isBasic)
+    if (me.tag == o.tag)
     {
-        return true;
+        if (me.isBasic && o.isBasic)
+        {
+            return true;
+        }
+        return me.cmp(o);
     }
     if (me.tag != o.tag)
     {

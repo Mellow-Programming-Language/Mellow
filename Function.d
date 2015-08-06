@@ -333,7 +333,7 @@ class FunctionBuilder : Visitor
             node.children[0].accept(this);
             auto returnType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
-            if (!returnType.cmp(funcSigs[$-1].returnType))
+            if (!returnType.cmp(funcSigs[$-1].returnType.copy))
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
