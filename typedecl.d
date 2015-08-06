@@ -798,7 +798,7 @@ struct Type
 // This function assumes that there is only a single definition of variants and
 // structs, and that therefore if they have the same name and the same template
 // instantiation parameters, if any, then they must be identical
-bool cmp(const Type* me, const Type* o)
+bool cmp(Type* me, Type* o)
 {
     if (me.constType != o.constType || me.tag != o.tag)
     {
@@ -846,7 +846,7 @@ bool cmp(const Type* me, const Type* o)
                                          .map!(a => me.structDef.mappings[a]),
                              o.structDef.templateParams
                                          .map!(a =>  o.structDef.mappings[a]))
-                       .map!(a => a[0].cmp(a[1]))
+                       .map!(a => a[0].softcmp(a[1]))
                        .reduce!((a, b) => true == a && a == b))));
     case TypeEnum.VARIANT:
         return me.variantDef.name == o.variantDef.name
@@ -858,7 +858,7 @@ bool cmp(const Type* me, const Type* o)
                                          .map!(a => me.variantDef.mappings[a]),
                              o.variantDef.templateParams
                                          .map!(a =>  o.variantDef.mappings[a]))
-                       .map!(a => a[0].cmp(a[1]))
+                       .map!(a => a[0].softcmp(a[1]))
                        .reduce!((a, b) => true == a && a == b))));
     case TypeEnum.AGGREGATE:
         return me.aggregate.typeName == o.aggregate.typeName
@@ -868,10 +868,62 @@ bool cmp(const Type* me, const Type* o)
                     true,
                     zip(me.aggregate.templateInstantiations,
                       o.aggregate.templateInstantiations)
-                    .map!(a => a[0].cmp(a[1])));
+                    .map!(a => a[0].softcmp(a[1])));
     case TypeEnum.CHAN:
         return me.chan.chanType.cmp(o.chan.chanType);
     }
+}
+
+bool softcmp(Type* me, Type* o)
+{
+    if (me.tag == o.tag && me.isBasic && o.isBasic)
+    {
+        return true;
+    }
+    if (me.tag != o.tag)
+    {
+        if (me.tag != TypeEnum.AGGREGATE && o.tag != TypeEnum.AGGREGATE)
+        {
+            return false;
+        }
+        if (me.tag == TypeEnum.AGGREGATE && o.tag == TypeEnum.AGGREGATE)
+        {
+            return me.cmp(o);
+        }
+        if (o.tag == TypeEnum.AGGREGATE)
+        {
+            swap(me, o);
+        }
+        if (o.tag == TypeEnum.VARIANT)
+        {
+            return me.aggregate.typeName == o.variantDef.name
+                && me.aggregate.templateInstantiations.length ==
+                    o.variantDef.templateParams.length
+                && reduce!((a, b) => true == a && a == b)(
+                        true,
+                        zip(me.aggregate.templateInstantiations,
+                             o.variantDef
+                              .templateParams
+                              .map!(a => o.variantDef.mappings[a])
+                              .array)
+                        .map!(a => a[0].softcmp(a[1])));
+        }
+        if (o.tag == TypeEnum.STRUCT)
+        {
+            return me.aggregate.typeName == o.structDef.name
+                && me.aggregate.templateInstantiations.length ==
+                    o.structDef.templateParams.length
+                && reduce!((a, b) => true == a && a == b)(
+                        true,
+                        zip(me.aggregate.templateInstantiations,
+                             o.structDef
+                              .templateParams
+                              .map!(a => o.structDef.mappings[a])
+                              .array)
+                        .map!(a => a[0].softcmp(a[1])));
+        }
+    }
+    return false;
 }
 
 // Given whatever the current allocated size is, and given the size of the
@@ -999,6 +1051,26 @@ struct FuncSig
             str ~= ": " ~ returnType.format;
         }
         return str;
+    }
+}
+
+bool isBasic(Type* type)
+{
+    switch (type.tag)
+    {
+    case TypeEnum.VOID:
+    case TypeEnum.LONG:
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+    case TypeEnum.FLOAT:
+    case TypeEnum.DOUBLE:
+    case TypeEnum.CHAR:
+    case TypeEnum.BOOL:
+    case TypeEnum.STRING:
+        return true;
+    default:
+        return false;
     }
 }
 
