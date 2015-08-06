@@ -1076,12 +1076,13 @@ bool needsSignExtend(Type* type)
 }
 
 // Return as a result the larger of the two numeric types
-Type* promoteNumeric(Type* left, Type* right)
+Type* promoteNumeric(Type* left, Type* right, ASTNode node)
 {
     if (!left.isNumeric || !right.isNumeric)
     {
         throw new Exception(
-            "Cannot promote non-numeric type.\n"
+            errorHeader(node) ~ "\n"
+            ~ "Cannot promote non-numeric type.\n"
             ~ "Left Type : " ~ left.format ~ "\n"
             ~ "Right Type: " ~ right.format
         );
