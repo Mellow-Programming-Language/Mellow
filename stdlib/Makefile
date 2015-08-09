@@ -1,5 +1,5 @@
 MELLOW_INTERNAL = mellow_internal.h mellow_internal.c
-STDLIB = stdlib.o core.o conv.o io.o string.o path.o
+STDLIB = stdlib.o core.o conv.o getopt.o io.o string.o trie.o path.o
 
 all: $(STDLIB)
 
@@ -9,11 +9,17 @@ conv.o: stdconv.o conv_mlo.o
 core.o: stdcore.c
 	gcc -c stdcore.c -o core.o
 
+getopt.o: getopt.mlo
+	../compiler --stdlib="../stdlib" -c getopt.mlo
+
 io.o: stdio.o
 	ld -r stdio.o -o io.o
 
 string.o: stdstring.o string_mlo.o
 	ld -r stdstring.o string_mlo.o -o string.o
+
+trie.o: trie.mlo
+	../compiler --stdlib="../stdlib" -c trie.mlo
 
 path.o: path_mlo.o
 	ld -r path_mlo.o -o path.o

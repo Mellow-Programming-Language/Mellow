@@ -1,5 +1,8 @@
 
 import std.trie;
+import std.core;
+import std.conv;
+import std.io;
 
 variant GetOptArg {
     OptStrMulti ([]string),
@@ -15,4 +18,127 @@ variant GetOptArg {
 struct GetOptResult {
     rest: []string;
     args: Trie!(GetOptSet);
+}
+
+variant GetOptArgType {
+    CharType (bool),
+    StringType (bool),
+    FlagType (bool),
+    NumType (bool),
+}
+
+struct GetOptSplitRes {
+    argnames: []string;
+    argtype: GetOptArgType;
+}
+
+func splitArg(arg: string): Maybe!GetOptSplitRes {
+    argnames: []string;
+    argname := "";
+    postEq := false;
+    foreach (i, c; arg) {
+        if (c == '|') {
+            if (argname == "" || postEq) {
+                return None!GetOptSplitRes;
+            }
+            argnames = argnames ~ [argname];
+            argname = "";
+        }
+        else if (c == '=') {
+            postEq = true;
+        }
+        else if (!postEq) {
+            argname = argname ~ charToString(c);
+        }
+        else {
+            match (arg[i..]) {
+                ['s', '*'] :: return Some!GetOptSplitRes (
+                    GetOptSplitRes {
+                        argnames = argnames,
+                        argtype = StringType (true)
+                    }
+                );
+                ['s'] :: return Some!GetOptSplitRes (
+                    GetOptSplitRes {
+                        argnames = argnames,
+                        argtype = StringType (false)
+                    }
+                );
+                ['c', '*'] :: return Some!GetOptSplitRes (
+                    GetOptSplitRes {
+                        argnames = argnames,
+                        argtype = CharType (true)
+                    }
+                );
+                ['c'] :: return Some!GetOptSplitRes (
+                    GetOptSplitRes {
+                        argnames = argnames,
+                        argtype = CharType (false)
+                    }
+                );
+                ['n', '*'] :: return Some!GetOptSplitRes (
+                    GetOptSplitRes {
+                        argnames = argnames,
+                        argtype = NumType (true)
+                    }
+                );
+                ['n'] :: return Some!GetOptSplitRes (
+                    GetOptSplitRes {
+                        argnames = argnames,
+                        argtype = NumType (false)
+                    }
+                );
+                ['*'] :: return Some!GetOptSplitRes (
+                    GetOptSplitRes {
+                        argnames = argnames,
+                        argtype = FlagType (true)
+                    }
+                );
+                [_, ..] :: return None!GetOptSplitRes;
+            }
+        }
+    }
+    return Some!GetOptSplitRes (
+        GetOptSplitRes {
+            argnames = argnames,
+            argtype = FlagType (false)
+        }
+    );
+}
+// Each string in control can take permutations of the following forms:
+//   "o"
+//   "o|out"
+//   "o=s"
+//   "o=s*"
+//   "o=n"
+//   "o=*"
+//   "o=c*"
+//   "o|out|output=s"
+// Each string before the optional '=', each optionally delimited by '|',
+// represent the accepted names for a single argument. If there is no
+// "=..." content, then the argument is a flag. If there is a "=..."
+// component, then the acceptable keys thereafter are:
+//   s - string
+//   c - char
+//   n - integer
+// Such that getopt will mandate that the value actually passed on the
+// commandline is of the specified type. The key can be optionally followed
+// by a '*', indicating that that argument can be provided multiple times.
+// As a special case, "...=*" means that that boolean flag can be provided
+// multiple times. For arguments that can be passed values, they can either
+// be passed in the style of "-o=outfile" or "-o outfile"
+//
+// Any unrecognized arguments will be kept in the "rest" string array in the
+// returned GetOptResult struct.
+func getOptions(controls: []string, argv: []string): Maybe!GetOptResult {
+    writeln("1");
+    writeln("1.5");
+    parsedControls: []Maybe!(GetOptSplitRes);
+    foreach (con; controls) {
+        writeln("2");
+        parsedControls = parsedControls ~ splitArg(con);
+        writeln("2.5");
+    }
+    writeln("3");
+    return None!GetOptResult;
 }
