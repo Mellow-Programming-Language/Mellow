@@ -19,7 +19,7 @@ stdconv.o: stdconv.h stdconv.c $(MELLOW_INTERNAL)
 	gcc -c stdconv.c -o stdconv.o
 
 conv_mlo.o: conv_mlo.mlo
-	../compiler -c conv_mlo.mlo
+	../compiler --stdlib="../stdlib" -c conv_mlo.mlo
 
 stdio.o: stdio.c stdio.h $(MELLOW_INTERNAL)
 	gcc -c stdio.c -o stdio.o
@@ -28,7 +28,7 @@ stdstring.o: stdstring.h stdstring.c $(MELLOW_INTERNAL)
 	gcc -c stdstring.c -o stdstring.o
 
 string_mlo.o: string_mlo.mlo
-	../compiler -c string_mlo.mlo
+	../compiler --stdlib="../stdlib" -c string_mlo.mlo
 
 stdlib.o: stdio.o stdconv.o mellow_internal.o
 	ld -r mellow_internal.o -o stdlib.o
