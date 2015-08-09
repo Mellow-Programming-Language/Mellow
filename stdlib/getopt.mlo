@@ -1,0 +1,18 @@
+
+import std.trie;
+
+variant GetOptArg {
+    OptStrMulti ([]string),
+    OptStr (string),
+    OptNumMulti ([]int),
+    OptNum (int),
+    OptCharMulti ([]char),
+    OptChar (char),
+    OptSetMulti (int),
+    OptSet,
+}
+
+struct GetOptResult {
+    rest: []string;
+    args: Trie!(GetOptSet);
+}
