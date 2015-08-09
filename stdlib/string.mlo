@@ -3,7 +3,20 @@ import std.core;
 
 extern func toLower(str: string): string;
 extern func toUpper(str: string): string;
-extern func join(strs: []string, joiner: string): string;
+
+func join(strs: []string, joiner: string): string {
+    if (strs.length == 0) {
+        return "";
+    }
+    else if (strs.length == 1) {
+        return strs[0];
+    }
+    newstr := strs[0];
+    foreach (s; strs[1..]) {
+        newstr = newstr ~ joiner ~ s;
+    }
+    return newstr;
+}
 
 func lastIndex(T)(array: []T, val: T): Maybe!int
 {

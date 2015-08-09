@@ -39,8 +39,8 @@ stdio.o: stdio.c stdio.h $(MELLOW_INTERNAL)
 stdstring.o: stdstring.h stdstring.c $(MELLOW_INTERNAL)
 	gcc -c stdstring.c -o stdstring.o
 
-string_mlo.o: string_mlo.mlo
-	../compiler --stdlib="../stdlib" -c string_mlo.mlo
+string_mlo.o: string.mlo
+	../compiler --stdlib="../stdlib" -c string.mlo -o string_mlo.o
 
 stdlib.o: stdio.o stdconv.o mellow_internal.o
 	ld -r mellow_internal.o -o stdlib.o

@@ -375,7 +375,15 @@ string compileFile(string infileName, TopLevelContext* context)
     else
     {
         auto asmTmpfileName = generateRandomFilename() ~ ".asm";
-        auto objectTmpfileName = infileName.stripExtension ~ ".o";
+        auto objectFileName = "";
+        if (context.assembleOnly && context.outfileName != "a.out")
+        {
+            objectFileName = context.outfileName;
+        }
+        else
+        {
+            objectFileName = infileName.stripExtension ~ ".o";
+        }
         try
         {
             auto tempAsmFile = File(asmTmpfileName, "wx");
@@ -392,13 +400,13 @@ string compileFile(string infileName, TopLevelContext* context)
         try
         {
             auto nasmPid = spawnProcess(
-                ["nasm", "-f", "elf64", "-o", objectTmpfileName, asmTmpfileName]
+                ["nasm", "-f", "elf64", "-o", objectFileName, asmTmpfileName]
             );
             auto retCode = wait(nasmPid);
             if (retCode != 0)
             {
                 writeln(
-                    "Error: [nasm -f elf64 -o " ~ objectTmpfileName ~ " "
+                    "Error: [nasm -f elf64 -o " ~ objectFileName ~ " "
                     ~ asmTmpfileName ~ "] failed"
                 );
                 return "";
@@ -409,9 +417,9 @@ string compileFile(string infileName, TopLevelContext* context)
             writeln("Error: Could not exec [nasm]. Do you have it installed?");
             return "";
         }
-        if (exists(objectTmpfileName))
+        if (exists(objectFileName))
         {
-            return objectTmpfileName;
+            return objectFileName;
         }
     }
     return "";
