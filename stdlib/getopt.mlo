@@ -131,14 +131,9 @@ func splitArg(arg: string): Maybe!GetOptSplitRes {
 // Any unrecognized arguments will be kept in the "rest" string array in the
 // returned GetOptResult struct.
 func getOptions(controls: []string, argv: []string): Maybe!GetOptResult {
-    writeln("1");
-    writeln("1.5");
     parsedControls: []Maybe!(GetOptSplitRes);
     foreach (con; controls) {
-        writeln("2");
         parsedControls = parsedControls ~ splitArg(con);
-        writeln("2.5");
     }
-    writeln("3");
     return None!GetOptResult;
 }
