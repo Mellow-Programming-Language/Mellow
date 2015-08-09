@@ -1,3 +1,4 @@
 
 extern func toLower(str: string): string;
 extern func toUpper(str: string): string;
+extern func join(strs: []string, joiner: string): string;
