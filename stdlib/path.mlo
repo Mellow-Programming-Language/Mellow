@@ -1,0 +1,4 @@
+//std.path
+
+extern func basename(path: string): string;
+extern func dirname(path: string): string;

@@ -1,0 +1,22 @@
+//std.path
+
+import std.string;
+import std.conv;
+
+func basename(path: string): string
+{
+    if (lastIndex!char(stringToChars(path), '/') is Some (index))
+    {
+        return path[index + 1..];
+    }
+    return path;
+}
+
+func dirname(path: string): string
+{
+    if (lastIndex!char(stringToChars(path), '/') is Some (index))
+    {
+        return path[..index];
+    }
+    return path;
+}

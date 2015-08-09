@@ -1,4 +1,32 @@
 
+import std.core;
+
 extern func toLower(str: string): string;
 extern func toUpper(str: string): string;
 extern func join(strs: []string, joiner: string): string;
+
+func lastIndex(T)(array: []T, val: T): Maybe!int
+{
+    i := array.length - 1;
+    while (i >= 0)
+    {
+        if (array[i] == val)
+        {
+            return Some!int(i);
+        }
+        i = i - 1;
+    }
+    return None!int;
+}
+
+func firstIndex(T)(array: []T, val: T): Maybe!int
+{
+    foreach (i, elem; array)
+    {
+        if (elem == val)
+        {
+            return Some!int(i);
+        }
+    }
+    return None!int;
+}
