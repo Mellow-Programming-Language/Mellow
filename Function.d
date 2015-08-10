@@ -929,7 +929,7 @@ class FunctionBuilder : Visitor
             aggregate.templateInstantiations = builderStack[$-1];
             builderStack.length--;
         }
-        auto structDef = instantiateAggregate(records, aggregate);
+        auto structDef = instantiateAggregate(records, aggregate, node);
         Type*[string] memberAssigns;
         for (; i < node.children.length; i += 2)
         {
@@ -950,7 +950,7 @@ class FunctionBuilder : Visitor
         Type*[string] membersActual;
         foreach (member; structDef.structDef.members)
         {
-            membersActual[member.name] = member.type.normalize(records);
+            membersActual[member.name] = member.type.normalize(records, node);
         }
         auto memberNamesAssigned = memberAssigns.keys
                                                 .sort;
@@ -1323,7 +1323,7 @@ class FunctionBuilder : Visitor
         auto varType = funcScopes[lookup.funcIndex].syms[lookup.symIndex]
                                                    .decls[varName]
                                                    .type;
-        lvalue = varType.normalize(records);
+        lvalue = varType.normalize(records, node);
         node.data["type"] = lvalue;
         if (node.children.length > 1)
         {
@@ -1351,7 +1351,7 @@ class FunctionBuilder : Visitor
                 if (memberName == member.name)
                 {
                     found = true;
-                    lvalue = member.type.normalize(records);
+                    lvalue = member.type.normalize(records, node);
                     node.data["type"] = lvalue;
                 }
             }
@@ -1388,7 +1388,7 @@ class FunctionBuilder : Visitor
             insideSlice++;
             node.children[0].accept(this);
             insideSlice--;
-            lvalue = lvalue.array.arrayType.normalize(records);
+            lvalue = lvalue.array.arrayType.normalize(records, node);
             node.data["type"] = lvalue;
             if (node.children.length > 1)
             {
@@ -1590,7 +1590,9 @@ class FunctionBuilder : Visitor
             {
                 mappings[name] = type;
             }
-            curVariant = curVariant.instantiateTypeTemplate(mappings, records);
+            curVariant = curVariant.instantiateTypeTemplate(
+                mappings, records, node
+            );
             // If this is a template instantation of a templated constructor
             // that contains no member values, add the type to the stack
             if (node.children.length == 1)
@@ -1640,7 +1642,7 @@ class FunctionBuilder : Visitor
         auto wrap = new Type();
         wrap.tag = TypeEnum.AGGREGATE;
         wrap.aggregate = aggregate;
-        auto normalized = normalize(wrap, records);
+        auto normalized = normalize(wrap, records, node);
         builderStack[$-1] ~= normalized;
     }
 
@@ -1680,7 +1682,7 @@ class FunctionBuilder : Visitor
                 child.accept(this);
                 auto argPassed = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
-                argExpected.type = normalize(argExpected.type, records);
+                argExpected.type = normalize(argExpected.type, records, node);
                 // Reconcile case of having passed a "[]" as an array literal
                 // for this argument to the function
                 if (argPassed.tag == TypeEnum.ARRAY
@@ -1731,7 +1733,7 @@ class FunctionBuilder : Visitor
                 child.accept(this);
                 auto typeGot = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
-                typeExpected = normalize(typeExpected, records);
+                typeExpected = normalize(typeExpected, records, node);
                 // Reconcile case of passing empty array literal "[]" as value
                 // in instantiating this variant constructor
                 if (typeGot.tag == TypeEnum.ARRAY
@@ -1829,7 +1831,7 @@ class FunctionBuilder : Visitor
         auto curType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         node.data["type"] = curType.copy;
-        curType = normalize(curType, records);
+        curType = normalize(curType, records, node);
         // If the dot-access is with a struct, then we need to check if this is
         // any of all three of member method, member value, or UFCS (if the
         // function isn't a member function, but still takes the struct type
@@ -2173,7 +2175,9 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("DestructVariantPatternNode"));
         if (matchType.tag == TypeEnum.AGGREGATE)
         {
-            matchType = instantiateAggregate(records, matchType.aggregate);
+            matchType = instantiateAggregate(
+                records, matchType.aggregate, node
+            );
         }
         node.data["type"] = matchType;
         if (matchType.tag != TypeEnum.VARIANT)
@@ -2185,7 +2189,7 @@ class FunctionBuilder : Visitor
             );
         }
         auto matchTypeSave = matchType;
-        matchType = normalizeVariantDefs(records, matchType.variantDef);
+        matchType = normalizeVariantDefs(records, matchType.variantDef, node);
         // IdentifierNode
         node.children[0].accept(this);
         auto constructorName = id;
@@ -2224,7 +2228,7 @@ class FunctionBuilder : Visitor
         foreach (child, subtype; lockstep(node.children[1..$],
                                           member.constructorElems.tuple.types))
         {
-            matchType = subtype.normalize(records);
+            matchType = subtype.normalize(records, node);
             child.accept(this);
         }
         matchType = matchTypeSave;
@@ -2622,7 +2626,7 @@ class FunctionBuilder : Visitor
                         auto varBind = id;
                         auto pair = new VarTypePair();
                         pair.varName = varBind;
-                        pair.type = subtype.normalize(records);
+                        pair.type = subtype.normalize(records, node);
                         stackVarAllocSize[curFuncName]
                             += subtype.size
                                       .stackAlignSize;
