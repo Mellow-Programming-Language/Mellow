@@ -17,7 +17,7 @@ variant GetOptArg {
 
 struct GetOptResult {
     rest: []string;
-    args: Trie!(GetOptSet);
+    args: Trie!(GetOptArg);
 }
 
 variant GetOptArgType {
@@ -32,14 +32,51 @@ struct GetOptSplitRes {
     argtype: GetOptArgType;
 }
 
-func splitArg(arg: string): Maybe!GetOptSplitRes {
+func _formatGetOptArgType(t: GetOptArgType): string {
+    match (t) {
+        CharType (true) :: return "CharType (true)";
+        CharType (false) :: return "CharType (false)";
+        StringType (true) :: return "StringType (true)";
+        StringType (false) :: return "StringType (false)";
+        FlagType (true) :: return "FlagType (true)";
+        FlagType (false) :: return "FlagType (false)";
+        NumType (true) :: return "NumType (true)";
+        NumType (false) :: return "NumType (false)";
+    }
+}
+
+func _formatGetOptSplitRes(res: GetOptSplitRes): string {
+    writeln("Entering _formatGetOptSplitRes");
+    writeln("Does accessing res cause segfault?");
+    val := res.argtype;
+    writeln("That worked, at least");
+    str := "GetOptSplitRes {\n    argnames == [";
+    if (res.argnames.length > 0) {
+        str = str ~ res.argnames[0];
+    }
+    foreach (name; res.argnames[1..]) {
+        str = str ~ ", " ~ name;
+    }
+    str = str ~ "];\n";
+    str = str ~ "    " ~ _formatGetOptArgType(res.argtype) ~ "\n}";
+    return str;
+}
+
+func splitArg(arg: string): Result!GetOptSplitRes {
     argnames: []string;
     argname := "";
     postEq := false;
     foreach (i, c; arg) {
         if (c == '|') {
-            if (argname == "" || postEq) {
-                return None!GetOptSplitRes;
+            if (argname == "") {
+                return Error!GetOptSplitRes(
+                    "Error: getOptions: '|' not separating argname in " ~ arg
+                );
+            }
+            else if (postEq) {
+                return Error!GetOptSplitRes(
+                    "Error: getOptions: '|' after '=' in " ~ arg
+                );
             }
             argnames = argnames ~ [argname];
             argname = "";
@@ -51,60 +88,66 @@ func splitArg(arg: string): Maybe!GetOptSplitRes {
             argname = argname ~ charToString(c);
         }
         else {
+            if (argname != "") {
+                argnames = argnames ~ [argname];
+            }
             match (arg[i..]) {
-                ['s', '*'] :: return Some!GetOptSplitRes (
+                ['s', '*'] :: return Okay!GetOptSplitRes (
                     GetOptSplitRes {
                         argnames = argnames,
                         argtype = StringType (true)
                     }
                 );
-                ['s'] :: return Some!GetOptSplitRes (
+                ['s'] :: return Okay!GetOptSplitRes (
                     GetOptSplitRes {
                         argnames = argnames,
                         argtype = StringType (false)
                     }
                 );
-                ['c', '*'] :: return Some!GetOptSplitRes (
+                ['c', '*'] :: return Okay!GetOptSplitRes (
                     GetOptSplitRes {
                         argnames = argnames,
                         argtype = CharType (true)
                     }
                 );
-                ['c'] :: return Some!GetOptSplitRes (
+                ['c'] :: return Okay!GetOptSplitRes (
                     GetOptSplitRes {
                         argnames = argnames,
                         argtype = CharType (false)
                     }
                 );
-                ['n', '*'] :: return Some!GetOptSplitRes (
+                ['n', '*'] :: return Okay!GetOptSplitRes (
                     GetOptSplitRes {
                         argnames = argnames,
                         argtype = NumType (true)
                     }
                 );
-                ['n'] :: return Some!GetOptSplitRes (
+                ['n'] :: return Okay!GetOptSplitRes (
                     GetOptSplitRes {
                         argnames = argnames,
                         argtype = NumType (false)
                     }
                 );
-                ['*'] :: return Some!GetOptSplitRes (
+                ['*'] :: return Okay!GetOptSplitRes (
                     GetOptSplitRes {
                         argnames = argnames,
                         argtype = FlagType (true)
                     }
                 );
-                [_, ..] :: return None!GetOptSplitRes;
+                [_, ..] :: return Error!GetOptSplitRes(
+                    "Error: getOptions: Unrecognized options in " ~ arg
+                );
             }
         }
     }
-    return Some!GetOptSplitRes (
+    return Okay!GetOptSplitRes (
         GetOptSplitRes {
             argnames = argnames,
             argtype = FlagType (false)
         }
     );
 }
+
 // Each string in control can take permutations of the following forms:
 //   "o"
 //   "o|out"
@@ -125,15 +168,209 @@ func splitArg(arg: string): Maybe!GetOptSplitRes {
 // commandline is of the specified type. The key can be optionally followed
 // by a '*', indicating that that argument can be provided multiple times.
 // As a special case, "...=*" means that that boolean flag can be provided
-// multiple times. For arguments that can be passed values, they can either
-// be passed in the style of "-o=outfile" or "-o outfile"
+// multiple times.
+//
+// For arguments that can be passed values, they can either be passed in the
+// style of "-o=outfile" or "-o outfile".
+//
+// For arguments that cannot be listed multiple times, but are, only the last
+// instance is returned in the GetOptResult. Any preceeding instances are
+// discarded.
+//
+// Arguments will only be recognized as such if they're preceeded by a single
+// '-'.
 //
 // Any unrecognized arguments will be kept in the "rest" string array in the
 // returned GetOptResult struct.
-func getOptions(controls: []string, argv: []string): Maybe!GetOptResult {
-    parsedControls: []Maybe!(GetOptSplitRes);
+func getOptions(controls: []string, argv: []string): Result!GetOptResult {
+    parsedControls: []Result!(GetOptSplitRes);
     foreach (con; controls) {
         parsedControls = parsedControls ~ splitArg(con);
     }
-    return None!GetOptResult;
+    realControls: []GetOptSplitRes;
+    foreach (par; parsedControls) {
+        match (par) {
+            Okay (r) :: {
+                realControls = realControls ~ r;
+            }
+            Error (s) :: {
+                return Error!GetOptResult(s);
+            }
+        }
+    }
+    resultTrie := createTrie!GetOptArg();
+    while (i := 0; i < realControls.length) {
+        writeln("Top of foreach...");
+        writeln(_formatGetOptSplitRes(realControls[i]));
+        match (realControls[i]) {
+            { argnames = argnames, argtype = CharType   (true)  } :: {
+                writeln("Matched on CharType(true)");
+                match (searchCharArg(argnames, argv)) {
+                    Okay ({left = chars, right = newArgv})
+                    if (chars.length > 0) :: {
+                        foreach (name; argnames) {
+                            resultTrie = insertTrieVal!GetOptArg(
+                                resultTrie, name, OptCharMulti(chars)
+                            );
+                        }
+                        argv = newArgv;
+                    }
+                    Error (s) :: return Error!GetOptResult(s);
+                }
+            }
+            { argnames = argnames, argtype = CharType   (false) } :: {
+                writeln("Matched on CharType(false)");
+                match (searchCharArg(argnames, argv)) {
+                    Okay ({left = chars, right = newArgv})
+                    if (chars.length == 1) :: {
+                        foreach (name; argnames) {
+                            resultTrie = insertTrieVal!GetOptArg(
+                                resultTrie, name, OptChar(chars[0])
+                            );
+                        }
+                        argv = newArgv;
+                    }
+                    Okay ({left = chars, right = _})
+                    if (chars.length > 1) :: {
+                        return Error!GetOptResult(
+                            "Error: getOptions: Too many arguments to "
+                            ~ argnames[0]
+                        );
+                    }
+                    Error (s) :: return Error!GetOptResult(s);
+                }
+            }
+            { argnames = argnames, argtype = StringType (true)  } :: {
+                writeln("Matched on StringType(true)");
+                return Error!GetOptResult(
+                    "Error: getOptions: Unimplemented: " ~ argnames[0]
+                );
+            }
+            { argnames = argnames, argtype = StringType (false) } :: {
+                writeln("Matched on StringType(false)");
+                return Error!GetOptResult(
+                    "Error: getOptions: Unimplemented: " ~ argnames[0]
+                );
+            }
+            { argnames = argnames, argtype = FlagType   (true)  } :: {
+                writeln("Matched on FlagType(true)");
+                return Error!GetOptResult(
+                    "Error: getOptions: Unimplemented: " ~ argnames[0]
+                );
+            }
+            { argnames = argnames, argtype = FlagType   (false) } :: {
+                writeln("Matched on FlagType(false)");
+                return Error!GetOptResult(
+                    "Error: getOptions: Unimplemented: " ~ argnames[0]
+                );
+            }
+            { argnames = argnames, argtype = NumType    (true)  } :: {
+                writeln("Matched on NumType(true)");
+                return Error!GetOptResult(
+                    "Error: getOptions: Unimplemented: " ~ argnames[0]
+                );
+            }
+            { argnames = argnames, argtype = NumType    (false) } :: {
+                writeln("Matched on NumType(false)");
+                return Error!GetOptResult(
+                    "Error: getOptions: Unimplemented: " ~ argnames[0]
+                );
+            }
+            _ :: writeln("Wildcard match?");
+        }
+        writeln("Looping in foreach...");
+        i = i + 1;
+    }
+    return Okay!GetOptResult(GetOptResult {
+        rest = argv,
+        args = resultTrie
+    });
 }
+
+func searchCharArg(argnames: []string,
+                   argv: []string): Result!(Pair!([]char, []string)) {
+    writeln("Entering searchCharArg");
+    rets: []char;
+    indices: []int;
+    while (i := 0; i < argv.length) {
+        while (j := 0; j < argnames.length) {
+            if (argv[i][0] == '-'
+                && argv[i][1..argnames[j].length+1] == argnames[j]) {
+                if (argv[i].length >= argnames[j].length + 2
+                    && argv[i][argnames[j].length+1] == '=') {
+                    // We have a longer string than a single character as a
+                    // value to this argument
+                    if (argv[i].length > argnames[j].length + 3) {
+                        writeln("About to return from searchCharArg, failure");
+                        return Error!(Pair!([]char, []string))(
+                            "Error: getOptions: Non-char argument to " ~ argv[i]
+                        );
+                    }
+                    rets = rets ~ argv[i][argnames[j].length+2];
+                    indices = indices ~ i;
+                    writeln("New Index?1 " ~ intToString(indices[$-1]));
+                }
+                else if (i + 1 < argv.length) {
+                    if (argv[i+1].length > 1) {
+                        writeln("About to return from searchCharArg, failure");
+                        return Error!(Pair!([]char, []string))(
+                            "Error: getOptions: Non-char argument to " ~ argv[i]
+                        );
+                    }
+                    else {
+                        rets = rets ~ argv[i+1][0];
+                        indices = indices ~ i ~ (i + 1);
+                        writeln("New Index?2 " ~ intToString(indices[$-1]));
+                        i = i + 1;
+                    }
+                }
+                else {
+                    writeln("About to return from searchCharArg, failure");
+                    return Error!(Pair!([]char, []string))(
+                        "Error: getOptions: No argument to " ~ argv[i]
+                    );
+                }
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    writeln("Argv dump:");
+    while (i := 0; i < argv.length) {
+        writeln("  " ~ argv[i]);
+        i = i + 1;
+    }
+    while (i := 0; i < indices.length) {
+        writeln("Index: " ~ intToString(indices[i]));
+        writeln("Left:");
+        temp1 := argv[..indices[i]];
+        while (j := 0; j < temp1.length) {
+            writeln("  " ~ temp1[j]);
+            j = j + 1;
+        }
+        writeln("Right:");
+        temp2 := argv[indices[i]+1..];
+        while (j := 0; j < temp2.length) {
+            writeln("  " ~ temp2[j]);
+            j = j + 1;
+        }
+        argv = argv[..indices[i]] ~ argv[indices[i]+1..];
+        i = i + 1;
+    }
+    writeln("About to return from searchCharArg, success");
+    return Okay!(Pair!([]char, []string))(Pair!([]char, []string) {
+        left = rets, right = argv
+    });
+}
+
+// variant GetOptArgType {
+//     CharType (bool),
+//     StringType (bool),
+//     FlagType (bool),
+//     NumType (bool),
+// }
+
+// struct GetOptSplitRes {
+//     argnames: []string;
+//     argtype: GetOptArgType;
+// }

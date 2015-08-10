@@ -19,7 +19,8 @@ string.o: stdstring.o string_mlo.o
 	ld -r stdstring.o string_mlo.o -o string.o
 
 trie.o: trie.mlo
-	../compiler --stdlib="../stdlib" -c trie.mlo
+	../compiler --stdlib="../stdlib" -c trie.mlo -o trie_mlo.o
+	ld -r trie_mlo.o -o trie.o
 
 path.o: path_mlo.o
 	ld -r path_mlo.o -o path.o
