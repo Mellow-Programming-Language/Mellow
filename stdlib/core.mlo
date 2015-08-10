@@ -3,3 +3,8 @@ variant Maybe(T) {
     Some (T),
     None
 }
+
+struct Pair(T, U) {
+    left: T;
+    right: U;
+}
