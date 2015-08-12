@@ -949,7 +949,8 @@ class FunctionBuilder : Visitor
                                                 .sort;
         auto memberNamesActual = membersActual.keys
                                               .sort;
-        if (memberNamesAssigned.setSymmetricDifference(memberNamesActual)
+        if (memberNamesAssigned.sort
+                               .setSymmetricDifference(memberNamesActual.sort)
                                .walkLength > 0)
         {
             throw new Exception(
