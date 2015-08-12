@@ -352,8 +352,10 @@ Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
     case TypeEnum.VARIANT:
         type.variantDef.mappings = mappings;
         auto missing = mappings.keys
+                               .sort
                                .setSymmetricDifference(type.variantDef
-                                                           .templateParams);
+                                                           .templateParams
+                                                           .sort);
         if (missing.walkLength > 0)
         {
             auto str = q"EOF
@@ -406,8 +408,10 @@ EOF";
     case TypeEnum.STRUCT:
         type.structDef.mappings = mappings;
         auto missing = mappings.keys
+                               .sort
                                .setSymmetricDifference(type.structDef
-                                                           .templateParams);
+                                                           .templateParams
+                                                           .sort);
         if (missing.walkLength > 0)
         {
             auto str = q"EOF
