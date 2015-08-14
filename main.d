@@ -37,6 +37,7 @@ int main(string[] argv)
     context.help = false;
     context.keepObjs = false;
     context.assembleOnly = false;
+    context.unittests = false;
     try
     {
         getopt(argv,
@@ -47,6 +48,7 @@ int main(string[] argv)
             "stdlib", &context.stdlibPath,
             "S", &context.compileOnly,
             "dump", &context.dump,
+            "unittest", &context.unittests,
             "help", &context.help);
     }
     catch (Exception ex)
@@ -83,6 +85,7 @@ All arguments must be prefaced by double dashes, as in --help or --o.
 --S             Compile only, don't assemble or link.
 
 --stdlib S      Provide the path to the stdlib directory.
+--unittest      Enable compilation of unittest blocks.
 EOF".write;
         return 0;
     }
@@ -358,7 +361,7 @@ string compileFile(string infileName, TopLevelContext* context)
         namespace.funcSigs,
         namespace.externFuncSigs
     );
-    auto fullAsm = compileProgram(namespace.records, funcs);
+    auto fullAsm = compileProgram(namespace.records, funcs, context);
     if (context.compileOnly)
     {
         try
@@ -442,7 +445,8 @@ string generateRandomFilename()
     return str;
 }
 
-string compileProgram(RecordBuilder records, FunctionBuilder funcs)
+string compileProgram(RecordBuilder records, FunctionBuilder funcs,
+                      TopLevelContext* topContext)
 {
     auto context = new Context();
     context.structDefs = records.structDefs;
@@ -487,9 +491,17 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs)
     auto header = "";
     if (funcs.getCompilableFuncSigs.length > 0)
     {
-        str ~= (funcs.getCompilableFuncSigs ~ funcs.getUnittests)
-                    .map!(a => compileFunction(a, context))
-                    .reduce!((a, b) => a ~ "\n" ~ b);
+        auto compilable = funcs.getCompilableFuncSigs;
+        if (topContext.unittests)
+        {
+            compilable ~= funcs.getUnittests;
+            context.callUnittests = true;
+            context.unittestNames = funcs.getUnittests
+                                         .map!(a => a.funcName)
+                                         .array;
+        }
+        str ~= compilable.map!(a => compileFunction(a, context))
+                         .reduce!((a, b) => a ~ "\n" ~ b);
         if (mainExists)
         {
             str ~= "\n";

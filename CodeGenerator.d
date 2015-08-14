@@ -360,6 +360,8 @@ struct Context
     uint[] matchTypeLoc;
     string[] matchEndLabel;
     string[] matchNextWhenLabel;
+    bool callUnittests;
+    string[] unittestNames;
     private VarTypePair*[] stackVars;
     private uint topOfStack;
     private uint uniqLabelCounter;
@@ -740,6 +742,13 @@ string compileFunction(FuncSig* sig, Context* vars)
     funcHeader ~= sig.funcName ~ ":\n";
     funcHeader ~= "    push   rbp         ; set up stack frame\n";
     funcHeader ~= "    mov    rbp, rsp\n";
+    if (sig.funcName == "__ZZmain" && vars.callUnittests)
+    {
+        foreach (name; vars.unittestNames)
+        {
+            funcHeader ~= "    call " ~ name ~ "\n";
+        }
+    }
     auto funcHeader_2 = "";
     auto intRegIndex = 0;
     auto floatRegIndex = 0;
