@@ -37,7 +37,7 @@ class FunctionSigBuilder : Visitor
     private VarTypePair*[] funcArgs;
     private Type* returnType;
     private VarTypePair*[] decls;
-    private uint unittests;
+    private static uint unittests;
     FuncSig* funcSig;
 
     mixin TypeVisitors;
@@ -74,6 +74,7 @@ class FunctionSigBuilder : Visitor
         this.unittests++;
         funcSig.templateParams = [];
         funcSig.funcArgs = [];
+        funcSig.funcDefNode = node;
         auto dummyRet = new Type();
         dummyRet.tag = TypeEnum.VOID;
         funcSig.returnType = dummyRet;

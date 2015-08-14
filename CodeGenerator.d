@@ -733,7 +733,7 @@ string compileFunction(FuncSig* sig, Context* vars)
     // template in different files would yield a name-conflict linking error)
     // then make it globally available. By definition, template instantiations
     // should only be available local to the file
-    if (sig.templateParams.length == 0)
+    if (sig.templateParams.length == 0 && !sig.isUnittest)
     {
         funcHeader ~= "    global " ~ sig.funcName ~ "\n";
     }
@@ -797,12 +797,23 @@ string compileFunction(FuncSig* sig, Context* vars)
     }
 
     // TODO handle the other block cases
-
-    auto funcBodyBlocks = cast(FuncBodyBlocksNode)sig.funcDefNode
-                                                     .children[1];
-    auto funcDef = compileBlock(
-        cast(BareBlockNode)funcBodyBlocks.children[0], vars
-    );
+    string funcDef;
+    // Unittest case
+    if (cast(BareBlockNode)sig.funcDefNode.children[0])
+    {
+        funcDef = compileBlock(
+            cast(BareBlockNode)(sig.funcDefNode.children[0]), vars
+        );
+    }
+    // Real function case
+    else if (cast(FuncBodyBlocksNode)sig.funcDefNode.children[1])
+    {
+        auto funcBodyBlocks = cast(FuncBodyBlocksNode)sig.funcDefNode
+                                                         .children[1];
+        funcDef = compileBlock(
+            cast(BareBlockNode)funcBodyBlocks.children[0], vars
+        );
+    }
     // Determine the total amount of stack space used by the function at max
     auto totalStackSpaceUsed = sig.stackVarAllocSize + vars.maxTempSpaceUsed;
     // Allocate space on the stack, keeping the stack in 16-byte alignment

@@ -188,6 +188,7 @@ class FunctionBuilder : Visitor
                             .filter!(a => a.templateParams.length == 0
                                        || (a.funcName.length >= 3
                                         && a.funcName[0..2] == "__"))
+                            .filter!(a => !a.isUnittest)
                             .array;
     }
 
@@ -195,6 +196,12 @@ class FunctionBuilder : Visitor
     {
         return toplevelFuncs.filter!(a => a.funcDefNode is null)
                             .array ~ importedFuncSigs;
+    }
+
+    FuncSig*[] getUnittests()
+    {
+        return toplevelFuncs.filter!(a => a.isUnittest)
+                            .array;
     }
 
     // TODO update this so templated functions are handled correctly, ie, their

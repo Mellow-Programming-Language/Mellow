@@ -487,7 +487,7 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs)
     auto header = "";
     if (funcs.getCompilableFuncSigs.length > 0)
     {
-        str ~= funcs.getCompilableFuncSigs
+        str ~= (funcs.getCompilableFuncSigs ~ funcs.getUnittests)
                     .map!(a => compileFunction(a, context))
                     .reduce!((a, b) => a ~ "\n" ~ b);
         if (mainExists)
