@@ -314,7 +314,8 @@ ModuleNamespace* extractFuncSigs(string infileName, TopLevelContext* context)
         .topNode
         .children
         .filter!(a => typeid(a) == typeid(FuncDefNode)
-                   || typeid(a) == typeid(ExternFuncDeclNode));
+                   || typeid(a) == typeid(ExternFuncDeclNode)
+                   || typeid(a) == typeid(UnittestBlockNode));
     FuncSig*[] funcSigs;
     foreach (funcDef; funcDefs)
     {

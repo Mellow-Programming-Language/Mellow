@@ -5,6 +5,7 @@ Program :: ( VariantDef
            | ExternFuncDecl
            | ImportStmt
            | InterfaceDef
+           | UnittestBlock
            )+
            ;
 
@@ -36,6 +37,8 @@ ReturnModBlock :: #'return' ((#Sp Identifier) | (#"" IdTuple))? BareBlock;
 BodyBlock :: #"body" BareBlock;
 
 BareBlock :: #"{" Statement* #"}";
+
+UnittestBlock :: #"unittest" BareBlock;
 
 StorageClass :: ConstClass;
 ConstClass :: #'const' #Sp;
