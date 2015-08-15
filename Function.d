@@ -248,7 +248,6 @@ class FunctionBuilder : Visitor
         this.unittestBlock = true;
         node.children[0].accept(this);
         this.unittestBlock = false;
-        funcSigs = funcSigs[0..$-1];
         funcScopes.length--;
         updateFuncSigStackVarAllocSize();
     }

@@ -735,20 +735,13 @@ string compileFunction(FuncSig* sig, Context* vars)
     // template in different files would yield a name-conflict linking error)
     // then make it globally available. By definition, template instantiations
     // should only be available local to the file
-    if (sig.templateParams.length == 0 && !sig.isUnittest)
+    if (sig.templateParams.length == 0)
     {
         funcHeader ~= "    global " ~ sig.funcName ~ "\n";
     }
     funcHeader ~= sig.funcName ~ ":\n";
     funcHeader ~= "    push   rbp         ; set up stack frame\n";
     funcHeader ~= "    mov    rbp, rsp\n";
-    if (sig.funcName == "__ZZmain" && vars.callUnittests)
-    {
-        foreach (name; vars.unittestNames)
-        {
-            funcHeader ~= "    call " ~ name ~ "\n";
-        }
-    }
     auto funcHeader_2 = "";
     auto intRegIndex = 0;
     auto floatRegIndex = 0;

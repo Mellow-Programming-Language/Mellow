@@ -44,7 +44,6 @@ class FunctionSigBuilder : Visitor
 
     this (ASTNode node, RecordBuilder records)
     {
-        this.unittests = 0;
         this.records = records;
         builderStack.length++;
         node.accept(this);
@@ -70,8 +69,9 @@ class FunctionSigBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UnittestBlockNode"));
         funcSig = new FuncSig();
         funcSig.isUnittest = true;
-        funcSig.funcName = "__unittest_block_" ~ this.unittests.to!string;
-        this.unittests++;
+        funcSig.funcName =
+            "__unittest_block_" ~ FunctionSigBuilder.unittests.to!string;
+        FunctionSigBuilder.unittests++;
         funcSig.templateParams = [];
         funcSig.funcArgs = [];
         funcSig.funcDefNode = node;

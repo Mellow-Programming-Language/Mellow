@@ -105,17 +105,25 @@ EOF".write;
         context.namespaces[infileName] = extractFuncSigs(infileName, context);
     }
     string[] objFileNames;
+    auto subContext = new Context();
     foreach (infileName; context.namespaces.byKey)
     {
         if (!context.namespaces[infileName].isStd)
         {
-            auto objFileName = compileFile(infileName, context);
+            auto objFileName = compileFile(infileName, context, subContext);
             if (objFileName == "")
             {
                 return 1;
             }
             objFileNames ~= objFileName;
         }
+    }
+
+    if (context.generateMain)
+    {
+        objFileNames ~= compileEntryPoint(
+            context.mainTakesArgv, context, subContext
+        );
     }
 
     if (!context.assembleOnly)
@@ -329,7 +337,8 @@ ModuleNamespace* extractFuncSigs(string infileName, TopLevelContext* context)
     return namespace;
 }
 
-string compileFile(string infileName, TopLevelContext* context)
+string compileFile(string infileName, TopLevelContext* context,
+                   Context* subContext)
 {
     auto namespace = context.namespaces[infileName];
     foreach (imp; namespace.imports)
@@ -361,7 +370,9 @@ string compileFile(string infileName, TopLevelContext* context)
         namespace.funcSigs,
         namespace.externFuncSigs
     );
-    auto fullAsm = compileProgram(namespace.records, funcs, context);
+    auto fullAsm = compileProgram(
+        namespace.records, funcs, context, subContext
+    );
     if (context.compileOnly)
     {
         try
@@ -378,55 +389,66 @@ string compileFile(string infileName, TopLevelContext* context)
     }
     else
     {
-        auto asmTmpfileName = generateRandomFilename() ~ ".asm";
-        auto objectFileName = "";
-        if (context.assembleOnly && context.outfileName != "a.out")
-        {
-            objectFileName = context.outfileName;
-        }
-        else
-        {
-            objectFileName = infileName.stripExtension ~ ".o";
-        }
-        try
-        {
-            auto tempAsmFile = File(asmTmpfileName, "wx");
-            tempAsmFile.write(fullAsm);
-        }
-        catch (Exception ex)
-        {
-            writeln(
-                "Error: Could not write to tempfile [" ~ asmTmpfileName ~ "]."
-            );
-            return "";
-        }
-        scope (exit) remove(asmTmpfileName);
-        try
-        {
-            auto nasmPid = spawnProcess(
-                ["nasm", "-f", "elf64", "-o", objectFileName, asmTmpfileName]
-            );
-            auto retCode = wait(nasmPid);
-            if (retCode != 0)
-            {
-                writeln(
-                    "Error: [nasm -f elf64 -o " ~ objectFileName ~ " "
-                    ~ asmTmpfileName ~ "] failed"
-                );
-                return "";
-            }
-        }
-        catch (ProcessException ex)
-        {
-            writeln("Error: Could not exec [nasm]. Do you have it installed?");
-            return "";
-        }
+        auto objectFileName = assembleString(fullAsm, context, infileName);
         if (exists(objectFileName))
         {
             return objectFileName;
         }
     }
     return "";
+}
+
+string assembleString(string fullAsm, TopLevelContext* context,
+                      string infileName = "")
+{
+    auto asmTmpfileName = generateRandomFilename() ~ ".asm";
+    auto objectFileName = "";
+    if (context.assembleOnly && context.outfileName != "a.out")
+    {
+        objectFileName = context.outfileName;
+    }
+    else if (infileName == "")
+    {
+        objectFileName = "__mellow_main_entry.o";
+    }
+    else
+    {
+        objectFileName = infileName.stripExtension ~ ".o";
+    }
+    try
+    {
+        auto tempAsmFile = File(asmTmpfileName, "wx");
+        tempAsmFile.write(fullAsm);
+    }
+    catch (Exception ex)
+    {
+        writeln(
+            "Error: Could not write to tempfile [" ~ asmTmpfileName ~ "]."
+        );
+        return "";
+    }
+    scope (exit) remove(asmTmpfileName);
+    try
+    {
+        auto nasmPid = spawnProcess(
+            ["nasm", "-f", "elf64", "-o", objectFileName, asmTmpfileName]
+        );
+        auto retCode = wait(nasmPid);
+        if (retCode != 0)
+        {
+            writeln(
+                "Error: [nasm -f elf64 -o " ~ objectFileName ~ " "
+                ~ asmTmpfileName ~ "] failed"
+            );
+            return "";
+        }
+    }
+    catch (ProcessException ex)
+    {
+        writeln("Error: Could not exec [nasm]. Do you have it installed?");
+        return "";
+    }
+    return objectFileName;
 }
 
 string stripComments(string source)
@@ -446,9 +468,8 @@ string generateRandomFilename()
 }
 
 string compileProgram(RecordBuilder records, FunctionBuilder funcs,
-                      TopLevelContext* topContext)
+                      TopLevelContext* topContext, Context* context)
 {
-    auto context = new Context();
     context.structDefs = records.structDefs;
     context.variantDefs = records.variantDefs;
     foreach (sig; funcs.getExternFuncSigs)
@@ -463,6 +484,7 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
         if (sig.funcName == "main")
         {
             mainExists = true;
+            topContext.generateMain = true;
             sig.funcName = "__ZZmain";
             if (sig.funcArgs.length > 1)
             {
@@ -478,7 +500,7 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
                 }
                 else
                 {
-                    mainTakesArgv = true;
+                    topContext.mainTakesArgv = true;
                 }
             }
             if (sig.returnType.tag != TypeEnum.VOID)
@@ -489,24 +511,19 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
     }
     auto str = "";
     auto header = "";
-    if (funcs.getCompilableFuncSigs.length > 0)
+    if (funcs.getCompilableFuncSigs.length > 0 || funcs.getUnittests.length > 0)
     {
         auto compilable = funcs.getCompilableFuncSigs;
         if (topContext.unittests)
         {
             compilable ~= funcs.getUnittests;
             context.callUnittests = true;
-            context.unittestNames = funcs.getUnittests
+            context.unittestNames ~= funcs.getUnittests
                                          .map!(a => a.funcName)
                                          .array;
         }
         str ~= compilable.map!(a => compileFunction(a, context))
                          .reduce!((a, b) => a ~ "\n" ~ b);
-        if (mainExists)
-        {
-            str ~= "\n";
-            str ~= compileEntryPoint(mainTakesArgv, context);
-        }
     }
     header ~= "    extern malloc\n"
             ~ "    extern realloc\n"
@@ -547,17 +564,43 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
                          .reduce!((a, b) => a ~ b);
     }
     header ~= "    SECTION .text\n";
-    if ("main" in context.externFuncs || "main" in context.compileFuncs)
-    {
-        header ~= "    global main\n";
-    }
     auto full = header ~ str;
     return full;
 }
 
-string compileEntryPoint(bool mainTakesArgv, Context* vars)
+string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
+                         Context* vars)
 {
     auto str = "";
+    foreach (name; vars.unittestNames)
+    {
+        str ~= "    extern " ~ name ~ "\n";
+    }
+    if (vars.runtimeExterns.length > 0)
+    {
+        str ~= vars.runtimeExterns
+                   .keys
+                   .map!(a => "    extern " ~ a ~ "\n")
+                   .reduce!((a, b) => a ~ b);
+    }
+    if ("newProc" in vars.runtimeExterns
+        || "yield" in vars.runtimeExterns)
+    {
+        str ~= "    extern initThreadManager\n";
+        str ~= "    extern execScheduler\n";
+        str ~= "    extern takedownThreadManager\n";
+    }
+    if (mainTakesArgv)
+    {
+        str ~= "    extern strlen\n";
+    }
+    str ~= "    extern malloc\n"
+        ~ "    extern realloc\n"
+        ~ "    extern free\n"
+        ~ "    extern memcpy\n";
+    str ~= "    extern __ZZmain\n";
+    str ~= "    SECTION .text\n";
+    str ~= "    global main\n";
     str ~= "main:\n";
     str ~= "    push   rbp\n";
     str ~= "    mov    rbp, rsp\n";
@@ -565,9 +608,6 @@ string compileEntryPoint(bool mainTakesArgv, Context* vars)
     if ("newProc" in vars.runtimeExterns
         || "yield" in vars.runtimeExterns)
     {
-        vars.runtimeExterns["initThreadManager"] = true;
-        vars.runtimeExterns["execScheduler"] = true;
-        vars.runtimeExterns["takedownThreadManager"] = true;
         if (mainTakesArgv)
         {
             str ~= "    sub    rsp, 32\n";
@@ -626,13 +666,17 @@ string compileEntryPoint(bool mainTakesArgv, Context* vars)
             str ~= compileArgvStringArray(vars);
             str ~= "    mov    rdi, r8\n";
         }
+        foreach (name; vars.unittestNames)
+        {
+            str ~= "    call " ~ name ~ "\n";
+        }
         str ~= "    call   __ZZmain\n";
     }
     str ~= "    mov    rax, 0\n";
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
     str ~= "    ret\n";
-    return str;
+    return assembleString(str, topContext);
 }
 
 // This assembly algorithm assumes the OS-provided argc is in rdi, the
@@ -640,7 +684,6 @@ string compileEntryPoint(bool mainTakesArgv, Context* vars)
 // r8
 string compileArgvStringArray(Context* vars)
 {
-    vars.runtimeExterns["strlen"] = true;
     auto str = q"EOF
     ; argc is in rdi, and in r14
     mov    r14, rdi
