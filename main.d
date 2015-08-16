@@ -511,10 +511,11 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
     }
     auto str = "";
     auto header = "";
-    if (funcs.getCompilableFuncSigs.length > 0 || funcs.getUnittests.length > 0)
+    if (funcs.getCompilableFuncSigs.length > 0
+        || (funcs.getUnittests.length > 0 && topContext.unittests))
     {
         auto compilable = funcs.getCompilableFuncSigs;
-        if (topContext.unittests)
+        if (topContext.unittests && funcs.getUnittests.length > 0)
         {
             compilable ~= funcs.getUnittests;
             context.callUnittests = true;
@@ -522,8 +523,15 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
                                          .map!(a => a.funcName)
                                          .array;
         }
-        str ~= compilable.map!(a => compileFunction(a, context))
-                         .reduce!((a, b) => a ~ "\n" ~ b);
+        if (compilable.length > 1)
+        {
+            str ~= compilable.map!(a => compileFunction(a, context))
+                             .reduce!((a, b) => a ~ "\n" ~ b);
+        }
+        else
+        {
+            str ~= compilable[0].compileFunction(context);
+        }
     }
     header ~= "    extern malloc\n"
             ~ "    extern realloc\n"
@@ -572,6 +580,8 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
                          Context* vars)
 {
     auto str = "";
+    vars.runtimeExterns["newProc"] = true;
+    vars.runtimeExterns["yield"] = true;
     foreach (name; vars.unittestNames)
     {
         str ~= "    extern " ~ name ~ "\n";
@@ -583,95 +593,89 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
                    .map!(a => "    extern " ~ a ~ "\n")
                    .reduce!((a, b) => a ~ b);
     }
-    if ("newProc" in vars.runtimeExterns
-        || "yield" in vars.runtimeExterns)
-    {
-        str ~= "    extern initThreadManager\n";
-        str ~= "    extern execScheduler\n";
-        str ~= "    extern takedownThreadManager\n";
-    }
+    str ~= "    extern initThreadManager\n";
+    str ~= "    extern execScheduler\n";
+    str ~= "    extern takedownThreadManager\n";
     if (mainTakesArgv)
     {
         str ~= "    extern strlen\n";
     }
     str ~= "    extern malloc\n"
-        ~ "    extern realloc\n"
-        ~ "    extern free\n"
-        ~ "    extern memcpy\n";
+         ~ "    extern realloc\n"
+         ~ "    extern free\n"
+         ~ "    extern memcpy\n";
     str ~= "    extern __ZZmain\n";
     str ~= "    SECTION .text\n";
     str ~= "    global main\n";
     str ~= "main:\n";
     str ~= "    push   rbp\n";
     str ~= "    mov    rbp, rsp\n";
-    // If we use green threads functionality, enable the green threads runtime
-    if ("newProc" in vars.runtimeExterns
-        || "yield" in vars.runtimeExterns)
+    if (mainTakesArgv)
     {
-        if (mainTakesArgv)
+        str ~= "    sub    rsp, 32\n";
+        str ~= "    mov    qword [rbp-8], rdi\n";
+        str ~= "    mov    qword [rbp-16], rsi\n";
+    }
+    str ~= "    call   initThreadManager\n";
+    if (vars.unittestNames.length > 0)
+    {
+        foreach (name; vars.unittestNames)
         {
-            str ~= "    sub    rsp, 32\n";
-            str ~= "    mov    qword [rbp-8], rdi\n";
-            str ~= "    mov    qword [rbp-16], rsi\n";
-            str ~= "    call   initThreadManager\n";
-            // Allocate newProc argLens
-            str ~= "    mov    rdi, 1\n";
-            str ~= "    call   malloc\n";
-            str ~= "    mov    r12, rax\n";
-            str ~= "    mov    byte [r12], 8\n";
-            // Store argLens on stack
-            str ~= "    mov    qword [rbp-24], r12\n";
-            // Allocate newProc args
-            str ~= "    mov    rdi, 8\n";
-            str ~= "    call   malloc\n";
-            str ~= "    mov    r13, rax\n";
-            // Store args on stack
-            str ~= "    mov    qword [rbp-32], r13\n";
-            // Retrieve argc in rdi
-            str ~= "    mov    rdi, qword [rbp-8]\n";
-            // Retrieve argv in rsi
-            str ~= "    mov    rsi, qword [rbp-16]\n";
-            str ~= compileArgvStringArray(vars);
-            // Retrieve args and set []string argv in args
-            str ~= "    mov    r10, qword [rbp-32]\n";
-            str ~= "    mov    qword [r10], r8\n";
-            str ~= "    mov    rdi, 1\n";
-            str ~= "    mov    rsi, __ZZmain\n";
-            // Retrieve argLens from stack
-            str ~= "    mov    rdx, qword [rbp-24]\n";
-            str ~= "    mov    rcx, r10\n";
-            str ~= "    call   newProc\n";
-            // Free args and argLens
-            str ~= "    mov    rdi, [rbp-24]\n";
-            str ~= "    call   free\n";
-            str ~= "    mov    rdi, [rbp-32]\n";
-            str ~= "    call   free\n";
-        }
-        else
-        {
-            str ~= "    call   initThreadManager\n";
             str ~= "    mov    rdi, 0\n";
-            str ~= "    mov    rsi, __ZZmain\n";
+            str ~= "    mov    rsi, " ~ name ~ "\n";
             str ~= "    mov    rdx, 0\n";
             str ~= "    mov    rcx, 0\n";
             str ~= "    call   newProc\n";
         }
         str ~= "    call   execScheduler\n";
         str ~= "    call   takedownThreadManager\n";
+        str ~= "    call   initThreadManager\n";
+    }
+    if (mainTakesArgv)
+    {
+        // Allocate newProc argLens
+        str ~= "    mov    rdi, 1\n";
+        str ~= "    call   malloc\n";
+        str ~= "    mov    r12, rax\n";
+        str ~= "    mov    byte [r12], 8\n";
+        // Store argLens on stack
+        str ~= "    mov    qword [rbp-24], r12\n";
+        // Allocate newProc args
+        str ~= "    mov    rdi, 8\n";
+        str ~= "    call   malloc\n";
+        str ~= "    mov    r13, rax\n";
+        // Store args on stack
+        str ~= "    mov    qword [rbp-32], r13\n";
+        // Retrieve argc in rdi
+        str ~= "    mov    rdi, qword [rbp-8]\n";
+        // Retrieve argv in rsi
+        str ~= "    mov    rsi, qword [rbp-16]\n";
+        str ~= compileArgvStringArray(vars);
+        // Retrieve args and set []string argv in args
+        str ~= "    mov    r10, qword [rbp-32]\n";
+        str ~= "    mov    qword [r10], r8\n";
+        str ~= "    mov    rdi, 1\n";
+        str ~= "    mov    rsi, __ZZmain\n";
+        // Retrieve argLens from stack
+        str ~= "    mov    rdx, qword [rbp-24]\n";
+        str ~= "    mov    rcx, r10\n";
+        str ~= "    call   newProc\n";
+        // Free args and argLens
+        str ~= "    mov    rdi, [rbp-24]\n";
+        str ~= "    call   free\n";
+        str ~= "    mov    rdi, [rbp-32]\n";
+        str ~= "    call   free\n";
     }
     else
     {
-        if (mainTakesArgv)
-        {
-            str ~= compileArgvStringArray(vars);
-            str ~= "    mov    rdi, r8\n";
-        }
-        foreach (name; vars.unittestNames)
-        {
-            str ~= "    call " ~ name ~ "\n";
-        }
-        str ~= "    call   __ZZmain\n";
+        str ~= "    mov    rdi, 0\n";
+        str ~= "    mov    rsi, __ZZmain\n";
+        str ~= "    mov    rdx, 0\n";
+        str ~= "    mov    rcx, 0\n";
+        str ~= "    call   newProc\n";
     }
+    str ~= "    call   execScheduler\n";
+    str ~= "    call   takedownThreadManager\n";
     str ~= "    mov    rax, 0\n";
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
