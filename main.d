@@ -537,6 +537,7 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
             ~ "    extern realloc\n"
             ~ "    extern free\n"
             ~ "    extern memcpy\n";
+    header ~= "    extern exit\n";
     if (context.runtimeExterns.length > 0)
     {
         header ~= context.runtimeExterns
@@ -561,6 +562,7 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
     header ~= "    SECTION .data\n";
     if (context.dataEntries.length > 0)
     {
+        header ~= "__NEWLINE: db 10, 0\n";
         header ~= context.dataEntries
                          .map!(a => a.label ~ ": db " ~ a.data ~ "\n")
                          .reduce!((a, b) => a ~ b);
@@ -597,7 +599,6 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     str ~= "    extern execScheduler\n";
     str ~= "    extern takedownThreadManager\n";
     str ~= "    extern exit\n";
-    str ~= "    extern atexit\n";
     if (mainTakesArgv)
     {
         str ~= "    extern strlen\n";
@@ -618,8 +619,6 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
         str ~= "    mov    qword [rbp-8], rdi\n";
         str ~= "    mov    qword [rbp-16], rsi\n";
     }
-    str ~= "    mov    rdi, takedownThreadManager\n";
-    str ~= "    call   atexit\n";
     str ~= "    call   initThreadManager\n";
     if (topContext.unittests && vars.unittestNames.length > 0)
     {

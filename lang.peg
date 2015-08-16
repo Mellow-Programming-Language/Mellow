@@ -61,11 +61,14 @@ Statement :: BareBlock
            | MatchStmt
            | (Declaration #";")
            | (AssignExisting #";")
+           | (AssertStmt #";")
            | (SpawnStmt #";")
            | (YieldStmt #";")
            | (ChanWrite #";")
            | (FuncCall #";")
            ;
+
+AssertStmt :: #"assert" #"(" BoolExpr (#"," BoolExpr)? #")";
 
 ReturnStmt :: #'return' ((#Sp BoolExpr)
                         | (#Sp ValueTuple)

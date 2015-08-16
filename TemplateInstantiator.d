@@ -845,6 +845,7 @@ class TemplateInstantiator : Visitor
         node.children[0].accept(this);
     }
 
+    void visit(AssertStmtNode node) {}
     void visit(NumberNode node) {}
     void visit(IntNumNode node) {}
     void visit(FloatNumNode node) {}

@@ -220,6 +220,7 @@ class RecordBuilder : Visitor
     void visit(FuncBodyBlocksNode node) {}
     void visit(BareBlockNode node) {}
     void visit(StatementNode node) {}
+    void visit(AssertStmtNode node) {}
     void visit(ReturnStmtNode node) {}
     void visit(BoolExprNode node) {}
     void visit(OrTestNode node) {}

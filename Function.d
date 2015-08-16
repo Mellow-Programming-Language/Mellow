@@ -349,6 +349,34 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
     }
 
+    void visit(AssertStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssertStmtNode"));
+        node.children[0].accept(this);
+        auto exprType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (exprType.tag != TypeEnum.BOOL)
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Assert statements expect a boolean expr as the first arg"
+            );
+        }
+        if (node.children.length > 1)
+        {
+            node.children[1].accept(this);
+            auto strType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (strType.tag != TypeEnum.STRING)
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Assert statements expect a string expr as the second arg"
+                );
+            }
+        }
+    }
+
     void visit(ReturnStmtNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ReturnStmtNode"));

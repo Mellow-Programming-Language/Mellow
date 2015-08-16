@@ -865,6 +865,8 @@ string compileStatement(StatementNode statement, Context* vars)
         return compileDeclaration(cast(DeclarationNode)child, vars);
     else if (cast(AssignExistingNode)child)
         return compileAssignExisting(cast(AssignExistingNode)child, vars);
+    else if (cast(AssertStmtNode)child)
+        return compileAssertStmt(cast(AssertStmtNode)child, vars);
     else if (cast(SpawnStmtNode)child)
         return compileSpawnStmt(cast(SpawnStmtNode)child, vars);
     else if (cast(YieldStmtNode)child)
@@ -875,6 +877,42 @@ string compileStatement(StatementNode statement, Context* vars)
         return compileFuncCall(cast(FuncCallNode)child, vars);
     assert(false);
     return "";
+}
+
+string compileAssertStmt(AssertStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    vars.runtimeExterns["printf"] = true;
+    auto assertEndlabel = vars.getUniqLabel();
+    auto assertStrLabel = vars.getUniqDataLabel();
+    auto entry = new DataEntry();
+    entry.label = assertStrLabel;
+    entry.data = DataEntry.toNasmDataString(
+        "Assert " ~ errorHeader(node)
+    );
+    vars.dataEntries ~= entry;
+    str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ assertEndlabel ~ "\n";
+    str ~= "    mov    rdi, " ~ assertStrLabel ~ "\n";
+    str ~= "    call   printf\n";
+    str ~= "    mov    rdi, __NEWLINE\n";
+    str ~= "    call   printf\n";
+    if (node.children.length > 1)
+    {
+        str ~= compileExpression(cast(BoolExprNode)node.children[1], vars);
+        str ~= "    add    r8, 8\n";
+        str ~= "    mov    rdi, r8\n";
+        str ~= "    call   printf\n";
+        str ~= "    mov    rdi, __NEWLINE\n";
+        str ~= "    call   printf\n";
+    }
+    str ~= "    mov    rdi, 1\n";
+    str ~= "    call   exit\n";
+    str ~= assertEndlabel ~ ":\n";
+    return str;
+
 }
 
 string compileReturn(ReturnStmtNode node, Context* vars)
