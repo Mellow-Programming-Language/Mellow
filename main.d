@@ -38,6 +38,7 @@ int main(string[] argv)
     context.keepObjs = false;
     context.assembleOnly = false;
     context.unittests = false;
+    context.stacktrace = false;
     try
     {
         getopt(argv,
@@ -47,8 +48,9 @@ int main(string[] argv)
             "runtime", &context.runtimePath,
             "stdlib", &context.stdlibPath,
             "S", &context.compileOnly,
-            "dump", &context.dump,
             "unittest", &context.unittests,
+            "dump", &context.dump,
+            "stacktrace", &context.stacktrace,
             "help", &context.help);
     }
     catch (Exception ex)
@@ -86,6 +88,7 @@ All arguments must be prefaced by double dashes, as in --help or --o.
 
 --stdlib S      Provide the path to the stdlib directory.
 --unittest      Enable compilation of unittest blocks.
+--stacktrace    (Debugging) Show the stacktrace for thrown typecheck exceptions
 EOF".write;
         return 0;
     }
@@ -110,7 +113,20 @@ EOF".write;
     {
         if (!context.namespaces[infileName].isStd)
         {
-            auto objFileName = compileFile(infileName, context, subContext);
+            string objFileName;
+            try
+            {
+                objFileName = compileFile(infileName, context, subContext);
+            }
+            catch (Exception e)
+            {
+                e.msg.writeln;
+                if (context.stacktrace)
+                {
+                    e.info.writeln;
+                }
+                return 1;
+            }
             if (objFileName == "")
             {
                 return 1;
@@ -275,7 +291,7 @@ ModuleNamespace* extractNamespace(string infileName, TopLevelContext* context)
         throw new Exception("");
     }
     source = stripComments(source);
-    auto parser = new Parser(source);
+    auto parser = new Parser(source, infileName);
     auto topNode = parser.parse();
     if (topNode is null)
     {

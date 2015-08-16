@@ -20,6 +20,7 @@ struct TopLevelContext
     bool unittests;
     bool generateMain;
     bool mainTakesArgv;
+    bool stacktrace;
 }
 
 struct ModuleNamespace
