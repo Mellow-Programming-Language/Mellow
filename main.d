@@ -596,6 +596,8 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     str ~= "    extern initThreadManager\n";
     str ~= "    extern execScheduler\n";
     str ~= "    extern takedownThreadManager\n";
+    str ~= "    extern exit\n";
+    str ~= "    extern atexit\n";
     if (mainTakesArgv)
     {
         str ~= "    extern strlen\n";
@@ -616,8 +618,10 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
         str ~= "    mov    qword [rbp-8], rdi\n";
         str ~= "    mov    qword [rbp-16], rsi\n";
     }
+    str ~= "    mov    rdi, takedownThreadManager\n";
+    str ~= "    call   atexit\n";
     str ~= "    call   initThreadManager\n";
-    if (vars.unittestNames.length > 0)
+    if (topContext.unittests && vars.unittestNames.length > 0)
     {
         foreach (name; vars.unittestNames)
         {
@@ -675,7 +679,6 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
         str ~= "    call   newProc\n";
     }
     str ~= "    call   execScheduler\n";
-    str ~= "    call   takedownThreadManager\n";
     str ~= "    mov    rax, 0\n";
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
