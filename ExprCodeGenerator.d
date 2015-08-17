@@ -908,7 +908,20 @@ string compileValue(ValueNode node, Context* vars)
         );
     }
 
-    // TODO handle dotaccess case
+    // Handle dotaccess
+    if (node.children.length > 1 &&
+        (
+            cast(BooleanLiteralNode)child ||
+            cast(CharLitNode)child ||
+            cast(StringLitNode)child ||
+            cast(ParenExprNode)child ||
+            cast(ArrayLiteralNode)child ||
+            cast(NumberNode)child ||
+            cast(ChanReadNode)child
+        ))
+    {
+        str ~= compileDotAccess(cast(DotAccessNode)node.children[1], vars);
+    }
 
     return str;
 }
