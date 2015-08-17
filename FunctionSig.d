@@ -231,7 +231,7 @@ class FunctionSigBuilder : Visitor
             aggregate.templateInstantiations = builderStack[$-1];
             builderStack.length--;
         }
-        builderStack[$-1] ~= instantiateAggregate(records, aggregate);
+        builderStack[$-1] ~= instantiateAggregate(records, aggregate, node);
     }
 
     void visit(IsExprNode node) {}

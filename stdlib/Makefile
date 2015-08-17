@@ -3,7 +3,9 @@ STDLIB = stdlib.o core.o conv.o getopt.o io.o string.o trie.o path.o
 
 all: $(STDLIB)
 
-conv.o: stdconv.o conv_mlo.o
+conv.o: stdconv.h stdconv.c $(MELLOW_INTERNAL) conv.mlo
+	gcc -c stdconv.c -o stdconv.o
+	../compiler --stdlib="../stdlib" -c conv.mlo -o conv_mlo.o
 	ld -r stdconv.o conv_mlo.o -o conv.o
 
 core.o: stdcore.c
@@ -12,42 +14,27 @@ core.o: stdcore.c
 getopt.o: getopt.mlo
 	../compiler --stdlib="../stdlib" -c getopt.mlo
 
-io.o: stdio.o
+io.o: stdio.c stdio.h $(MELLOW_INTERNAL)
 	ld -r stdio.o -o io.o
 
-string.o: stdstring.o string_mlo.o
+path.o: path.mlo
+	../compiler --stdlib="../stdlib" -c path.mlo -o path_mlo.o
+	ld -r path_mlo.o -o path.o
+
+string.o: stdstring.h stdstring.c $(MELLOW_INTERNAL) string.mlo
+	gcc -c stdstring.c -o stdstring.o
+	../compiler --stdlib="../stdlib" -c string.mlo -o string_mlo.o
 	ld -r stdstring.o string_mlo.o -o string.o
 
 trie.o: trie.mlo
 	../compiler --stdlib="../stdlib" -c trie.mlo -o trie_mlo.o
 	ld -r trie_mlo.o -o trie.o
 
-path.o: path_mlo.o
-	ld -r path_mlo.o -o path.o
-
-stdconv.o: stdconv.h stdconv.c $(MELLOW_INTERNAL)
-	gcc -c stdconv.c -o stdconv.o
-
-conv_mlo.o: conv_mlo.mlo
-	../compiler --stdlib="../stdlib" -c conv_mlo.mlo
-
-path_mlo.o: path_mlo.mlo
-	../compiler --stdlib="../stdlib" -c path_mlo.mlo
-
-stdio.o: stdio.c stdio.h $(MELLOW_INTERNAL)
-	gcc -c stdio.c -o stdio.o
-
-stdstring.o: stdstring.h stdstring.c $(MELLOW_INTERNAL)
-	gcc -c stdstring.c -o stdstring.o
-
-string_mlo.o: string.mlo
-	../compiler --stdlib="../stdlib" -c string.mlo -o string_mlo.o
+mellow_internal.o: $(MELLOW_INTERNAL)
+	gcc -c mellow_internal.c -o mellow_internal.o
 
 stdlib.o: stdio.o stdconv.o mellow_internal.o
 	ld -r mellow_internal.o -o stdlib.o
-
-mellow_internal.o: $(MELLOW_INTERNAL)
-	gcc -c mellow_internal.c -o mellow_internal.o
 
 .PHONY: clean
 clean:

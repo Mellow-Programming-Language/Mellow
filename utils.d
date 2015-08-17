@@ -6,7 +6,8 @@ import typedecl;
 import std.range;
 import FunctionSig;
 
-Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
+Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate,
+                           ASTNode node)
 {
     auto type = new Type();
     if (aggregate.typeName in records.structDefs)
@@ -16,7 +17,11 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
         if (aggregate.templateInstantiations.length
             != structDef.templateParams.length)
         {
-            throw new Exception("Template instantiation count mismatch.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Template instantiation count mismatch for ["
+                ~ aggregate.format ~ "]"
+            );
         }
         else
         {
@@ -28,7 +33,7 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
         }
         type.tag = TypeEnum.STRUCT;
         type.structDef = structDef;
-        type = type.instantiateTypeTemplate(mappings, records);
+        type = type.instantiateTypeTemplate(mappings, records, node);
     }
     else if (aggregate.typeName in records.variantDefs)
     {
@@ -37,7 +42,11 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
         if (aggregate.templateInstantiations.length
             != variantDef.templateParams.length)
         {
-            throw new Exception("Template instantiation count mismatch.");
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Template instantiation count mismatch for ["
+                ~ aggregate.format ~ "]"
+            );
         }
         else
         {
@@ -49,19 +58,21 @@ Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate)
         }
         type.tag = TypeEnum.VARIANT;
         type.variantDef = variantDef;
-        type = type.instantiateTypeTemplate(mappings, records);
+        type = type.instantiateTypeTemplate(mappings, records, node);
     }
     else
     {
         throw new Exception(
-            "Instantiation of non-existent type:\n"
+            errorHeader(node) ~ "\n"
+            ~ "Instantiation of non-existent type:\n"
             ~ "  " ~ aggregate.typeName
         );
     }
     return type;
 }
 
-Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
+Type* normalizeStructDefs(RecordBuilder records, StructType* structType,
+                          ASTNode node)
 {
     auto structCopy = structType.copy;
     foreach (ref member; structCopy.members)
@@ -71,18 +82,21 @@ Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
             if (member.type.aggregate.typeName in records.structDefs)
             {
                 member.type = instantiateAggregate(
-                    records, member.type.aggregate
+                    records, member.type.aggregate, node
                 );
             }
             else if (member.type.aggregate.typeName in records.variantDefs)
             {
                 member.type = instantiateAggregate(
-                    records, member.type.aggregate
+                    records, member.type.aggregate, node
                 );
             }
             else
             {
-                throw new Exception("Cannot normalize struct def");
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot normalize struct def"
+                );
             }
         }
     }
@@ -92,7 +106,8 @@ Type* normalizeStructDefs(RecordBuilder records, StructType* structType)
     return type;
 }
 
-Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
+Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType,
+                           ASTNode node)
 {
     foreach (ref member; variantType.members)
     {
@@ -116,18 +131,21 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
                 else if (elemType.aggregate.typeName in records.structDefs)
                 {
                     elemType = instantiateAggregate(
-                        records, elemType.aggregate
+                        records, elemType.aggregate, node
                     );
                 }
                 else if (elemType.aggregate.typeName in records.variantDefs)
                 {
                     elemType = instantiateAggregate(
-                        records, elemType.aggregate
+                        records, elemType.aggregate, node
                     );
                 }
                 else
                 {
-                    throw new Exception("Cannot normalize variant def");
+                    throw new Exception(
+                        errorHeader(node) ~ "\n"
+                        ~ "Cannot normalize variant def"
+                    );
                 }
             }
         }
@@ -138,38 +156,38 @@ Type* normalizeVariantDefs(RecordBuilder records, VariantType* variantType)
     return type;
 }
 
-Type* normalize(Type* type, RecordBuilder records)
+Type* normalize(Type* type, RecordBuilder records, ASTNode node)
 {
     if (type.tag == TypeEnum.AGGREGATE)
     {
-        type = instantiateAggregate(records, type.aggregate);
+        type = instantiateAggregate(records, type.aggregate, node);
     }
     if (type.tag == TypeEnum.STRUCT)
     {
-        type = normalizeStructDefs(records, type.structDef);
+        type = normalizeStructDefs(records, type.structDef, node);
     }
     if (type.tag == TypeEnum.VARIANT)
     {
-        type = normalizeVariantDefs(records, type.variantDef);
+        type = normalizeVariantDefs(records, type.variantDef, node);
     }
     if (type.tag == TypeEnum.ARRAY)
     {
-        type.array.arrayType = normalize(type.array.arrayType, records);
+        type.array.arrayType = normalize(type.array.arrayType, records, node);
     }
     if (type.tag == TypeEnum.SET)
     {
-        type.set.setType = normalize(type.set.setType, records);
+        type.set.setType = normalize(type.set.setType, records, node);
     }
     if (type.tag == TypeEnum.HASH)
     {
-        type.hash.keyType = normalize(type.hash.keyType, records);
-        type.hash.valueType = normalize(type.hash.valueType, records);
+        type.hash.keyType = normalize(type.hash.keyType, records, node);
+        type.hash.valueType = normalize(type.hash.valueType, records, node);
     }
     return type;
 }
 
 Type* instantiateTypeTemplate(Type* templatedType, Type*[string] mappings,
-                              RecordBuilder records)
+                              RecordBuilder records, ASTNode node)
 {
     Type*[] instantiatedTypes;
 
@@ -349,7 +367,11 @@ EOF";
             {
                 str ~= "  " ~ name ~ "\n";
             }
-            throw new Exception(str);
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ str
+                ~ "in [" ~ type.variantDef.format ~ "]"
+            );
         }
         foreach (ref member; type.variantDef.members)
         {
@@ -401,7 +423,11 @@ EOF";
             {
                 str ~= "  " ~ name ~ "\n";
             }
-            throw new Exception(str);
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ str
+                ~ "in [" ~ type.structDef.format ~ "]"
+            );
         }
         foreach (ref member; type.structDef.members)
         {
@@ -419,7 +445,10 @@ EOF";
                     ~ type.structDef.name
                     ~ "] contains an illegal self-reference in member "
                     ~ member.name;
-                throw new Exception(str);
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ str
+                );
             }
             else
             {

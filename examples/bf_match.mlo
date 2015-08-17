@@ -24,11 +24,6 @@ variant Expr {
     Output
 }
 
-struct Pair(T, U) {
-    left: T;
-    right: U;
-}
-
 func tokenizer(source: string): []Token {
     tokens: []Token;
     while (i := 0; i < source.length) {

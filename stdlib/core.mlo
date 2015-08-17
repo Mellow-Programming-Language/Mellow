@@ -3,10 +3,11 @@ variant Maybe(T) {
     Some (T),
     None
 }
- variant Result(T) {
+
+variant Result(T) {
     Okay (T),
     Error (string)
- }
+}
 
 struct Pair(T, U) {
     left: T;
