@@ -71,6 +71,7 @@ class FunctionSigBuilder : Visitor
         funcSig.isUnittest = true;
         funcSig.funcName =
             "__unittest_block_" ~ FunctionSigBuilder.unittests.to!string;
+        node.data["UNITTEST_NAME"] = funcSig.funcName;
         FunctionSigBuilder.unittests++;
         funcSig.templateParams = [];
         funcSig.funcArgs = [];

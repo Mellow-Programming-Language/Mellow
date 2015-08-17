@@ -243,6 +243,7 @@ class FunctionBuilder : Visitor
     void visit(UnittestBlockNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UnittestBlockNode"));
+        this.curFuncName = node.data["UNITTEST_NAME"].get!string;
         funcScopes.length++;
         funcScopes[$-1].syms.length++;
         this.unittestBlock = true;
