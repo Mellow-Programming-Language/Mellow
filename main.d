@@ -39,6 +39,7 @@ int main(string[] argv)
     context.assembleOnly = false;
     context.unittests = false;
     context.stacktrace = false;
+    context.release = false;
     try
     {
         getopt(argv,
@@ -51,12 +52,17 @@ int main(string[] argv)
             "unittest", &context.unittests,
             "dump", &context.dump,
             "stacktrace", &context.stacktrace,
+            "release", &context.release,
             "help", &context.help);
     }
     catch (Exception ex)
     {
         writeln("Error: Unrecognized cmdline argument.");
         return 1;
+    }
+    if (context.release)
+    {
+        context.unittests = false;
     }
     if (context.assembleOnly)
     {
@@ -88,6 +94,7 @@ All arguments must be prefaced by double dashes, as in --help or --o.
 
 --stdlib S      Provide the path to the stdlib directory.
 --unittest      Enable compilation of unittest blocks.
+--release       Disables assert statements and disallows --unittest.
 --stacktrace    (Debugging) Show the stacktrace for thrown typecheck exceptions
 EOF".write;
         return 0;
@@ -109,6 +116,7 @@ EOF".write;
     }
     string[] objFileNames;
     auto subContext = new Context();
+    subContext.release = context.release;
     foreach (infileName; context.namespaces.byKey)
     {
         if (!context.namespaces[infileName].isStd)
@@ -384,7 +392,8 @@ string compileFile(string infileName, TopLevelContext* context,
         namespace.topNode,
         namespace.records,
         namespace.funcSigs,
-        namespace.externFuncSigs
+        namespace.externFuncSigs,
+        context
     );
     auto fullAsm = compileProgram(
         namespace.records, funcs, context, subContext

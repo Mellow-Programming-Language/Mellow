@@ -11,6 +11,7 @@ import Record;
 import utils;
 import FunctionSig;
 import TemplateInstantiator;
+import Namespace;
 
 // CLosures and struct member functions can be implemented in exactly the same
 // way. The 'this' pointer and the environment pointer for closures are
@@ -177,6 +178,7 @@ class FunctionBuilder : Visitor
     private bool skipTemplatedFuncDef;
     private ProgramNode topNode;
     private bool unittestBlock;
+    private TopLevelContext* topContext;
 
     mixin TypeVisitors;
 
@@ -218,13 +220,14 @@ class FunctionBuilder : Visitor
     }
 
     this (ProgramNode node, RecordBuilder records, FuncSig*[] sigs,
-          FuncSig*[] importedFuncSigs)
+          FuncSig*[] importedFuncSigs, TopLevelContext* topContext)
     {
         this.topNode = node;
         this.records = records;
         this.toplevelFuncs = sigs;
         this.importedFuncSigs = importedFuncSigs;
         this.unittestBlock = false;
+        this.topContext = topContext;
         builderStack.length++;
         for (auto i = 0; i < node.children.length; i++)
         {
@@ -243,6 +246,10 @@ class FunctionBuilder : Visitor
     void visit(UnittestBlockNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UnittestBlockNode"));
+        if (!this.topContext.unittests)
+        {
+            return;
+        }
         this.curFuncName = node.data["UNITTEST_NAME"].get!string;
         funcScopes.length++;
         funcScopes[$-1].syms.length++;
@@ -353,6 +360,10 @@ class FunctionBuilder : Visitor
     void visit(AssertStmtNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssertStmtNode"));
+        if (this.topContext.release)
+        {
+            return;
+        }
         node.children[0].accept(this);
         auto exprType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];

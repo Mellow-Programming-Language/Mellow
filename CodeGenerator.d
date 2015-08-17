@@ -362,6 +362,7 @@ struct Context
     string[] matchNextWhenLabel;
     bool callUnittests;
     string[] unittestNames;
+    bool release;
     private VarTypePair*[] stackVars;
     private uint topOfStack;
     private uint uniqLabelCounter;
@@ -882,6 +883,10 @@ string compileStatement(StatementNode statement, Context* vars)
 string compileAssertStmt(AssertStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    if (vars.release)
+    {
+        return "";
+    }
     auto str = "";
     vars.runtimeExterns["printf"] = true;
     auto assertEndlabel = vars.getUniqLabel();
