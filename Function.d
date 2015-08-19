@@ -176,6 +176,7 @@ class FunctionBuilder : Visitor
     private string curConstructor;
     private bool skipTemplatedFuncDef;
     private ProgramNode topNode;
+    private uint insideLoop;
 
     mixin TypeVisitors;
 
@@ -1970,9 +1971,34 @@ class FunctionBuilder : Visitor
         }
     }
 
+    void visit(BreakStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BreakStmtNode"));
+        if (insideLoop == 0)
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "'break' disallowed outside of a loop scope"
+            );
+        }
+    }
+
+    void visit(ContinueStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ContinueStmtNode"));
+        if (insideLoop == 0)
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "'continue' disallowed outside of a loop scope"
+            );
+        }
+    }
+
     void visit(WhileStmtNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("WhileStmtNode"));
+        insideLoop++;
         funcScopes[$-1].syms.length++;
         // CondAssignmentsNode
         node.children[0].accept(this);
@@ -1990,6 +2016,7 @@ class FunctionBuilder : Visitor
         // BareBlockNode
         node.children[2].accept(this);
         funcScopes[$-1].syms.length--;
+        insideLoop--;
     }
 
     void visit(CondAssignmentsNode node)
@@ -2010,6 +2037,7 @@ class FunctionBuilder : Visitor
     void visit(ForeachStmtNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForeachStmtNode"));
+        insideLoop++;
         // ForeachArgsNode
         node.children[0].accept(this);
         // BoolExprNode
@@ -2099,6 +2127,7 @@ class FunctionBuilder : Visitor
         node.data["type"] = loopType;
         node.data["argnames"] = foreachArgs;
         node.data["hasindex"] = hasIndex;
+        insideLoop--;
     }
 
     void visit(ForeachArgsNode node)
@@ -2732,7 +2761,12 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("YieldStmtNode"));
     }
 
-    void visit(ForStmtNode node) {}
+    void visit(ForStmtNode node)
+    {
+        insideLoop++;
+        insideLoop--;
+    }
+
     void visit(ForInitNode node) {}
     void visit(ForConditionalNode node) {}
     void visit(ForPostExpressionNode node) {}

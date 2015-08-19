@@ -276,6 +276,8 @@ class FunctionSigBuilder : Visitor
     void visit(StartToIndexRangeNode node) {}
     void visit(IndexToEndRangeNode node) {}
     void visit(IndexToIndexRangeNode node) {}
+    void visit(BreakStmtNode node) {}
+    void visit(ContinueStmtNode node) {}
 
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
