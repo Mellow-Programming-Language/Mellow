@@ -367,6 +367,8 @@ struct Context
     private uint topOfStack;
     private uint uniqLabelCounter;
     private uint uniqDataCounter;
+    private string[] breakLabels;
+    private string[] continueLabels;
 
     void resetState(FuncSig* sig)
     {
@@ -872,6 +874,10 @@ string compileStatement(StatementNode statement, Context* vars)
         return compileSpawnStmt(cast(SpawnStmtNode)child, vars);
     else if (cast(YieldStmtNode)child)
         return compileYieldStmt(cast(YieldStmtNode)child, vars);
+    else if (cast(BreakStmtNode)child)
+        return compileBreakStmt(cast(BreakStmtNode)child, vars);
+    else if (cast(ContinueStmtNode)child)
+        return compileContinueStmt(cast(ContinueStmtNode)child, vars);
     else if (cast(ChanWriteNode)child)
         return compileChanWrite(cast(ChanWriteNode)child, vars);
     else if (cast(FuncCallNode)child)
@@ -1083,6 +1089,8 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto blockLoopLabel = vars.getUniqLabel();
     auto blockEndLabel = vars.getUniqLabel();
+    vars.breakLabels ~= [blockEndLabel];
+    vars.continueLabels ~= [blockLoopLabel];
     auto str = "";
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
@@ -1102,6 +1110,8 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
     str ~= blockEndLabel ~ ":\n";
+    vars.breakLabels.length--;
+    vars.continueLabels.length--;
     return str;
 }
 
@@ -1131,6 +1141,10 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         indexVar.type = indexType;
         vars.addStackVar(indexVar);
     }
+    auto foreachLoop = vars.getUniqLabel;
+    auto endForeach = vars.getUniqLabel;
+    vars.breakLabels ~= [endForeach];
+    vars.continueLabels ~= [foreachLoop];
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
     if (loopType.tag == TypeEnum.ARRAY || loopType.tag == TypeEnum.STRING)
     {
@@ -1156,12 +1170,21 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         vars.allocateStackSpace(8);
         auto countLoc = vars.getTop.to!string;
         scope (exit) vars.deallocateStackSpace(16);
-        auto foreachLoop = vars.getUniqLabel;
-        auto endForeach = vars.getUniqLabel;
         // The array is in r8
         // Initialize internal count variable
-        str ~= "    mov    r10, 0\n";
+        str ~= "    mov    r10, -1\n";
+        str ~= "    mov    qword [rbp-" ~ countLoc
+                                        ~ "], r10\n";
+        // Preserve the array
+        str ~= "    mov    qword [rbp-" ~ arrayLoc
+                                        ~ "], r8\n";
         str ~= foreachLoop ~ ":\n";
+        // Restore counter and array
+        str ~= "    mov    r8, qword [rbp-" ~ arrayLoc
+                                            ~ "]\n";
+        str ~= "    mov    r10, qword [rbp-" ~ countLoc
+                                             ~ "]\n";
+        str ~= "    add    r10, 1\n";
         // Set the index variable if there is one
         if (hasIndex)
         {
@@ -1216,12 +1239,6 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         str ~= "    mov    r8, r11\n";
         str ~= vars.compileVarSet(loopVarName);
         str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
-        // Restore counter and array
-        str ~= "    mov    r8, qword [rbp-" ~ arrayLoc
-                                            ~ "]\n";
-        str ~= "    mov    r10, qword [rbp-" ~ countLoc
-                                             ~ "]\n";
-        str ~= "    add    r10, 1\n";
         str ~= "    jmp    " ~ foreachLoop
                              ~ "\n";
         str ~= endForeach ~ ":\n";
@@ -1234,6 +1251,8 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         // be the same length, or if it just ends after the first array is
         // exhausted
     }
+    vars.breakLabels.length--;
+    vars.continueLabels.length--;
     return str;
 }
 
@@ -2137,19 +2156,129 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
         }
         break;
     case "+=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    add    r11, r9\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    add    r11, r9\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "-=":
-        assert(false, "Unimplemented");
-        break;
-    case "/=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    sub    r11, r9\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    sub    r11, r9\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "*=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    imul   r11, r9\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    imul   r11, r9\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
+        break;
+    case "/=":
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Result of divison lies in rax
+            str ~= "    mov    r11, rax\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Result of divison lies in rax
+            str ~= "    mov    r11, rax\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "%=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Remainder lies in rax
+            str ~= "    mov    r11, rdx\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Remainder lies in rdx
+            str ~= "    mov    r11, rdx\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "~=":
         str ~= compileAppendEquals(leftType, rightType, vars);
@@ -2586,6 +2715,24 @@ string compileYieldStmt(YieldStmtNode node, Context* vars)
     vars.runtimeExterns["yield"] = true;
     auto str = "";
     str ~= "    call   yield\n";
+    return str;
+}
+
+string compileBreakStmt(BreakStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    str ~= "    jmp    " ~ vars.breakLabels[$-1]
+                         ~ "\n";
+    return str;
+}
+
+string compileContinueStmt(ContinueStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    str ~= "    jmp    " ~ vars.continueLabels[$-1]
+                         ~ "\n";
     return str;
 }
 

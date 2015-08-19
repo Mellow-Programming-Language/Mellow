@@ -854,6 +854,8 @@ class TemplateInstantiator : Visitor
     void visit(BooleanLiteralNode node) {}
     void visit(SliceLengthSentinelNode node) {}
     void visit(YieldStmtNode node) {}
+    void visit(BreakStmtNode node) {}
+    void visit(ContinueStmtNode node) {}
     void visit(IdTupleNode node) {}
     void visit(FuncRefTypeNode node) {}
     void visit(FuncRefRetTypeNode node) {}

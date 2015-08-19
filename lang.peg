@@ -64,6 +64,8 @@ Statement :: BareBlock
            | (AssertStmt #";")
            | (SpawnStmt #";")
            | (YieldStmt #";")
+           | (BreakStmt #";")
+           | (ContinueStmt #";")
            | (ChanWrite #";")
            | (FuncCall #";")
            ;
@@ -100,6 +102,10 @@ Declaration :: DeclAssignment | DeclTypeInfer | VariableTypePair;
 SpawnStmt :: #'spawn' #Sp Identifier FuncCallArgList;
 
 YieldStmt :: #'yield' #Sp?;
+
+BreakStmt :: #'break' #Sp?;
+
+ContinueStmt :: #'continue' #Sp?;
 
 ChanWrite :: BoolExpr #"<-=" BoolExpr;
 
