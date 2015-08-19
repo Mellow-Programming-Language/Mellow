@@ -2073,19 +2073,129 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
         }
         break;
     case "+=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    add    r11, r9\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    add    r11, r9\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "-=":
-        assert(false, "Unimplemented");
-        break;
-    case "/=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    sub    r11, r9\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    sub    r11, r9\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "*=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    imul   r11, r9\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    imul   r11, r9\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
+        break;
+    case "/=":
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Result of divison lies in rax
+            str ~= "    mov    r11, rax\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Result of divison lies in rax
+            str ~= "    mov    r11, rax\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "%=":
-        assert(false, "Unimplemented");
+        str ~= "    mov    r11, 0\n";
+        if (vars.isStackAligned)
+        {
+            str ~= "    mov    r11, qword [r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Remainder lies in rax
+            str ~= "    mov    r11, rdx\n";
+            str ~= "    mov    qword [r8], r11\n";
+        }
+        else
+        {
+            str ~= "    mov    r11" ~ rightType.size.getRRegSuffix
+                                    ~ ", "
+                                    ~ rightType.size.getWordSize
+                                    ~ "[r8]\n";
+            str ~= "    mov    rax, r11\n";
+            // Sign extend rax into rdx, to get rdx:rax
+            str ~= "    cqo\n";
+            str ~= "    idiv   r9\n";
+            // Remainder lies in rdx
+            str ~= "    mov    r11, rdx\n";
+            str ~= "    mov    " ~ rightType.size.getWordSize
+                                 ~ " [r8], r11"
+                                 ~ rightType.size.getRRegSuffix
+                                 ~ "\n";
+        }
         break;
     case "~=":
         str ~= compileAppendEquals(leftType, rightType, vars);
