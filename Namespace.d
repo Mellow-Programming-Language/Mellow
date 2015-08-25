@@ -17,6 +17,11 @@ struct TopLevelContext
     bool help;
     bool keepObjs;
     bool assembleOnly;
+    bool unittests;
+    bool generateMain;
+    bool mainTakesArgv;
+    bool stacktrace;
+    bool release;
 }
 
 struct ModuleNamespace

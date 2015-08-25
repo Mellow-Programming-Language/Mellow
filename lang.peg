@@ -5,6 +5,7 @@ Program :: ( VariantDef
            | ExternFuncDecl
            | ImportStmt
            | InterfaceDef
+           | UnittestBlock
            )+
            ;
 
@@ -37,6 +38,8 @@ BodyBlock :: #"body" BareBlock;
 
 BareBlock :: #"{" Statement* #"}";
 
+UnittestBlock :: #"unittest" BareBlock;
+
 StorageClass :: ConstClass;
 ConstClass :: #'const' #Sp;
 
@@ -58,6 +61,7 @@ Statement :: BareBlock
            | MatchStmt
            | (Declaration #";")
            | (AssignExisting #";")
+           | (AssertStmt #";")
            | (SpawnStmt #";")
            | (YieldStmt #";")
            | (BreakStmt #";")
@@ -65,6 +69,8 @@ Statement :: BareBlock
            | (ChanWrite #";")
            | (FuncCall #";")
            ;
+
+AssertStmt :: #"assert" #"(" BoolExpr (#"," BoolExpr)? #")";
 
 ReturnStmt :: #'return' ((#Sp BoolExpr)
                         | (#Sp ValueTuple)

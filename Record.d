@@ -214,11 +214,13 @@ class RecordBuilder : Visitor
     void visit(ExternFuncDeclNode node) {}
     void visit(ImportStmtNode node) {}
     void visit(ImportLitNode node) {}
+    void visit(UnittestBlockNode node) {}
     void visit(FuncDefNode node) {}
     void visit(FuncSignatureNode node) {}
     void visit(FuncBodyBlocksNode node) {}
     void visit(BareBlockNode node) {}
     void visit(StatementNode node) {}
+    void visit(AssertStmtNode node) {}
     void visit(ReturnStmtNode node) {}
     void visit(BoolExprNode node) {}
     void visit(OrTestNode node) {}

@@ -30,6 +30,11 @@ trie.o: trie.mlo
 	../compiler --stdlib="../stdlib" -c trie.mlo -o trie_mlo.o
 	ld -r trie_mlo.o -o trie.o
 
+trie_unittest: trie_unittest.mlo trie.mlo
+	../compiler --unittest --stdlib="../stdlib" \
+		--runtime="../runtime/runtime.o" trie_unittest.mlo \
+		-o trie_unittest
+
 mellow_internal.o: $(MELLOW_INTERNAL)
 	gcc -c mellow_internal.c -o mellow_internal.o
 

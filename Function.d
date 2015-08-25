@@ -11,6 +11,7 @@ import Record;
 import utils;
 import FunctionSig;
 import TemplateInstantiator;
+import Namespace;
 
 // CLosures and struct member functions can be implemented in exactly the same
 // way. The 'this' pointer and the environment pointer for closures are
@@ -177,6 +178,8 @@ class FunctionBuilder : Visitor
     private bool skipTemplatedFuncDef;
     private ProgramNode topNode;
     private uint insideLoop;
+    private bool unittestBlock;
+    private TopLevelContext* topContext;
 
     mixin TypeVisitors;
 
@@ -188,6 +191,7 @@ class FunctionBuilder : Visitor
                             .filter!(a => a.templateParams.length == 0
                                        || (a.funcName.length >= 3
                                         && a.funcName[0..2] == "__"))
+                            .filter!(a => !a.isUnittest)
                             .array;
     }
 
@@ -195,6 +199,12 @@ class FunctionBuilder : Visitor
     {
         return toplevelFuncs.filter!(a => a.funcDefNode is null)
                             .array ~ importedFuncSigs;
+    }
+
+    FuncSig*[] getUnittests()
+    {
+        return toplevelFuncs.filter!(a => a.isUnittest)
+                            .array;
     }
 
     // TODO update this so templated functions are handled correctly, ie, their
@@ -211,21 +221,44 @@ class FunctionBuilder : Visitor
     }
 
     this (ProgramNode node, RecordBuilder records, FuncSig*[] sigs,
-          FuncSig*[] importedFuncSigs)
+          FuncSig*[] importedFuncSigs, TopLevelContext* topContext)
     {
         this.topNode = node;
         this.records = records;
         this.toplevelFuncs = sigs;
         this.importedFuncSigs = importedFuncSigs;
+        this.unittestBlock = false;
+        this.topContext = topContext;
         builderStack.length++;
         for (auto i = 0; i < node.children.length; i++)
         {
-            if (cast(FuncDefNode)node.children[i])
+            if (cast(UnittestBlockNode)node.children[i])
+            {
+                node.children[i].accept(this);
+            }
+            else if (cast(FuncDefNode)node.children[i])
             {
                 node.children[i].accept(this);
             }
         }
         insideSlice = 0;
+    }
+
+    void visit(UnittestBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UnittestBlockNode"));
+        if (!this.topContext.unittests)
+        {
+            return;
+        }
+        this.curFuncName = node.data["UNITTEST_NAME"].get!string;
+        funcScopes.length++;
+        funcScopes[$-1].syms.length++;
+        this.unittestBlock = true;
+        node.children[0].accept(this);
+        this.unittestBlock = false;
+        funcScopes.length--;
+        updateFuncSigStackVarAllocSize();
     }
 
     void visit(FuncDefNode node)
@@ -242,7 +275,6 @@ class FunctionBuilder : Visitor
         }
         // Visit FuncBodyBlocksNode
         node.children[1].accept(this);
-        funcSigs.length--;
         funcScopes.length--;
         updateFuncSigStackVarAllocSize();
     }
@@ -326,9 +358,48 @@ class FunctionBuilder : Visitor
         node.children[0].accept(this);
     }
 
+    void visit(AssertStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssertStmtNode"));
+        if (this.topContext.release)
+        {
+            return;
+        }
+        node.children[0].accept(this);
+        auto exprType = builderStack[$-1][$-1];
+        builderStack[$-1] = builderStack[$-1][0..$-1];
+        if (exprType.tag != TypeEnum.BOOL)
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Assert statements expect a boolean expr as the first arg"
+            );
+        }
+        if (node.children.length > 1)
+        {
+            node.children[1].accept(this);
+            auto strType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (strType.tag != TypeEnum.STRING)
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Assert statements expect a string expr as the second arg"
+                );
+            }
+        }
+    }
+
     void visit(ReturnStmtNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ReturnStmtNode"));
+        if (this.unittestBlock)
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Cannot 'return' from a 'unittest' block"
+            );
+        }
         if (node.children.length > 0)
         {
             node.children[0].accept(this);
@@ -370,8 +441,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Non-bool type in LOGIC-OR in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "Non-bool type in LOGIC-OR"
                 );
             }
         }
@@ -395,8 +465,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Non-bool type in LOGIC-AND in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "Non-bool type in LOGIC-AND"
                 );
             }
         }
@@ -414,8 +483,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Cannot negate non-bool type in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "Cannot negate non-bool type"
                 );
             }
         }
@@ -452,8 +520,7 @@ class FunctionBuilder : Visitor
                 {
                     throw new Exception(
                         errorHeader(node) ~ "\n"
-                        ~ "Mismatched types for equality cmp in function ["
-                        ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "Mismatched types for equality cmp\n"
                         ~ "Left Type : " ~ resultType.format ~ "\n"
                         ~ "Right Type: " ~ nextType.format
                     );
@@ -466,8 +533,7 @@ class FunctionBuilder : Visitor
                 {
                     throw new Exception(
                         errorHeader(node) ~ "\n"
-                        ~ "Mismatched types in `<in>` op in function ["
-                        ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "Mismatched types in `<in>` op\n"
                         ~ "Left Type : " ~ resultType.format ~ "\n"
                         ~ "Right Type: " ~ nextType.format
                     );
@@ -479,8 +545,7 @@ class FunctionBuilder : Visitor
                 {
                     throw new Exception(
                         errorHeader(node) ~ "\n"
-                        ~ "Mismatched types in `in` op in function ["
-                        ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "Mismatched types in `in` op\n"
                         ~ "Left Type : " ~ resultType.format ~ "\n"
                         ~ "Right Type: " ~ nextType.format
                     );
@@ -519,8 +584,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Non-integral type in BIT-OR operation in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "Non-integral type in BIT-OR operation"
                 );
             }
         }
@@ -543,8 +607,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Non-integral type in BIT-XOR operation in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "Non-integral type in BIT-XOR operation"
                 );
             }
         }
@@ -567,8 +630,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Non-integral type in BIT-AND operation in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "Non-integral type in BIT-AND operation"
                 );
             }
         }
@@ -591,8 +653,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Non-integral type in shift operation in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "Non-integral type in shift operation"
                 );
             }
         }
@@ -778,8 +839,7 @@ class FunctionBuilder : Visitor
                 throw new Exception(
                     errorHeader(node) ~ "\n"
                     ~ "No variable, function, or variant constructor ["
-                    ~ name ~ "] in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ name ~ "]"
                 );
             }
             else if (varLookup.success)
@@ -821,8 +881,7 @@ class FunctionBuilder : Visitor
                             ~ name
                             ~ "] of variant ["
                             ~ variant.format
-                            ~ "] without a template instantiation in function ["
-                            ~ funcSigs[$-1].funcName ~ "]"
+                            ~ "] without a template instantiation"
                         );
                     }
                 }
@@ -1019,8 +1078,7 @@ class FunctionBuilder : Visitor
                 {
                     throw new Exception(
                         errorHeader(node) ~ "\n"
-                        ~ "Non-uniform type in array literal in function ["
-                        ~ funcSigs[$-1].funcName ~ "]"
+                        ~ "Non-uniform type in array literal"
                     );
                 }
             }
@@ -1156,8 +1214,7 @@ class FunctionBuilder : Visitor
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"
-                    ~ "Type mismatch in assign-existing in function ["
-                    ~ funcSigs[$-1].funcName ~ "]\n"
+                    ~ "Type mismatch in assign-existing\n"
                     ~ "  Expects: " ~ left.format ~ "\n"
                     ~ "  But got: " ~ varType.format
                 );
@@ -1675,8 +1732,7 @@ class FunctionBuilder : Visitor
                 throw new Exception(
                     errorHeader(node) ~ "\n"
                     ~ "Incorrect number of arguments passed for call of "
-                    ~ "function [" ~ funcSig.funcName ~ "] in function ["
-                    ~ funcSigs[$-1].funcName ~ "]"
+                    ~ "function [" ~ funcSig.funcName ~ "]"
                 );
             }
             foreach (i, child, argExpected; lockstep(node.children, funcArgs))
@@ -1698,8 +1754,7 @@ class FunctionBuilder : Visitor
                     throw new Exception(
                         errorHeader(node) ~ "\n"
                         ~ "Mismatch between expected and passed arg type for "
-                        ~ "call of function [" ~ funcSig.funcName
-                        ~ "] in function [" ~ funcSigs[$-1].funcName ~ "]\n"
+                        ~ "call of function [" ~ funcSig.funcName ~ "]\n"
                         ~ "  Expects: " ~ argExpected.type.format ~ "\n"
                         ~ "  But got: " ~ argPassed.format ~ "\n"
                         ~ "in arg position [" ~ i.to!string ~ "]"

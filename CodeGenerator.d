@@ -360,6 +360,9 @@ struct Context
     uint[] matchTypeLoc;
     string[] matchEndLabel;
     string[] matchNextWhenLabel;
+    bool callUnittests;
+    string[] unittestNames;
+    bool release;
     private VarTypePair*[] stackVars;
     private uint topOfStack;
     private uint uniqLabelCounter;
@@ -799,12 +802,23 @@ string compileFunction(FuncSig* sig, Context* vars)
     }
 
     // TODO handle the other block cases
-
-    auto funcBodyBlocks = cast(FuncBodyBlocksNode)sig.funcDefNode
-                                                     .children[1];
-    auto funcDef = compileBlock(
-        cast(BareBlockNode)funcBodyBlocks.children[0], vars
-    );
+    string funcDef;
+    // Unittest case
+    if (cast(BareBlockNode)sig.funcDefNode.children[0])
+    {
+        funcDef = compileBlock(
+            cast(BareBlockNode)(sig.funcDefNode.children[0]), vars
+        );
+    }
+    // Real function case
+    else if (cast(FuncBodyBlocksNode)sig.funcDefNode.children[1])
+    {
+        auto funcBodyBlocks = cast(FuncBodyBlocksNode)sig.funcDefNode
+                                                         .children[1];
+        funcDef = compileBlock(
+            cast(BareBlockNode)funcBodyBlocks.children[0], vars
+        );
+    }
     // Determine the total amount of stack space used by the function at max
     auto totalStackSpaceUsed = sig.stackVarAllocSize + vars.maxTempSpaceUsed;
     // Allocate space on the stack, keeping the stack in 16-byte alignment
@@ -854,6 +868,8 @@ string compileStatement(StatementNode statement, Context* vars)
         return compileDeclaration(cast(DeclarationNode)child, vars);
     else if (cast(AssignExistingNode)child)
         return compileAssignExisting(cast(AssignExistingNode)child, vars);
+    else if (cast(AssertStmtNode)child)
+        return compileAssertStmt(cast(AssertStmtNode)child, vars);
     else if (cast(SpawnStmtNode)child)
         return compileSpawnStmt(cast(SpawnStmtNode)child, vars);
     else if (cast(YieldStmtNode)child)
@@ -868,6 +884,46 @@ string compileStatement(StatementNode statement, Context* vars)
         return compileFuncCall(cast(FuncCallNode)child, vars);
     assert(false);
     return "";
+}
+
+string compileAssertStmt(AssertStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    if (vars.release)
+    {
+        return "";
+    }
+    auto str = "";
+    vars.runtimeExterns["printf"] = true;
+    auto assertEndlabel = vars.getUniqLabel();
+    auto assertStrLabel = vars.getUniqDataLabel();
+    auto entry = new DataEntry();
+    entry.label = assertStrLabel;
+    entry.data = DataEntry.toNasmDataString(
+        "Assert " ~ errorHeader(node)
+    );
+    vars.dataEntries ~= entry;
+    str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ assertEndlabel ~ "\n";
+    str ~= "    mov    rdi, " ~ assertStrLabel ~ "\n";
+    str ~= "    call   printf\n";
+    str ~= "    mov    rdi, __NEWLINE\n";
+    str ~= "    call   printf\n";
+    if (node.children.length > 1)
+    {
+        str ~= compileExpression(cast(BoolExprNode)node.children[1], vars);
+        str ~= "    add    r8, 8\n";
+        str ~= "    mov    rdi, r8\n";
+        str ~= "    call   printf\n";
+        str ~= "    mov    rdi, __NEWLINE\n";
+        str ~= "    call   printf\n";
+    }
+    str ~= "    mov    rdi, 1\n";
+    str ~= "    call   exit\n";
+    str ~= assertEndlabel ~ ":\n";
+    return str;
+
 }
 
 string compileReturn(ReturnStmtNode node, Context* vars)
@@ -2419,10 +2475,35 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
 
         // Populate length sentinel
         str ~= "    mov    r9, [r8]\n";
-        str ~= "    mov    r10d, dword [r9+4]\n";
-        str ~= "    mov    qword [__ZZlengthSentinel], r10\n";
+        str ~= "    mov    r11d, dword [r9+4]\n";
+        str ~= "    mov    qword [__ZZlengthSentinel], r11\n";
         str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
         str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+        if (!vars.release)
+        {
+            str ~= "    mov    r11, [r9]\n";
+            str ~= "    mov    r11d, dword [r11+4]\n";
+            vars.runtimeExterns["printf"] = true;
+            // Now, compare the array size to the index value
+            auto inBoundsLabel = vars.getUniqLabel;
+            str ~= "    cmp    r11, r8\n";
+            // If we're within bounds, jump to continuing with the access...
+            str ~= "    jg     " ~ inBoundsLabel ~ "\n";
+            // Otherwise, print an assert error and hard exit!
+            auto assertLabel = vars.getUniqDataLabel();
+            auto entry = new DataEntry();
+            entry.label = assertLabel;
+            entry.data = DataEntry.toNasmDataString(
+                "Assert Error: Array index out-of-bounds: " ~ errorHeader(node)
+                                                            ~ "\\n"
+            );
+            vars.dataEntries ~= entry;
+            str ~= "    mov    rdi, " ~ assertLabel ~ "\n";
+            str ~= "    call   printf\n";
+            str ~= "    mov    rdi, 1\n";
+            str ~= "    call   exit\n";
+            str ~= inBoundsLabel ~ ":\n";
+        }
         // [r9] is the actual variable we're indexing, so
         // [r9]+(header offset + r8 * type.size) is the address we want
         str ~= "    mov    r9, [r9]\n";

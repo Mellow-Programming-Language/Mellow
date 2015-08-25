@@ -845,6 +845,7 @@ class TemplateInstantiator : Visitor
         node.children[0].accept(this);
     }
 
+    void visit(AssertStmtNode node) {}
     void visit(NumberNode node) {}
     void visit(IntNumNode node) {}
     void visit(FloatNumNode node) {}
@@ -869,6 +870,7 @@ class TemplateInstantiator : Visitor
     void visit(ExternFuncDeclNode node) {}
     void visit(ImportStmtNode node) {}
     void visit(ImportLitNode node) {}
+    void visit(UnittestBlockNode node) {}
     void visit(StructDefNode node) {}
     void visit(StructBodyNode node) {}
     void visit(StructEntryNode node) {}

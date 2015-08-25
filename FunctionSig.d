@@ -37,6 +37,7 @@ class FunctionSigBuilder : Visitor
     private VarTypePair*[] funcArgs;
     private Type* returnType;
     private VarTypePair*[] decls;
+    private static uint unittests;
     FuncSig* funcSig;
 
     mixin TypeVisitors;
@@ -63,6 +64,23 @@ class FunctionSigBuilder : Visitor
         return multiples.keys;
     }
 
+    void visit(UnittestBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UnittestBlockNode"));
+        funcSig = new FuncSig();
+        funcSig.isUnittest = true;
+        funcSig.funcName =
+            "__unittest_block_" ~ FunctionSigBuilder.unittests.to!string;
+        node.data["UNITTEST_NAME"] = funcSig.funcName;
+        FunctionSigBuilder.unittests++;
+        funcSig.templateParams = [];
+        funcSig.funcArgs = [];
+        funcSig.funcDefNode = node;
+        auto dummyRet = new Type();
+        dummyRet.tag = TypeEnum.VOID;
+        funcSig.returnType = dummyRet;
+    }
+
     void visit(ExternFuncDeclNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ExternFuncDeclNode"));
@@ -74,6 +92,7 @@ class FunctionSigBuilder : Visitor
         // Visit FuncReturnTypeNode
         node.children[2].accept(this);
         funcSig = new FuncSig();
+        funcSig.isUnittest = false;
         funcSig.funcName = funcName;
         funcSig.funcArgs = funcArgs;
         funcSig.returnType = returnType;
@@ -88,6 +107,7 @@ class FunctionSigBuilder : Visitor
         // Visit FuncSignatureNode
         node.children[0].accept(this);
         funcSig = new FuncSig();
+        funcSig.isUnittest = false;
         funcSig.funcName = funcName;
         funcSig.templateParams = templateParams;
         funcSig.funcDefNode = node;
@@ -279,6 +299,7 @@ class FunctionSigBuilder : Visitor
     void visit(BreakStmtNode node) {}
     void visit(ContinueStmtNode node) {}
 
+    void visit(AssertStmtNode node) {}
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
     void visit(StructFunctionNode node) {}

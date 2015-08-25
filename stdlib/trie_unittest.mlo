@@ -1,0 +1,79 @@
+
+import std.trie;
+
+unittest {
+    trie := createTrie!int();
+    match (findTrieVal!int(trie, "one")) {
+        Some (_) :: assert(false, "Found non-existant key");
+    }
+
+    trie = insertTrieVal!int(trie, "one", 1);
+    match (findTrieVal!int(trie, "one")) {
+        Some (n) :: assert(n == 1, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+
+    trie = insertTrieVal!int(trie, "one", 2);
+    match (findTrieVal!int(trie, "one")) {
+        Some (n) :: assert(n == 2, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+    match (findTrieVal!int(trie, "one")) {
+        Some (n) :: assert(n == 2, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+
+    trie = insertTrieVal!int(trie, "three", 3);
+    match (findTrieVal!int(trie, "three")) {
+        Some (n) :: assert(n == 3, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+    match (findTrieVal!int(trie, "one")) {
+        Some (n) :: assert(n == 2, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+
+    trie = insertTrieVal!int(trie, "onee", 1);
+    match (findTrieVal!int(trie, "one")) {
+        Some (n) :: assert(n == 2, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+    match (findTrieVal!int(trie, "onee")) {
+        Some (n) :: assert(n == 1, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+
+    alternateTrie := insertTrieVal!int(trie, "onee", 2);
+    match (findTrieVal!int(alternateTrie, "onee")) {
+        Some (n) :: assert(n == 2, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+    match (findTrieVal!int(trie, "onee")) {
+        Some (n) :: assert(n == 1, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+
+    trie = insertTrieVal!int(trie, "", 0);
+    match (findTrieVal!int(trie, "")) {
+        Some (n) :: assert(n == 0, "Wrong stored value");
+        _        :: assert(false, "Key not found");
+    }
+
+    // FIXME: This segfaults! Remove a character in the key and it doesn't
+    // trie = insertTrieVal!int(
+    //     trie,
+    //     "reallyreallyre",
+    //     12345678
+    // );
+    // match (
+    //     findTrieVal!int(
+    //         trie,
+    //         "reallyreallyre"
+    //     )
+    // ) {
+    //     Some (n) :: assert(n == 12345678, "Wrong stored value");
+    //     _        :: assert(false, "Key not found");
+    // }
+}
+
+func main() {}

@@ -1037,9 +1037,11 @@ struct FuncSig
     // types
     Type* returnType;
     // For expanding templates
-    FuncDefNode funcDefNode;
+    ASTNonTerminal funcDefNode;
     // The total number of bytes named variables will use on the stack
     uint stackVarAllocSize;
+    // Whether the "function" is actually a unittest block
+    bool isUnittest;
 
     auto format()
     {
