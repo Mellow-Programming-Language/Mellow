@@ -63,8 +63,17 @@ string compileOrTest(OrTestNode node, Context* vars)
     {
         return compileAndTest(cast(AndTestNode)node.children[0], vars);
     }
+    auto shortCircuitLabel = vars.getUniqLabel;
     auto str = "";
-    mixin(exprOp("or", "AndTest"));
+    foreach (child; node.children)
+    {
+        str ~= compileAndTest(
+            cast(AndTestNode)child, vars
+        );
+        str ~= "    cmp    r8, 0\n";
+        str ~= "    jne    " ~ shortCircuitLabel ~ "\n";
+    }
+    str ~= shortCircuitLabel ~ ":\n";
     return str;
 }
 
@@ -75,8 +84,17 @@ string compileAndTest(AndTestNode node, Context* vars)
     {
         return compileNotTest(cast(NotTestNode)node.children[0], vars);
     }
+    auto shortCircuitLabel = vars.getUniqLabel;
     auto str = "";
-    mixin(exprOp("and", "NotTest"));
+    foreach (child; node.children)
+    {
+        str ~= compileNotTest(
+            cast(NotTestNode)child, vars
+        );
+        str ~= "    cmp    r8, 0\n";
+        str ~= "    je     " ~ shortCircuitLabel ~ "\n";
+    }
+    str ~= shortCircuitLabel ~ ":\n";
     return str;
 }
 
