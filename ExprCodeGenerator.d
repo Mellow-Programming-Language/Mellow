@@ -1399,6 +1399,32 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         str ~= compileSlicing(cast(SlicingNode)node.children[0], vars);
         // Get the indexed-into value, so we can index into it
         str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
+        if (!vars.release)
+        {
+            vars.runtimeExterns["printf"] = true;
+            // Get the array size; we're going to do an index out-of-bounds
+            // check! First, get the array size
+            str ~= "    mov    r11d, dword [r10+4]\n";
+            // Now, compare the array size to the index value
+            auto inBoundsLabel = vars.getUniqLabel;
+            str ~= "    cmp    r11, r8\n";
+            // If we're within bounds, jump to continuing with the access...
+            str ~= "    jg     " ~ inBoundsLabel ~ "\n";
+            // Otherwise, print an assert error and hard exit!
+            auto assertLabel = vars.getUniqDataLabel();
+            auto entry = new DataEntry();
+            entry.label = assertLabel;
+            entry.data = DataEntry.toNasmDataString(
+                "Assert Error: Array index out-of-bounds: " ~ errorHeader(node)
+                                                            ~ "\\n"
+            );
+            vars.dataEntries ~= entry;
+            str ~= "    mov    rdi, " ~ assertLabel ~ "\n";
+            str ~= "    call   printf\n";
+            str ~= "    mov    rdi, 1\n";
+            str ~= "    call   exit\n";
+            str ~= inBoundsLabel ~ ":\n";
+        }
         // Offset index by type size
         str ~= "    imul   r8, " ~ resultType.size.to!string ~ "\n";
         // Offset index beyond ref count and array length sections

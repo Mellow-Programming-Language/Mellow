@@ -2475,10 +2475,35 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
 
         // Populate length sentinel
         str ~= "    mov    r9, [r8]\n";
-        str ~= "    mov    r10d, dword [r9+4]\n";
-        str ~= "    mov    qword [__ZZlengthSentinel], r10\n";
+        str ~= "    mov    r11d, dword [r9+4]\n";
+        str ~= "    mov    qword [__ZZlengthSentinel], r11\n";
         str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
         str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
+        if (!vars.release)
+        {
+            str ~= "    mov    r11, [r9]\n";
+            str ~= "    mov    r11d, dword [r11+4]\n";
+            vars.runtimeExterns["printf"] = true;
+            // Now, compare the array size to the index value
+            auto inBoundsLabel = vars.getUniqLabel;
+            str ~= "    cmp    r11, r8\n";
+            // If we're within bounds, jump to continuing with the access...
+            str ~= "    jg     " ~ inBoundsLabel ~ "\n";
+            // Otherwise, print an assert error and hard exit!
+            auto assertLabel = vars.getUniqDataLabel();
+            auto entry = new DataEntry();
+            entry.label = assertLabel;
+            entry.data = DataEntry.toNasmDataString(
+                "Assert Error: Array index out-of-bounds: " ~ errorHeader(node)
+                                                            ~ "\\n"
+            );
+            vars.dataEntries ~= entry;
+            str ~= "    mov    rdi, " ~ assertLabel ~ "\n";
+            str ~= "    call   printf\n";
+            str ~= "    mov    rdi, 1\n";
+            str ~= "    call   exit\n";
+            str ~= inBoundsLabel ~ ":\n";
+        }
         // [r9] is the actual variable we're indexing, so
         // [r9]+(header offset + r8 * type.size) is the address we want
         str ~= "    mov    r9, [r9]\n";
