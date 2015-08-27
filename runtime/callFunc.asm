@@ -1,6 +1,7 @@
 
     SECTION .bss
-
+    global mainstack
+    global currentthread
 mainstack:      resq 1 ; Stored mainstack rsp
 currentthread:  resq 1 ; Pointer to current thread
 

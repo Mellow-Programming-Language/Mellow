@@ -41,7 +41,7 @@ void callThreadFunc(ThreadData* thread)
 void deallocThreadData(ThreadData* thread)
 {
     // Unmap memory allocated for thread stack
-    munmap(thread->t_StackRaw, THREAD_STACK_SIZE);
+    munmap(thread->t_StackRaw, 1 << thread->stackSize);
     // Dealloc memory for struct
     free(thread);
 }
@@ -88,15 +88,18 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     newThread->stillValid = 0;
     // Thread starts off with unitialized stack frame pointer
     newThread->t_rbp = 0;
+    // Set starting stack size
+    size_t startingStackSize = 1 << THREAD_STACK_SIZE_EXP;
+    newThread->stackSize = THREAD_STACK_SIZE_EXP;
     // mmap thread stack
-    newThread->t_StackRaw = (uint8_t*)mmap(NULL, THREAD_STACK_SIZE,
+    newThread->t_StackRaw = (uint8_t*)mmap(NULL, startingStackSize,
                                            PROT_READ|PROT_WRITE,
                                            MAP_PRIVATE|MAP_ANONYMOUS,
                                            -1, 0);
     // StackCur starts as a meaningless pointer
     newThread->t_StackCur = 0;
     // Make t_StackBot point to "bottom" of stack (highest address)
-    newThread->t_StackBot = newThread->t_StackRaw + THREAD_STACK_SIZE;
+    newThread->t_StackBot = newThread->t_StackRaw + startingStackSize;
 
     // TODO finish putting things on the stack. Note that this is tricky because
     // after the 6th (or 8th, in the case of floats) register is accounted for,

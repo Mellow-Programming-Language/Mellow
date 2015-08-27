@@ -3,10 +3,7 @@ FILES = main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
 		TemplateInstantiator.d Namespace.d
 
 .PHONY: all
-all: compiler stdlib runtime
-
-.PHONY: extra
-extra: compiler_debug compiler_multithread
+all: compiler runtime stdlib
 
 .PHONY: test
 test:
@@ -23,6 +20,8 @@ compiler_debug: $(FILES)
 
 compiler_multithread: $(FILES)
 	dmd -ofcompiler_multithread $(FILES) -version=MULTITHREAD
+	make -C stdlib realclean
+	make -C stdlib COMPILER="../compiler_multithread"
 
 .PHONY: runtime
 runtime:

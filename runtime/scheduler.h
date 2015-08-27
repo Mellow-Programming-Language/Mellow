@@ -5,7 +5,7 @@
 
 #define THREAD_DATA_ARR_START_LEN 4
 #define THREAD_DATA_ARR_MUL_INCREASE 2
-#define THREAD_STACK_SIZE (4096)
+#define THREAD_STACK_SIZE_EXP 12
 
 typedef struct
 {
@@ -33,6 +33,8 @@ typedef struct
     // stillValid is 0, and the thread is still valid if stillValid != 0 OR
     // curFuncAddr == 0
     uint8_t stillValid;
+    // 2^stackSize == the allocated size of the stack, as requested from mmap
+    uint8_t stackSize;
     // Amount of bytes that were used for the stack allocation of arguments
     uint32_t stackArgsSize;
     // Memory populated with the function arguments to be placed in registers
