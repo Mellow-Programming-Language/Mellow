@@ -1,4 +1,8 @@
 
+    ; Defined in scheduler.c
+    extern __get_tempstack
+    extern __mremap_stack
+
     SECTION .bss
     global mainstack
     global currentthread
@@ -6,6 +10,37 @@ mainstack:      resq 1 ; Stored mainstack rsp
 currentthread:  resq 1 ; Pointer to current thread
 
     SECTION .text
+
+    ; extern void __realloc_stack(ThreadData* curThread);
+    ; This function will allocate stack space twice as big as the previous
+    ; allocated stack. In order to do this, this function must execute on its
+    ; own temporary stack.
+    global __realloc_stack
+__realloc_stack:
+    push    rbp                     ; set up stack frame
+    mov     rbp, rsp
+    sub     rsp, 32
+
+    mov     qword [rbp-8], rdi      ; ThreadData* curThread
+    mov     qword [rbp-16], rsp     ; Preserve rsp
+    ; See realloc_stack.h; the size of the temp stack is (4096). We have the
+    ; beginning of our tempstack in rax, so set rsp to the end of the stack
+    ; space, minus some buffer because I'm not super sure of these things
+    call    __get_tempstack
+    mov     rsp, rax                ; Lowest address of tempstack in rsp
+    add     rsp, (4096-128)         ; Set rsp to the top of the stack
+    mov     rdi, qword [rbp-8]      ; ThreadData* curThread into rdi
+    mov     rsi, qword [rbp-16]     ; Old rsp in rsi
+    ; This call will invalidate the old thread stack, meaning once we come off
+    ; the temporary stack, the move must be directly to the new allocation
+    call    __mremap_stack
+    ; We now have the new rsp in rax
+    mov     rsp, rax
+
+    add     rsp, 32
+    mov     rsp, rbp                ; takedown stack frame
+    pop     rbp
+    ret
 
     ; extern void yield();
     global yield

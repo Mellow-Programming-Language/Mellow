@@ -37,7 +37,7 @@ tls.o: tls.asm
 	as tls.asm -o tls.o
 
 # Provided so that the invocation used to produce tls.asm is recorded
-tls.asm: tls.c
+tls.asm: tls.c tls.h
 	$(CC) $(CC_FLAGS) -O3 -pthread -S -c tls.c -masm=intel -o tls.asm
 
 .PHONY: clean

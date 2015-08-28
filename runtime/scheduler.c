@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -8,6 +9,7 @@
 #include <stddef.h>
 #include <sys/mman.h>
 #include <unistd.h> // for sysconf and _SC_NPROCESSOR_ONLIN
+#include "realloc_stack.h"
 #include "scheduler.h"
 
 static GlobalThreadMem* g_threadManager = NULL;
@@ -18,7 +20,49 @@ static uint32_t numThreads;
 static pthread_t* kernelThreads;
 static volatile SchedulerData* schedulerData;
 static volatile uint64_t programDone = 0;
+extern void __init_tempstack();
+extern void __free_tempstack();
+#else
+static void* tempstack;
+void* __get_tempstack()
+{
+    return tempstack;
+}
 #endif
+
+// This function is expected to be executed on a stack other than the stack that
+// it is reallocating. It doubles the size of the stack, and since the memory
+// might be moved, calculate the value of the new rsp
+uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
+{
+    uint64_t oldStackRaw = (uint64_t)thread->t_StackRaw;
+    size_t oldStackSize = 1 << thread->stackSize;
+    thread->stackSize++;
+    size_t newStackSize = 1 << thread->stackSize;
+    // Allocate the new, twice-as-big stack. MREMAP_MAYMOVE says the kernel
+    // is allowed to move the mapping to a different place in virtual memory
+    // if it needs to, copying over the contents for us like memcpy...
+    thread->t_StackRaw = mremap(
+        thread->t_StackRaw, oldStackSize, newStackSize, MREMAP_MAYMOVE
+    );
+    // ... except since we're using this as a stack, we need all our current
+    // data pushed up against the _end_ of the mapping, rather than the
+    // beginning, since the stack grows down
+    memcpy(
+        thread->t_StackRaw + oldStackSize,
+        thread->t_StackRaw,
+        oldStackSize
+    );
+    // Calculate the new rsp value
+    // If 0x00[........]0xFF is the whole stack space, we're calculating the
+    // length of 0x00[....rsp<used stack space>]0xFF
+    uint64_t deltaFromTop = oldStackRaw + oldStackSize
+                                        - rsp;
+    // Take that same delta from the top of new stack, to get the new rsp
+    uint64_t newRsp = (uint64_t)thread->t_StackRaw + newStackSize
+                                                   - deltaFromTop;
+    return newRsp;
+}
 
 void printThreadData(ThreadData* curThread, int32_t v)
 {
@@ -211,6 +255,12 @@ void execScheduler()
     }
     scheduler();
 #else
+    tempstack = mmap(
+        NULL, TEMP_STACK_SIZE,
+        PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS,
+        -1, 0
+    );
     uint32_t i = 0;
     uint8_t stillValid = 0;
     for (i = 0; i < g_threadManager->threadArrIndex; i++)
@@ -227,6 +277,7 @@ void execScheduler()
             stillValid = 0;
         }
     }
+    munmap(tempstack, TEMP_STACK_SIZE);
 #endif
 }
 
@@ -306,6 +357,8 @@ SKIP_WORKER:
 void* awaitTask(void* arg)
 {
     uint64_t index = (uint64_t)arg;
+    // Init the TLS tempstack used when dynamically growing the thread stack
+    __init_tempstack();
     while (programDone == 0)
     {
         if (schedulerData[index].valid == 1)
@@ -315,6 +368,7 @@ void* awaitTask(void* arg)
             schedulerData[index].valid = 0;
         }
     }
+    __free_tempstack();
     return NULL;
 }
 #endif
