@@ -733,6 +733,7 @@ struct Context
 // Compile the function prologue, which will grow the stack if necessary
 string compilePrologue(uint stackAlignedAlloc, Context* vars)
 {
+    vars.runtimeExterns["__realloc_stack"] = true;
     version (MULTITHREAD)
     {
     vars.runtimeExterns["get_currentthread"] = true;
@@ -742,15 +743,24 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     vars.runtimeExterns["currentthread"] = true;
     }
     auto str = "";
+
+
+    vars.runtimeExterns["printf"] = true;
+    auto debugFmt = vars.getUniqDataLabel();
+    auto entry = new DataEntry();
+    entry.label = debugFmt;
+    entry.data = DataEntry.toNasmDataString(
+        "  RSP: %X, BOT: %X, SS: %d\\n"
+    );
+    vars.dataEntries ~= entry;
+
+
     str ~= "    ; FUNCTION PROLOGUE (do we need to grow the stack?):\n";
-    str ~= "    ; Preserve function argument registers\n";
+    str ~= "    sub    rsp, 16\n";
+    str ~= "    ; Preserve function argument registers (need extra scratch regs)\n";
     str ~= "    mov    qword [rbp-8], rdi\n";
-    str ~= "    mov    qword [rbp-16], rsi\n";
-    str ~= "    mov    qword [rbp-24], rdx\n";
-    str ~= "    mov    qword [rbp-32], rcx\n";
-    str ~= "    mov    qword [rbp-40], r8\n";
-    str ~= "    mov    qword [rbp-48], r9\n";
-    str ~= "    ; Get t_StackCur in r8 and t_StackBot in r9\n";
+    str ~= "    mov    qword [rbp-16], rcx\n";
+    str ~= "    ; Get current rsp in rdi and t_StackBot in r10\n";
     version (MULTITHREAD)
     {
     str ~= "    call   get_currentthread\n";
@@ -759,28 +769,75 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     {
     str ~= "    mov    rax, qword [currentthread]\n";
     }
-    str ~= "    mov    r8, qword [rax+24]\n";
-    str ~= "    mov    r9, qword [rax+16]\n";
+    str ~= "    mov    rdi, rsp\n";
+    str ~= "    mov    r10, qword [rax+16]\n";
     str ~= "    ; Get stackSize in cl (rcx), and the stack size in bytes in r11\n";
+    str ~= "    mov    rcx, 0\n";
     str ~= "    mov    cl, byte [rax+49]\n";
+
+
+
+    // DEBUG
+    //str ~= "    sub    rsp, 80\n";
+    //str ~= "    mov    qword [rbp-24], rax\n";
+    //str ~= "    mov    qword [rbp-32], rcx\n";
+    //str ~= "    mov    qword [rbp-40], rdx\n";
+    //str ~= "    mov    qword [rbp-48], rsi\n";
+    //str ~= "    mov    qword [rbp-56], rdi\n";
+    //str ~= "    mov    qword [rbp-64], r8\n";
+    //str ~= "    mov    qword [rbp-72], r9\n";
+    //str ~= "    mov    qword [rbp-80], r10\n";
+    //str ~= "    mov    qword [rbp-88], r11\n";
+    //str ~= "    mov    rsi, rdi\n";
+    //str ~= "    mov    rdx, qword [rax+16]\n";
+    //str ~= "    mov    rdi, " ~ debugFmt ~ "\n";
+    //str ~= "    call   printf\n";
+    //str ~= "    mov    rax, qword [rbp-24]\n";
+    //str ~= "    mov    rcx, qword [rbp-32]\n";
+    //str ~= "    mov    rdx, qword [rbp-40]\n";
+    //str ~= "    mov    rsi, qword [rbp-48]\n";
+    //str ~= "    mov    rdi, qword [rbp-56]\n";
+    //str ~= "    mov    r8, qword [rbp-64]\n";
+    //str ~= "    mov    r9, qword [rbp-72]\n";
+    //str ~= "    mov    r10, qword [rbp-80]\n";
+    //str ~= "    mov    r11, qword [rbp-88]\n";
+    //str ~= "    add    rsp, 80\n";
+    // END DEBUG
+
+
+
     str ~= "    mov    r11, 1\n";
     str ~= "    shl    r11, cl\n";
     str ~= "    ; Get delta between bottom of stack and current rsp (used space)\n";
-    str ~= "    sub    r9, r8\n";
+    str ~= "    sub    r10, rdi\n";
     str ~= "    ; Get the amount of leftover space\n";
-    str ~= "    sub    r11, r9\n";
+    str ~= "    sub    r11, r10\n";
+    str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
+    str ~= "    ; minus a 128 byte buffer, then exec the realloc routine\n";
     str ~= "    cmp    r11, 128\n";
     auto skipReallocLabel = vars.getUniqLabel;
     str ~= "    jg     " ~ skipReallocLabel ~ "\n";
-
-    str ~= skipReallocLabel ~ ":\n";
-    str ~= "    ; Restore function argument registers\n";
-    str ~= "    mov    rdi, qword [rbp-8]\n";
-    str ~= "    mov    rsi, qword [rbp-16]\n";
-    str ~= "    mov    rdx, qword [rbp-24]\n";
-    str ~= "    mov    rcx, qword [rbp-32]\n";
+    str ~= "    ; Preserve the rest of the function arguments\n";
+    str ~= "    sub    rsp, 32\n";
+    str ~= "    mov    qword [rbp-24], rsi\n";
+    str ~= "    mov    qword [rbp-32], rdx\n";
+    str ~= "    mov    qword [rbp-40], r8\n";
+    str ~= "    mov    qword [rbp-48], r9\n";
+    str ~= "    ; We need to pass the ThreadData* curThread, which happens to\n";
+    str ~= "    ; already be in rax\n";
+    str ~= "    mov    rdi, rax\n";
+    //str ~= "    call   __realloc_stack\n";
+    str ~= "    ; Restore the rest of the function arguments\n";
+    str ~= "    mov    rsi, qword [rbp-24]\n";
+    str ~= "    mov    rdx, qword [rbp-32]\n";
     str ~= "    mov    r8, qword [rbp-40]\n";
     str ~= "    mov    r9, qword [rbp-48]\n";
+    str ~= "    add    rsp, 32\n";
+    str ~= skipReallocLabel ~ ":\n";
+    str ~= "    ; Restore last function argument register\n";
+    str ~= "    mov    rdi, qword [rbp-8]\n";
+    str ~= "    mov    rcx, qword [rbp-16]\n";
+    str ~= "    add    rsp, 16\n";
     str ~= "    ; END FUNCTION PROLOGUE\n";
     return str;
 }

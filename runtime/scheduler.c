@@ -35,16 +35,32 @@ void* __get_tempstack()
 // might be moved, calculate the value of the new rsp
 uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
 {
+
+    // printf("Entered: __mremap_stack\n");
+    // printf("  rsp         : %X\n", rsp);
+
     uint64_t oldStackRaw = (uint64_t)thread->t_StackRaw;
+
+    // printf("  oldStackRaw : %X\n", oldStackRaw);
+
     size_t oldStackSize = 1 << thread->stackSize;
+
+    // printf("  oldStackSize: %d\n", oldStackSize);
+
     thread->stackSize++;
     size_t newStackSize = 1 << thread->stackSize;
+
+    // printf("  newStackSize: %d\n", newStackSize);
+
     // Allocate the new, twice-as-big stack. MREMAP_MAYMOVE says the kernel
     // is allowed to move the mapping to a different place in virtual memory
     // if it needs to, copying over the contents for us like memcpy...
     thread->t_StackRaw = mremap(
         thread->t_StackRaw, oldStackSize, newStackSize, MREMAP_MAYMOVE
     );
+
+    // printf("  newStackRaw : %X\n", thread->t_StackRaw);
+
     // ... except since we're using this as a stack, we need all our current
     // data pushed up against the _end_ of the mapping, rather than the
     // beginning, since the stack grows down
@@ -58,9 +74,16 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     // length of 0x00[....rsp<used stack space>]0xFF
     uint64_t deltaFromTop = oldStackRaw + oldStackSize
                                         - rsp;
+
+    // printf("  deltaFromTop: %d\n", deltaFromTop);
+
     // Take that same delta from the top of new stack, to get the new rsp
     uint64_t newRsp = (uint64_t)thread->t_StackRaw + newStackSize
                                                    - deltaFromTop;
+
+    // printf("  newRsp      : %X\n", newRsp);
+    // printf("We're returning the new rsp!\n");
+
     return newRsp;
 }
 
