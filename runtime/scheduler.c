@@ -37,6 +37,17 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
 {
 
     // printf("Entered: __mremap_stack\n");
+
+    // int i = 0;
+    // for (i = 0; i < 1 << thread->stackSize; i++)
+    // {
+    //     printf(
+    //         "  Addr: %X  Valu: %X\n",
+    //         ((uint8_t*)thread->t_StackRaw) + i,
+    //         ((uint8_t*)thread->t_StackRaw)[i]
+    //     );
+    // }
+
     // printf("  rsp         : %X\n", rsp);
 
     uint64_t oldStackRaw = (uint64_t)thread->t_StackRaw;
@@ -56,7 +67,7 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     // is allowed to move the mapping to a different place in virtual memory
     // if it needs to, copying over the contents for us like memcpy...
     thread->t_StackRaw = mremap(
-        thread->t_StackRaw, oldStackSize, newStackSize, MREMAP_MAYMOVE
+        oldStackRaw, oldStackSize, newStackSize, MREMAP_MAYMOVE
     );
 
     // printf("  newStackRaw : %X\n", thread->t_StackRaw);
@@ -69,6 +80,16 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
         thread->t_StackRaw,
         oldStackSize
     );
+
+    // for (i = 0; i < 1 << thread->stackSize; i++)
+    // {
+    //     // printf(
+    //         "  Addr: %X  Valu: %X\n",
+    //         ((uint8_t*)thread->t_StackRaw) + i,
+    //         ((uint8_t*)thread->t_StackRaw)[i]
+    //     );
+    // }
+
     // Calculate the new rsp value
     // If 0x00[........]0xFF is the whole stack space, we're calculating the
     // length of 0x00[....rsp<used stack space>]0xFF

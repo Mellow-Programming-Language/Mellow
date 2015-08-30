@@ -745,14 +745,21 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     auto str = "";
 
 
-    vars.runtimeExterns["printf"] = true;
-    auto debugFmt = vars.getUniqDataLabel();
-    auto entry = new DataEntry();
-    entry.label = debugFmt;
-    entry.data = DataEntry.toNasmDataString(
-        "  RSP: %X, BOT: %X, SS: %d\\n"
-    );
-    vars.dataEntries ~= entry;
+    //vars.runtimeExterns["printf"] = true;
+    //auto debugFmt = vars.getUniqDataLabel();
+    //auto entry = new DataEntry();
+    //entry.label = debugFmt;
+    //entry.data = DataEntry.toNasmDataString(
+    //    "  RSP: %X, BOT: %X, SS: %d\\n"
+    //);
+    //vars.dataEntries ~= entry;
+    //auto gotHereStr = vars.getUniqDataLabel();
+    //auto gotHereEntry = new DataEntry();
+    //gotHereEntry.label = gotHereStr;
+    //gotHereEntry.data = DataEntry.toNasmDataString(
+    //    "  Here: %d\\n"
+    //);
+    //vars.dataEntries ~= gotHereEntry;
 
 
     str ~= "    ; FUNCTION PROLOGUE (do we need to grow the stack?):\n";
@@ -827,6 +834,13 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    ; already be in rax\n";
     str ~= "    mov    rdi, rax\n";
     //str ~= "    call   __realloc_stack\n";
+
+
+    //str ~= "    mov    rsi, 1\n";
+    //str ~= "    mov    rdi, " ~ gotHereStr ~ "\n";
+    //str ~= "    call   printf\n";
+
+
     str ~= "    ; Restore the rest of the function arguments\n";
     str ~= "    mov    rsi, qword [rbp-24]\n";
     str ~= "    mov    rdx, qword [rbp-32]\n";

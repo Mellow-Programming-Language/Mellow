@@ -18,29 +18,32 @@
     ; own temporary stack.
     global __realloc_stack
 __realloc_stack:
-    push    rbp                     ; set up stack frame
-    mov     rbp, rsp
-    sub     rsp, 32
+    ; We do NOT set up a stack frame, because if we did the typical thing and
+    ; preserve rsp, mov rsp into rbp to set up a stack frame, and do our thing,
+    ; then when we go to tear down the stack frame, and move the old rsp back
+    ; into rsp, we're then overwriting the new rsp calculated to point into the
+    ; new stack, and very-soon-after segfault
 
-    mov     qword [rbp-8], rdi      ; ThreadData* curThread
-    mov     qword [rbp-16], rsp     ; Preserve rsp
+    ; ThreadData* curThread is in rdi
+
+    mov     rsi, rsp                ; Preserve old rsp, setting up for __mremap_stack call
+
     ; See realloc_stack.h; the size of the temp stack is (4096). We have the
     ; beginning of our tempstack in rax, so set rsp to the end of the stack
-    ; space, minus some buffer because I'm not super sure of these things
+    ; space, minus some buffer because I'm not super sure of these things. Also,
+    ; we hand-verify that __get_tempstack does not write to any register other
+    ; than rax, though it does write to rax (pushing return address on call)
     call    __get_tempstack
     mov     rsp, rax                ; Lowest address of tempstack in rsp
     add     rsp, (4096-128)         ; Set rsp to the top of the stack
-    mov     rdi, qword [rbp-8]      ; ThreadData* curThread into rdi
-    mov     rsi, qword [rbp-16]     ; Old rsp in rsi
+
     ; This call will invalidate the old thread stack, meaning once we come off
     ; the temporary stack, the move must be directly to the new allocation
     call    __mremap_stack
-    ; We now have the new rsp in rax
+    ; We now have the new rsp in rax. This new rsp points into the newly
+    ; allocated stack
     mov     rsp, rax
 
-    add     rsp, 32
-    mov     rsp, rbp                ; takedown stack frame
-    pop     rbp
     ret
 
     ; extern void yield();
