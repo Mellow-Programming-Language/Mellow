@@ -35,7 +35,6 @@ void* __get_tempstack()
 // might be moved, calculate the value of the new rsp
 uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
 {
-
     // printf("Entered: __mremap_stack\n");
 
     // int i = 0;
@@ -47,8 +46,6 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     //         ((uint8_t*)thread->t_StackRaw)[i]
     //     );
     // }
-
-    // printf("  rsp         : %X\n", rsp);
 
     uint64_t oldStackRaw = (uint64_t)thread->t_StackRaw;
 
@@ -63,12 +60,19 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
 
     // printf("  newStackSize: %d\n", newStackSize);
 
-    // Allocate the new, twice-as-big stack. MREMAP_MAYMOVE says the kernel
-    // is allowed to move the mapping to a different place in virtual memory
-    // if it needs to, copying over the contents for us like memcpy...
     thread->t_StackRaw = mremap(
         oldStackRaw, oldStackSize, newStackSize, MREMAP_MAYMOVE
     );
+
+    // Allocate the new, twice-as-big stack...
+    // thread->t_StackRaw = (uint8_t*)mmap(
+    //     NULL, newStackSize,
+    //     PROT_READ|PROT_WRITE,
+    //     MAP_PRIVATE|MAP_ANONYMOUS,
+    //     -1, 0
+    // );
+
+    thread->t_StackBot = thread->t_StackRaw + newStackSize;
 
     // printf("  newStackRaw : %X\n", thread->t_StackRaw);
 
@@ -80,6 +84,13 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
         thread->t_StackRaw,
         oldStackSize
     );
+    // memcpy(
+    //     thread->t_StackRaw + oldStackSize,
+    //     oldStackRaw,
+    //     oldStackSize
+    // );
+
+    // munmap(oldStackRaw, oldStackSize);
 
     // for (i = 0; i < 1 << thread->stackSize; i++)
     // {
@@ -102,7 +113,46 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     uint64_t newRsp = (uint64_t)thread->t_StackRaw + newStackSize
                                                    - deltaFromTop;
 
+    // We need to fix all of the push'd rbp's in the stack, as they all
+    // currently point to locations in the old stack, meaning every single
+    // one of them wants us to segfault. Luckily, each rbp points to the
+    // previous rbp, all the way down, so just follow them like a pointer
+    // linked-list, fixing them as well go to point to their analog in the
+    // new stack allocation
+    uint64_t newStackRaw = (uint64_t)thread->t_StackRaw;
+    uint64_t old_rbp_index = (rsp - oldStackRaw) / 8;
+    uint64_t old_rbp = ((uint64_t*)thread->t_StackRaw)[old_rbp_index];
+
+    // printf("  rsp         : %X\n", rsp);
+    // printf("  Split       : %X\n", newStackRaw + oldStackSize);
+
+    while (old_rbp >= oldStackRaw && old_rbp <= oldStackRaw + oldStackSize)
+    {
+
+        // printf("---------------\n");
+        // printf("  ptr         : %d\n", old_rbp_index);
+        // printf("  rbp         : %X\n", old_rbp);
+
+        deltaFromTop = oldStackRaw + oldStackSize - old_rbp;
+        uint64_t new_rbp = newStackRaw + newStackSize - deltaFromTop;
+        // printf("  old new rbp : %X %X\n", old_rbp, new_rbp);
+        uint64_t new_raw_index = old_rbp_index + (oldStackSize / 8);
+        ((uint64_t*)newStackRaw)[new_raw_index] = new_rbp;
+        old_rbp_index = (old_rbp - oldStackRaw) / 8;
+        old_rbp = ((uint64_t*)newStackRaw)[old_rbp_index];
+    }
+
+    // for (i = 0; i < 1 << thread->stackSize; i++)
+    // {
+    //     printf(
+    //         "  Addr: %X  Valu: %X\n",
+    //         ((uint8_t*)thread->t_StackRaw) + i,
+    //         ((uint8_t*)thread->t_StackRaw)[i]
+    //     );
+    // }
+
     // printf("  newRsp      : %X\n", newRsp);
+    // printf("  newLength   : %d\n", newStackSize);
     // printf("We're returning the new rsp!\n");
 
     return newRsp;

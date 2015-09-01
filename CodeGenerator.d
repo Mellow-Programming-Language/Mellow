@@ -833,7 +833,7 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    ; We need to pass the ThreadData* curThread, which happens to\n";
     str ~= "    ; already be in rax\n";
     str ~= "    mov    rdi, rax\n";
-    //str ~= "    call   __realloc_stack\n";
+    str ~= "    call   __realloc_stack\n";
 
 
     //str ~= "    mov    rsi, 1\n";

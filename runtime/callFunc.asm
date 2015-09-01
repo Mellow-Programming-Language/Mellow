@@ -17,6 +17,10 @@ currentthread:  resq 1 ; Pointer to current thread
     ; own temporary stack.
     global __realloc_stack
 __realloc_stack:
+    ; We push rbp simply so that we have a start to the "linked list" of rbp's
+    ; we need to fix in the new allocation. We don't actually use it
+    push    rbp
+    mov     rbp, rsp
     ; We do NOT set up a stack frame, because if we did the typical thing and
     ; preserve rsp, mov rsp into rbp to set up a stack frame, and do our thing,
     ; then when we go to tear down the stack frame, and move the old rsp back
@@ -25,7 +29,8 @@ __realloc_stack:
 
     ; ThreadData* curThread is in rdi
 
-    mov     rsi, rsp                ; Preserve old rsp, setting up for __mremap_stack call
+    ; Preserve old rsp, setting up for __mremap_stack call
+    mov     rsi, rsp
 
     ; See realloc_stack.h; the size of the temp stack is (4096). We have the
     ; beginning of our tempstack in rax, so set rsp to the end of the stack
@@ -43,6 +48,7 @@ __realloc_stack:
     ; allocated stack
     mov     rsp, rax
 
+    pop     rbp
     ret
 
     ; extern void yield();
