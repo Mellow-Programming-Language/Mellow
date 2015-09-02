@@ -33,11 +33,11 @@ void* __get_tempstack()
 // This function is expected to be executed on a stack other than the stack that
 // it is reallocating. It doubles the size of the stack, and since the memory
 // might be moved, calculate the value of the new rsp
-uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
+uint64_t __mremap_stack(ThreadData* thread, const uint64_t rsp)
 {
-    // printf("Entered: __mremap_stack\n");
+    printf("Entered: __mremap_stack\n");
 
-    // int i = 0;
+    int i = 0;
     // for (i = 0; i < 1 << thread->stackSize; i++)
     // {
     //     printf(
@@ -47,54 +47,56 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     //     );
     // }
 
-    uint64_t oldStackRaw = (uint64_t)thread->t_StackRaw;
+    const uint64_t oldStackRaw = (uint64_t)thread->t_StackRaw;
 
-    // printf("  oldStackRaw : %X\n", oldStackRaw);
+    printf("  Hit 1\n");
 
-    size_t oldStackSize = 1 << thread->stackSize;
+    const size_t oldStackSize = 1 << thread->stackSize;
 
-    // printf("  oldStackSize: %d\n", oldStackSize);
+    printf("  Hit 2\n");
 
     thread->stackSize++;
-    size_t newStackSize = 1 << thread->stackSize;
+    const size_t newStackSize = 1 << thread->stackSize;
 
-    // printf("  newStackSize: %d\n", newStackSize);
+    printf("  Hit 3\n");
 
-    thread->t_StackRaw = mremap(
-        oldStackRaw, oldStackSize, newStackSize, MREMAP_MAYMOVE
-    );
+    // thread->t_StackRaw = mremap(
+    //     oldStackRaw, oldStackSize, newStackSize, MREMAP_MAYMOVE
+    // );
 
     // Allocate the new, twice-as-big stack...
-    // thread->t_StackRaw = (uint8_t*)mmap(
-    //     NULL, newStackSize,
-    //     PROT_READ|PROT_WRITE,
-    //     MAP_PRIVATE|MAP_ANONYMOUS,
-    //     -1, 0
-    // );
+    thread->t_StackRaw = (uint8_t*)mmap(
+        NULL, newStackSize,
+        PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS,
+        -1, 0
+    );
+
+    printf("  Hit 4\n");
 
     thread->t_StackBot = thread->t_StackRaw + newStackSize;
 
-    // printf("  newStackRaw : %X\n", thread->t_StackRaw);
+    printf("  Hit 5\n");
 
     // ... except since we're using this as a stack, we need all our current
     // data pushed up against the _end_ of the mapping, rather than the
     // beginning, since the stack grows down
-    memcpy(
-        thread->t_StackRaw + oldStackSize,
-        thread->t_StackRaw,
-        oldStackSize
-    );
     // memcpy(
     //     thread->t_StackRaw + oldStackSize,
-    //     oldStackRaw,
+    //     thread->t_StackRaw,
     //     oldStackSize
     // );
+    memcpy(
+        thread->t_StackRaw + oldStackSize,
+        oldStackRaw,
+        oldStackSize
+    );
 
-    // munmap(oldStackRaw, oldStackSize);
+    printf("  Hit 6\n");
 
     // for (i = 0; i < 1 << thread->stackSize; i++)
     // {
-    //     // printf(
+    //     printf(
     //         "  Addr: %X  Valu: %X\n",
     //         ((uint8_t*)thread->t_StackRaw) + i,
     //         ((uint8_t*)thread->t_StackRaw)[i]
@@ -107,11 +109,13 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     uint64_t deltaFromTop = oldStackRaw + oldStackSize
                                         - rsp;
 
-    // printf("  deltaFromTop: %d\n", deltaFromTop);
+    printf("  Hit 7\n");
 
     // Take that same delta from the top of new stack, to get the new rsp
-    uint64_t newRsp = (uint64_t)thread->t_StackRaw + newStackSize
-                                                   - deltaFromTop;
+    const uint64_t newRsp = (uint64_t)thread->t_StackRaw + newStackSize
+                                                         - deltaFromTop;
+
+    printf("  Hit 8\n");
 
     // We need to fix all of the push'd rbp's in the stack, as they all
     // currently point to locations in the old stack, meaning every single
@@ -120,18 +124,31 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     // linked-list, fixing them as well go to point to their analog in the
     // new stack allocation
     uint64_t newStackRaw = (uint64_t)thread->t_StackRaw;
-    uint64_t old_rbp_index = (rsp - oldStackRaw) / 8;
-    uint64_t old_rbp = ((uint64_t*)thread->t_StackRaw)[old_rbp_index];
 
-    // printf("  rsp         : %X\n", rsp);
-    // printf("  Split       : %X\n", newStackRaw + oldStackSize);
+    printf("  Hit 9\n");
+
+    uint64_t old_rbp_index = (rsp - oldStackRaw) / 8;
+
+    printf("  Hit 10\n");
+
+    uint64_t old_rbp = ((uint64_t*)oldStackRaw)[old_rbp_index];
+
+    printf("  rsp         : %X\n", rsp);
+    printf("  rbp_index   : %X\n", old_rbp_index);
+    printf("  Split       : %X\n", newStackRaw + oldStackSize);
+    printf("  oldStackRaw : %X\n", oldStackRaw);
+    printf("  oldStackSize: %d\n", oldStackSize);
+    printf("  newStackSize: %d\n", newStackSize);
+    printf("  deltaFromTop: %d\n", deltaFromTop);
+    printf("  newStackRaw : %X\n", thread->t_StackRaw);
+    printf("  rbp         : %X\n", old_rbp);
 
     while (old_rbp >= oldStackRaw && old_rbp <= oldStackRaw + oldStackSize)
     {
 
-        // printf("---------------\n");
-        // printf("  ptr         : %d\n", old_rbp_index);
-        // printf("  rbp         : %X\n", old_rbp);
+        printf("---------------\n");
+        printf("  ptr         : %d\n", old_rbp_index);
+        printf("  rbp         : %X\n", old_rbp);
 
         deltaFromTop = oldStackRaw + oldStackSize - old_rbp;
         uint64_t new_rbp = newStackRaw + newStackSize - deltaFromTop;
@@ -139,7 +156,7 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
         uint64_t new_raw_index = old_rbp_index + (oldStackSize / 8);
         ((uint64_t*)newStackRaw)[new_raw_index] = new_rbp;
         old_rbp_index = (old_rbp - oldStackRaw) / 8;
-        old_rbp = ((uint64_t*)newStackRaw)[old_rbp_index];
+        old_rbp = ((uint64_t*)oldStackRaw)[old_rbp_index];
     }
 
     // for (i = 0; i < 1 << thread->stackSize; i++)
@@ -151,9 +168,11 @@ uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp)
     //     );
     // }
 
-    // printf("  newRsp      : %X\n", newRsp);
-    // printf("  newLength   : %d\n", newStackSize);
-    // printf("We're returning the new rsp!\n");
+    munmap(oldStackRaw, oldStackSize);
+
+    printf("  newRsp      : %X\n", newRsp);
+    printf("  newLength   : %d\n", newStackSize);
+    printf("We're returning the new rsp!\n");
 
     return newRsp;
 }
