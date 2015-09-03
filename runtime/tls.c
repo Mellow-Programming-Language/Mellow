@@ -7,6 +7,10 @@
 
 #include <stddef.h>
 #include <sys/mman.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <unistd.h> // for sysconf
 #include "realloc_stack.h"
 #include "tls.h"
 
@@ -27,6 +31,7 @@ void __init_tempstack()
 
 void __free_tempstack()
 {
+    // free(tempstack);
     munmap(tempstack, TEMP_STACK_SIZE);
 }
 

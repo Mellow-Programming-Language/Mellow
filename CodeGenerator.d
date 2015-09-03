@@ -743,25 +743,6 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     vars.runtimeExterns["currentthread"] = true;
     }
     auto str = "";
-
-
-    //vars.runtimeExterns["printf"] = true;
-    //auto debugFmt = vars.getUniqDataLabel();
-    //auto entry = new DataEntry();
-    //entry.label = debugFmt;
-    //entry.data = DataEntry.toNasmDataString(
-    //    "  RSP: %X, BOT: %X, SS: %d\\n"
-    //);
-    //vars.dataEntries ~= entry;
-    //auto gotHereStr = vars.getUniqDataLabel();
-    //auto gotHereEntry = new DataEntry();
-    //gotHereEntry.label = gotHereStr;
-    //gotHereEntry.data = DataEntry.toNasmDataString(
-    //    "  Here: %d\\n"
-    //);
-    //vars.dataEntries ~= gotHereEntry;
-
-
     str ~= "    ; FUNCTION PROLOGUE (do we need to grow the stack?):\n";
     str ~= "    sub    rsp, 16\n";
     str ~= "    ; Preserve function argument registers (need extra scratch regs)\n";
@@ -781,49 +762,24 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    ; Get stackSize in cl (rcx), and the stack size in bytes in r11\n";
     str ~= "    mov    rcx, 0\n";
     str ~= "    mov    cl, byte [rax+49]\n";
-
-
-
-    // DEBUG
-    //str ~= "    sub    rsp, 80\n";
-    //str ~= "    mov    qword [rbp-24], rax\n";
-    //str ~= "    mov    qword [rbp-32], rcx\n";
-    //str ~= "    mov    qword [rbp-40], rdx\n";
-    //str ~= "    mov    qword [rbp-48], rsi\n";
-    //str ~= "    mov    qword [rbp-56], rdi\n";
-    //str ~= "    mov    qword [rbp-64], r8\n";
-    //str ~= "    mov    qword [rbp-72], r9\n";
-    //str ~= "    mov    qword [rbp-80], r10\n";
-    //str ~= "    mov    qword [rbp-88], r11\n";
-    //str ~= "    mov    rsi, rdi\n";
-    //str ~= "    mov    rdx, qword [rax+16]\n";
-    //str ~= "    mov    rdi, " ~ debugFmt ~ "\n";
-    //str ~= "    call   printf\n";
-    //str ~= "    mov    rax, qword [rbp-24]\n";
-    //str ~= "    mov    rcx, qword [rbp-32]\n";
-    //str ~= "    mov    rdx, qword [rbp-40]\n";
-    //str ~= "    mov    rsi, qword [rbp-48]\n";
-    //str ~= "    mov    rdi, qword [rbp-56]\n";
-    //str ~= "    mov    r8, qword [rbp-64]\n";
-    //str ~= "    mov    r9, qword [rbp-72]\n";
-    //str ~= "    mov    r10, qword [rbp-80]\n";
-    //str ~= "    mov    r11, qword [rbp-88]\n";
-    //str ~= "    add    rsp, 80\n";
-    // END DEBUG
-
-
-
     str ~= "    mov    r11, 1\n";
     str ~= "    shl    r11, cl\n";
     str ~= "    ; Get delta between bottom of stack and current rsp (used space)\n";
     str ~= "    sub    r10, rdi\n";
     str ~= "    ; Get the amount of leftover space\n";
     str ~= "    sub    r11, r10\n";
+    str ~= "    ; Check if we'd be allocating more space than we have left\n";
+    auto allocsTooBigLabel = vars.getUniqLabel;
+    str ~= "    cmp    r11, " ~ stackAlignedAlloc.to!string ~ "\n";
+    str ~= "    jle    " ~ allocsTooBigLabel ~ "\n";
+    str ~= "    ; Get amount of space left after this function makes stack allocs\n";
+    str ~= "    sub    r11, " ~ stackAlignedAlloc.to!string ~ "\n" ;
     str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
-    str ~= "    ; minus a 128 byte buffer, then exec the realloc routine\n";
-    str ~= "    cmp    r11, 128\n";
+    str ~= "    ; minus a 1024 byte buffer, then exec the realloc routine\n";
+    str ~= "    cmp    r11, 1024\n";
     auto skipReallocLabel = vars.getUniqLabel;
     str ~= "    jg     " ~ skipReallocLabel ~ "\n";
+    str ~= allocsTooBigLabel ~ ":\n";
     str ~= "    ; Preserve the rest of the function arguments\n";
     str ~= "    sub    rsp, 32\n";
     str ~= "    mov    qword [rbp-24], rsi\n";
@@ -834,13 +790,6 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    ; already be in rax\n";
     str ~= "    mov    rdi, rax\n";
     str ~= "    call   __realloc_stack\n";
-
-
-    //str ~= "    mov    rsi, 1\n";
-    //str ~= "    mov    rdi, " ~ gotHereStr ~ "\n";
-    //str ~= "    call   printf\n";
-
-
     str ~= "    ; Restore the rest of the function arguments\n";
     str ~= "    mov    rsi, qword [rbp-24]\n";
     str ~= "    mov    rdx, qword [rbp-32]\n";
@@ -951,9 +900,8 @@ string compileFunction(FuncSig* sig, Context* vars)
     auto stackAlignedAlloc = totalStackSpaceUsed + (totalStackSpaceUsed % 16);
     auto stackRestoreStr = "    add    rsp, " ~ stackAlignedAlloc.to!string
                                            ~ "\n";
+    funcHeader ~= compilePrologue(stackAlignedAlloc, vars);
     funcHeader ~= "    sub    rsp, " ~ stackAlignedAlloc.to!string ~ "\n";
-
-    auto prologue = compilePrologue(stackAlignedAlloc, vars);
 
     funcDef = replace(funcDef, STACK_RESTORE_PLACEHOLDER, stackRestoreStr);
     auto funcFooter = "";
@@ -961,7 +909,7 @@ string compileFunction(FuncSig* sig, Context* vars)
     funcFooter ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     funcFooter ~= "    pop    rbp\n";
     funcFooter ~= "    ret\n";
-    return funcHeader ~ prologue ~ funcHeader_2 ~ funcDef ~ funcFooter;
+    return funcHeader ~ funcHeader_2 ~ funcDef ~ funcFooter;
 }
 
 string compileBlock(BareBlockNode block, Context* vars)

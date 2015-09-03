@@ -16,17 +16,17 @@ typedef struct
     void* curFuncAddr;
     // Pointer to bottom of allocated stack (that grows DOWNWARD). That is,
     // this is a pointer to the highest address valid in the stack
-    uint8_t* t_StackBot;
+    void* t_StackBot;
     // This is a pointer to the current value of the stack as should be used
     // for execution. That is, after returning to this thread from being
     // yielded away from it, set rsp to this value
-    uint8_t* t_StackCur;
+    void* t_StackCur;
     // Pointer to the beginning of the memory area allocated for the stack.
     // This is what was originally returned by mmap, and what should be used
     // with munmap
-    uint8_t* t_StackRaw;
+    void* t_StackRaw;
     // ebp of thread, other portion of saving stack information. 0 if un-init
-    uint8_t* t_rbp;
+    void* t_rbp;
     // Whether this thread has finished execution or not. Non-zero if still
     // valid, 0 if the thread is finished or the thread has not started yet.
     // That is to say, the thread is finished if curFuncAddr is non-zero and

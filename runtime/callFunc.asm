@@ -20,12 +20,6 @@ __realloc_stack:
     ; We push rbp simply so that we have a start to the "linked list" of rbp's
     ; we need to fix in the new allocation. We don't actually use it
     push    rbp
-    mov     rbp, rsp
-    ; We do NOT set up a stack frame, because if we did the typical thing and
-    ; preserve rsp, mov rsp into rbp to set up a stack frame, and do our thing,
-    ; then when we go to tear down the stack frame, and move the old rsp back
-    ; into rsp, we're then overwriting the new rsp calculated to point into the
-    ; new stack, and very-soon-after segfault
 
     ; ThreadData* curThread is in rdi
 
@@ -39,7 +33,7 @@ __realloc_stack:
     ; than rax, though it does write to rax (pushing return address on call)
     call    __get_tempstack
     mov     rsp, rax                ; Lowest address of tempstack in rsp
-    add     rsp, (4096-128)         ; Set rsp to the top of the stack
+    add     rsp, 3968               ; Set rsp to the top of the stack - 128
 
     ; This call will invalidate the old thread stack, meaning once we come off
     ; the temporary stack, the move must be directly to the new allocation
