@@ -50,7 +50,7 @@ __init_tempstack:
 	call	mmap
 .LVL0:
 	mov	QWORD PTR fs:tempstack@tpoff, rax
-	.loc 1 32 0
+	.loc 1 30 0
 	add	rsp, 8
 	.cfi_def_cfa_offset 8
 	ret
@@ -70,9 +70,9 @@ __init_tempstack:
 	.type	__free_tempstack, @function
 __free_tempstack:
 .LFB23:
-	.loc 1 35 0
+	.loc 1 33 0
 	.cfi_startproc
-	.loc 1 37 0
+	.loc 1 34 0
 	mov	rdi, QWORD PTR fs:tempstack@tpoff
 	mov	esi, 4096
 	jmp	munmap
@@ -93,9 +93,9 @@ __free_tempstack:
 	.type	get_currentthread, @function
 get_currentthread:
 .LFB24:
-	.loc 1 41 0
+	.loc 1 38 0
 	.cfi_startproc
-	.loc 1 43 0
+	.loc 1 40 0
 	mov	rax, QWORD PTR fs:currentthread@tpoff
 	ret
 	.cfi_endproc
@@ -114,10 +114,10 @@ get_currentthread:
 	.type	set_currentthread, @function
 set_currentthread:
 .LFB25:
-	.loc 1 46 0
+	.loc 1 43 0
 	.cfi_startproc
 .LVL2:
-	.loc 1 47 0
+	.loc 1 44 0
 	mov	QWORD PTR fs:currentthread@tpoff, rdi
 	ret
 	.cfi_endproc
@@ -136,9 +136,9 @@ set_currentthread:
 	.type	get_mainstack, @function
 get_mainstack:
 .LFB26:
-	.loc 1 51 0
+	.loc 1 48 0
 	.cfi_startproc
-	.loc 1 53 0
+	.loc 1 50 0
 	mov	rax, QWORD PTR fs:mainstack@tpoff
 	ret
 	.cfi_endproc
@@ -157,10 +157,10 @@ get_mainstack:
 	.type	set_mainstack, @function
 set_mainstack:
 .LFB27:
-	.loc 1 56 0
+	.loc 1 53 0
 	.cfi_startproc
 .LVL3:
-	.loc 1 57 0
+	.loc 1 54 0
 	mov	QWORD PTR fs:mainstack@tpoff, rdi
 	ret
 	.cfi_endproc
@@ -574,7 +574,7 @@ currentthread:
 	.uleb128 0xe
 	.long	.LASF50
 	.byte	0x1
-	.byte	0x22
+	.byte	0x20
 	.quad	.LFB23
 	.quad	.LFE23-.LFB23
 	.uleb128 0x1
@@ -594,7 +594,7 @@ currentthread:
 	.uleb128 0xd
 	.long	.LASF52
 	.byte	0x1
-	.byte	0x28
+	.byte	0x25
 	.long	0x9b
 	.quad	.LFB24
 	.quad	.LFE24-.LFB24
@@ -603,7 +603,7 @@ currentthread:
 	.uleb128 0x12
 	.long	.LASF54
 	.byte	0x1
-	.byte	0x2d
+	.byte	0x2a
 	.quad	.LFB25
 	.quad	.LFE25-.LFB25
 	.uleb128 0x1
@@ -612,7 +612,7 @@ currentthread:
 	.uleb128 0x13
 	.string	"val"
 	.byte	0x1
-	.byte	0x2d
+	.byte	0x2a
 	.long	0x9b
 	.uleb128 0x1
 	.byte	0x55
@@ -620,7 +620,7 @@ currentthread:
 	.uleb128 0xd
 	.long	.LASF53
 	.byte	0x1
-	.byte	0x32
+	.byte	0x2f
 	.long	0x9b
 	.quad	.LFB26
 	.quad	.LFE26-.LFB26
@@ -629,7 +629,7 @@ currentthread:
 	.uleb128 0x12
 	.long	.LASF55
 	.byte	0x1
-	.byte	0x37
+	.byte	0x34
 	.quad	.LFB27
 	.quad	.LFE27-.LFB27
 	.uleb128 0x1
@@ -638,7 +638,7 @@ currentthread:
 	.uleb128 0x13
 	.string	"val"
 	.byte	0x1
-	.byte	0x37
+	.byte	0x34
 	.long	0x9b
 	.uleb128 0x1
 	.byte	0x55

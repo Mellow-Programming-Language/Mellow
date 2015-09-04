@@ -37,9 +37,12 @@ void* __get_tempstack()
 uint64_t __mremap_stack(ThreadData* thread, const uint64_t rsp)
 {
     void* oldStackRaw = thread->t_StackRaw;
-    const size_t oldStackSize = 1 << thread->stackSize;
+    void* oldStackUsable = oldStackRaw + PROT_PAGE_SIZE;
+    const size_t oldStackSizeUsable = 1 << thread->stackSize;
+    const size_t oldStackSize = oldStackSizeUsable + PROT_PAGE_SIZE;
     thread->stackSize++;
-    const size_t newStackSize = 1 << thread->stackSize;
+    const size_t newStackSizeUsable = 1 << thread->stackSize;
+    const size_t newStackSize = newStackSizeUsable + PROT_PAGE_SIZE;
     // Allocate the new, twice-as-big stack...
     thread->t_StackRaw = (uint8_t*)mmap(
         NULL, newStackSize,
@@ -48,37 +51,54 @@ uint64_t __mremap_stack(ThreadData* thread, const uint64_t rsp)
         -1, 0
     );
     void* newStackRaw = thread->t_StackRaw;
-    thread->t_StackBot = newStackRaw + newStackSize;
+    void* newStackUsable = newStackRaw + PROT_PAGE_SIZE;
+    // Set PROT_NONE on the first page of the new stack allocation, which
+    // would be the _top-most_ page of the stack (since the stack grows down),
+    // so that instead of running off the end of the stack and clobbering
+    // non-stack memory, we summarily segfault. This makes it easier to debug
+    // stack memory issues.
+    mprotect(newStackRaw, PROT_PAGE_SIZE, PROT_NONE);
+
+    // Set the bottom (where we start, so highest address) of the stack
+    thread->t_StackBot = newStackUsable + newStackSizeUsable;
     // Copy the old stack over to this one. Remembering that stacks grow down,
     // we're copying it over to be "right-justified" in the new allocation
     memcpy(
-        newStackRaw + oldStackSize,
-        oldStackRaw,
-        oldStackSize
+        newStackUsable + oldStackSizeUsable,
+        oldStackUsable,
+        oldStackSizeUsable
     );
     // Calculate the new rsp value
     // If 0x00[........]0xFF is the whole stack space, we're calculating the
     // length of 0x00[....rsp<used stack space>]0xFF
-    uint64_t deltaFromTop = (uint64_t)(oldStackRaw + oldStackSize - rsp);
+    uint64_t deltaFromTop = (uint64_t)(
+        oldStackUsable + oldStackSizeUsable - rsp
+    );
     // Take that same delta from the top of new stack, to get the new rsp
-    const uint64_t newRsp = (uint64_t)(newStackRaw + newStackSize - deltaFromTop);
+    const uint64_t newRsp = (uint64_t)(
+        newStackUsable + newStackSizeUsable - deltaFromTop
+    );
     // We need to fix all of the push'd rbp's in the stack, as they all
     // currently point to locations in the old stack, meaning every single
     // one of them wants us to segfault. Luckily, each rbp points to the
     // previous rbp, all the way down, so just follow them like a pointer
     // linked-list, fixing them as well go to point to their analog in the
     // new stack allocation
-    uint64_t old_rbp_index = (rsp - (uint64_t)oldStackRaw) / 8;
-    uint64_t old_rbp = ((uint64_t*)oldStackRaw)[old_rbp_index];
-    while (old_rbp >= (uint64_t)oldStackRaw
-        && old_rbp <= (uint64_t)(oldStackRaw + oldStackSize))
+    uint64_t old_rbp_index = (rsp - (uint64_t)oldStackUsable) / 8;
+    uint64_t old_rbp = ((uint64_t*)oldStackUsable)[old_rbp_index];
+    while (old_rbp >= (uint64_t)oldStackUsable
+        && old_rbp <= (uint64_t)(oldStackUsable + oldStackSizeUsable))
     {
-        deltaFromTop = (uint64_t)(oldStackRaw + oldStackSize - old_rbp);
-        uint64_t new_rbp = (uint64_t)(newStackRaw + newStackSize - deltaFromTop);
-        uint64_t new_raw_index = old_rbp_index + (oldStackSize / 8);
-        ((uint64_t*)newStackRaw)[new_raw_index] = new_rbp;
-        old_rbp_index = (old_rbp - (uint64_t)oldStackRaw) / 8;
-        old_rbp = ((uint64_t*)oldStackRaw)[old_rbp_index];
+        deltaFromTop = (uint64_t)(
+            oldStackUsable + oldStackSizeUsable - old_rbp
+        );
+        uint64_t new_rbp = (uint64_t)(
+            newStackUsable + newStackSizeUsable - deltaFromTop
+        );
+        uint64_t new_raw_index = old_rbp_index + (oldStackSizeUsable / 8);
+        ((uint64_t*)newStackUsable)[new_raw_index] = new_rbp;
+        old_rbp_index = (old_rbp - (uint64_t)oldStackUsable) / 8;
+        old_rbp = ((uint64_t*)oldStackUsable)[old_rbp_index];
     }
     // Free the old stack
     munmap(oldStackRaw, oldStackSize);
@@ -157,23 +177,32 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     newThread->stillValid = 0;
     // Thread starts off with unitialized stack frame pointer
     newThread->t_rbp = 0;
+    const size_t stackSizeUsable = 1 << THREAD_STACK_SIZE_EXP;
     // Set starting stack size
-    size_t startingStackSize = 1 << THREAD_STACK_SIZE_EXP;
+    const size_t stackSize = stackSizeUsable + PROT_PAGE_SIZE;
     newThread->stackSize = THREAD_STACK_SIZE_EXP;
 
     newThread->t_StackRaw = NULL;
     // mmap thread stack
-    newThread->t_StackRaw = (uint8_t*)mmap(NULL, startingStackSize,
+    newThread->t_StackRaw = (uint8_t*)mmap(NULL, stackSize,
                                            PROT_READ|PROT_WRITE,
                                            MAP_PRIVATE|MAP_ANONYMOUS,
                                            -1, 0);
+    void* newStackRaw = newThread->t_StackRaw;
+    void* newStackUsable = newStackRaw + PROT_PAGE_SIZE;
+    // Set PROT_NONE on the first page of the new stack allocation, which
+    // would be the _top-most_ page of the stack (since the stack grows down),
+    // so that instead of running off the end of the stack and clobbering
+    // non-stack memory, we summarily segfault. This makes it easier to debug
+    // stack memory issues.
+    mprotect(newStackRaw, PROT_PAGE_SIZE, PROT_NONE);
     // Clear the stack memory, for sanity's sake
-    memset(newThread->t_StackRaw, 0, startingStackSize);
+    memset(newStackUsable, 0, stackSizeUsable);
 
     // StackCur starts as a meaningless pointer
     newThread->t_StackCur = 0;
     // Make t_StackBot point to "bottom" of stack (highest address)
-    newThread->t_StackBot = newThread->t_StackRaw + startingStackSize;
+    newThread->t_StackBot = newStackUsable + stackSizeUsable;
 
     // TODO finish putting things on the stack. Note that this is tricky because
     // after the 6th (or 8th, in the case of floats) register is accounted for,

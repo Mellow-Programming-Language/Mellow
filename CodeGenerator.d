@@ -774,8 +774,19 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    jle    " ~ allocsTooBigLabel ~ "\n";
     str ~= "    ; Get amount of space left after this function makes stack allocs\n";
     str ~= "    sub    r11, " ~ stackAlignedAlloc.to!string ~ "\n" ;
+    // NOTE: The aggressive buffer here so that we have sufficient stack for C
+    // library calls like malloc. It is very likely that this stack, and other
+    // runtime structures, are allocated contiguously in memory. If the buffer
+    // isn't large enough, then while executing those C library functions (like
+    // malloc), execution will happily run off the end of our allocated stack
+    // and start using our other allocated memory (such as the ThreadData for
+    // this thread!) as a stack, causing mindblowingly-difficult-to-debug memory
+    // errors. In order to avoid ever dealing with that again, we're not only
+    // providing a large buffer, but we're also keeping a PROT_NONE page at the
+    // end of every stack, so that the program will actually _segfault_ when we
+    // run off the stack, instead of destroying all the memory beyond it.
     str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
-    str ~= "    ; minus a 1024 byte buffer, then exec the realloc routine\n";
+    str ~= "    ; minus a 1024 byte buffer, then exec the realloc routine.\n";
     str ~= "    cmp    r11, 1024\n";
     auto skipReallocLabel = vars.getUniqLabel;
     str ~= "    jg     " ~ skipReallocLabel ~ "\n";

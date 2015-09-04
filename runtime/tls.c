@@ -31,7 +31,6 @@ void __init_tempstack()
 
 void __free_tempstack()
 {
-    // free(tempstack);
     munmap(tempstack, TEMP_STACK_SIZE);
 }
 
