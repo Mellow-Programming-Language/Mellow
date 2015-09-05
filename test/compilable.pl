@@ -37,9 +37,7 @@ closedir(DIR);
 chdir($binDir);
 
 unless (-x $compiler) {
-    unless (system("make", "$compiler_exe") == 0 && -x $compiler) {
-        die "Failed to 'make' non-existing $compiler\n";
-    }
+    die "'$compiler' does not exist.\n";
 }
 
 foreach my $file (@examplesFiles) {
