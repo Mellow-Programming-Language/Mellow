@@ -1,0 +1,17 @@
+// ISSUE: All threads execute properly
+// EXPECTS_UNORDERED: "1" "3" "2" "5" "4"
+// COMPILE_OPTIONS: unittest
+
+import std.io;
+
+func talker(str: string) {
+    writeln(str);
+}
+
+func main() {
+    spawn talker("1");
+    spawn talker("2");
+    spawn talker("3");
+    spawn talker("4");
+    spawn talker("5");
+}

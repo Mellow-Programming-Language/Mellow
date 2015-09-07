@@ -48,8 +48,17 @@ sub testsub {
         my $continue = 1;
         my $want_fail = 0;
         if ($continue) {
+            my $options = "";
+            if (exists $directives->{'COMPILE_OPTIONS'}) {
+                $options = join " ", (
+                    map {
+                        "--$_"
+                    } (split /\s/, $directives->{'COMPILE_OPTIONS'})
+                );
+            }
             my $res = system(
-                "$compiler $execRegressDir$file --o $dummyFile >/dev/null 2>&1"
+                "$compiler $options $execRegressDir$file "
+                . "--o $dummyFile >/dev/null 2>&1"
             );
             my $tester = sub {
                 my ($res) = @_;
@@ -113,11 +122,29 @@ sub testsub {
             )
         ) {
             my $output = `$binDir$dummyFile`;
-            chomp $output;
-            $continue = is(
-                $output, $directives->{"EXPECTS"},
-                "Output matched"
-            );
+            if (exists $directives->{'EXPECTS'}) {
+                chomp $output;
+                $continue = is(
+                    $output, $directives->{"EXPECTS"},
+                    "Output matched"
+                );
+            }
+            elsif (exists $directives->{'EXPECTS_UNORDERED'}) {
+                my $lines_set = {
+                    map {
+                        $_ => 1
+                    } (split "\n", $output)
+                };
+                my $expected_set = {
+                    map {
+                        $_ => 1
+                    } (@{$directives->{'EXPECTS_UNORDERED'}})
+                };
+                $continue = is_deeply(
+                    $lines_set, $expected_set,
+                    "Output matched"
+                );
+            }
         }
         done_testing;
     };
@@ -129,6 +156,14 @@ sub processDirectives {
     foreach my $line (@data) {
         if ($line =~ m|//\s*EXPECTS:\s*"(.*)"\s*$|) {
             $directives->{'EXPECTS'} = $1;
+        }
+        elsif ($line =~ m|//\s*EXPECTS_UNORDERED:|) {
+            $line =~ s|//\s*EXPECTS_UNORDERED:\s*||;
+            my $unordered_lines = [];
+            foreach ($line =~ m|"(.*?)"|g) {
+                push @$unordered_lines, $_;
+            }
+            $directives->{'EXPECTS_UNORDERED'} = $unordered_lines;
         }
         elsif ($line =~ m|//\s*ISSUE:\s*(.*)\s*$|) {
             $directives->{'ISSUE'} = $1;
@@ -148,6 +183,9 @@ sub processDirectives {
         elsif ($line =~ m|//\s*NO_EXEC:\s*(.*)\s*$|) {
             $directives->{'NO_EXEC'} = $1;
         }
+        elsif ($line =~ m|//\s*COMPILE_OPTIONS:\s*(.*)\s*$|) {
+            $directives->{'COMPILE_OPTIONS'} = $1;
+        }
     }
     # No directives were passed, so we assume the default case of:
     # "We expect this to compile, but don't continue beyond that"
@@ -160,9 +198,14 @@ sub processDirectives {
     if (!exists $directives->{'NO_OUTPUT'}
         || $directives->{'NO_OUTPUT'} !~ /true|yes/i)
     {
-        unless (exists $directives->{'EXPECTS'}) {
+        unless (exists $directives->{'EXPECTS'}
+            || exists $directives->{'EXPECTS_UNORDERED'}) {
             die "Must have EXPECTS directive when NO_OUTPUT isn't specified";
         }
+    }
+    if (exists $directives->{'EXPECTS'}
+        && exists $directives->{'EXPECTS_UNORDERED'}) {
+        die "Cannot have both 'EXPECTS' and 'EXPECTS_UNORDERED'";
     }
     return $directives;
 }
