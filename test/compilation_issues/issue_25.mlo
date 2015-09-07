@@ -1,5 +1,6 @@
-// ISSUE: 25
-// EXPECTS: failure
+// ISSUE: Issue 25
+// COMPILES: no
+// NO_OUTPUT: true
 
 func main() {
     arr := [];

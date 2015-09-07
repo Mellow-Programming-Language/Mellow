@@ -7,14 +7,24 @@ all: compiler runtime stdlib
 
 .PHONY: test
 test:
+	make test_singlethread
+	make test_multithread
+
+.PHONY: test_singlethread
+test_singlethread:
 	make
-	perl test/compilable.pl compiler
-	perl test/executable.pl compiler
-	perl test/runtime.pl compiler
+	perl test/tester.pl --issuedir="examples" --compiler="compiler"
+	perl test/tester.pl --issuedir="test/compilation_issues" --compiler="compiler"
+	perl test/tester.pl --issuedir="test/execution_issues" --compiler="compiler"
+	perl test/tester.pl --issuedir="test/runtime_issues" --compiler="compiler"
+
+.PHONY: test_multithread
+test_multithread:
 	make compiler_multithread
-	perl test/compilable.pl compiler_multithread
-	perl test/executable.pl compiler_multithread
-	perl test/runtime.pl compiler_multithread
+	perl test/tester.pl --issuedir="examples" --compiler="compiler_multithread"
+	perl test/tester.pl --issuedir="test/compilation_issues" --compiler="compiler_multithread"
+	perl test/tester.pl --issuedir="test/execution_issues" --compiler="compiler_multithread"
+	perl test/tester.pl --issuedir="test/runtime_issues" --compiler="compiler_multithread"
 
 compiler: $(FILES)
 	dmd -ofcompiler $(FILES)

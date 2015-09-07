@@ -1,5 +1,6 @@
-// ISSUE: 13
-// EXPECTS: success
+// ISSUE: Issue 13, success-case
+// COMPILES: yes
+// NO_OUTPUT: true
 
 variant Tree(T) {
     Branch (Tree, T, Tree),

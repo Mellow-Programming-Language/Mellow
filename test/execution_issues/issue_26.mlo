@@ -1,4 +1,4 @@
-// ISSUE: 26
+// ISSUE: Issue 26
 // EXPECTS: "Correct Length! First Things ' Stuff New String"
 
 import std.io;

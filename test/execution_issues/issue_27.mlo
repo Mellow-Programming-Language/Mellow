@@ -1,4 +1,4 @@
-// ISSUE: 27
+// ISSUE: Issue 27
 // EXPECTS: "Hello! Hello! Hello! ello "
 
 import std.io;
