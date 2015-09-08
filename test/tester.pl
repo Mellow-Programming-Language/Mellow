@@ -26,6 +26,11 @@ my $dummyFile = "TEST_RESULT_FILE";
 # Regression test the files in the $issueDir directory
 my $execRegressDir = "$binDir/$issueDir/";
 
+my $testnotes = {
+    'MULTI_NORUN' => [],
+    'SINGLE_NORUN' => [],
+};
+
 opendir(DIR, "$execRegressDir");
 my @files = grep {
     $_ =~ /^.+\.mlo$/
@@ -86,6 +91,18 @@ sub testsub {
                 )
             ) {
                 $continue = 0;
+            }
+            elsif (exists $directives->{'DONT_RUN_FOR'}) {
+                if ($directives->{'DONT_RUN_FOR'} =~ /multi/i
+                    && $compiler_exe =~ /multi/i) {
+                    $continue = 0;
+                    push @{$testnotes->{'MULTI_NORUN'}}, $file;
+                }
+                elsif ($directives->{'DONT_RUN_FOR'} !~ /multi/i
+                    && $compiler_exe !~ /multi/i) {
+                    $continue = 0;
+                    push @{$testnotes->{'SINGLE_NORUN'}}, $file;
+                }
             }
         }
         if ($continue) {
@@ -186,6 +203,9 @@ sub processDirectives {
         elsif ($line =~ m|//\s*COMPILE_OPTIONS:\s*(.*)\s*$|) {
             $directives->{'COMPILE_OPTIONS'} = $1;
         }
+        elsif ($line =~ m|//\s*DONT_RUN_FOR:\s*(.*)\s*$|) {
+            $directives->{'DONT_RUN_FOR'} = $1;
+        }
     }
     # No directives were passed, so we assume the default case of:
     # "We expect this to compile, but don't continue beyond that"
@@ -244,6 +264,25 @@ foreach my $file (@files) {
 
 if (-e $dummyFile) {
     unlink $dummyFile;
+}
+
+if (@{$testnotes->{'MULTI_NORUN'}}) {
+    print "-" x 78 . "\n";
+    print "NOTE: Multithreaded runtime:\n";
+    print "  Skipped exec tests for:\n";
+    foreach my $file (@{$testnotes->{'MULTI_NORUN'}}) {
+        print "    $file\n";
+    }
+    print "-" x 78 . "\n";
+}
+if (@{$testnotes->{'SINGLE_NORUN'}}) {
+    print "-" x 78 . "\n";
+    print "NOTE: Singlethreaded runtime:\n";
+    print "  Skipped exec tests for:\n";
+    foreach my $file (@{$testnotes->{'SINGLE_NORUN'}}) {
+        print "    $file\n";
+    }
+    print "-" x 78 . "\n";
 }
 
 done_testing;
