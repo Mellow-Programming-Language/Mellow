@@ -1,0 +1,25 @@
+
+// ISSUE: Runtime stack dynamically grows when necessary
+// EXPECTS: "Starting... Finished!"
+// STATUS: ok
+
+import std.io;
+import std.conv;
+
+func recurse(i: int) {
+    a := "Hello!";
+    b := "Called: " ~ intToString(i);
+    c := "1";
+    d := "1";
+    e := "1";
+    f := "1";
+    if (i > 0) {
+        recurse(i - 1);
+    }
+}
+
+func main() {
+    write("Starting... ");
+    recurse(1000);
+    writeln("Finished!");
+}

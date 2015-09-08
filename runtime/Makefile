@@ -1,7 +1,7 @@
 all: runtime.o runtime_multithread.o
 
 CC = gcc
-CC_FLAGS = -Wall
+CC_FLAGS = -Wall -g
 ASM = nasm
 ASM_FLAGS = -f elf64
 CC_MULTITHREAD = -D MULTITHREAD -pthread
@@ -37,7 +37,7 @@ tls.o: tls.asm
 	as tls.asm -o tls.o
 
 # Provided so that the invocation used to produce tls.asm is recorded
-tls.asm: tls.c
+tls.asm: tls.c tls.h
 	$(CC) $(CC_FLAGS) -O3 -pthread -S -c tls.c -masm=intel -o tls.asm
 
 .PHONY: clean

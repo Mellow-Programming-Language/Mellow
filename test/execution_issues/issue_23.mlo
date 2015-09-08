@@ -1,4 +1,4 @@
-// ISSUE: 23
+// ISSUE: Issue 23
 // EXPECTS: "Size = 5, 5, 5, 5, 3, 1, 0, 0, 0, 0, 5, true"
 
 import std.io;

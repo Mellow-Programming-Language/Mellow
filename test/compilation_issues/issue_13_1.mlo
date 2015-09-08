@@ -1,6 +1,6 @@
-// ISSUE: 13
-// EXPECTS: failure
-
+// ISSUE: Issue 13, fail-case
+// COMPILES: no
+// NO_OUTPUT: true
 
 struct Test {
     x: int;

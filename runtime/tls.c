@@ -5,8 +5,34 @@
 // assemble 'tls.asm' for linking back into 'callFunc.asm', and the runtime as
 // a whole.
 
-__thread void* currentthread;
-__thread void* mainstack;
+#include <stddef.h>
+#include <sys/mman.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <unistd.h> // for sysconf
+#include "realloc_stack.h"
+#include "tls.h"
+
+void* __get_tempstack()
+{
+    return tempstack;
+}
+
+void __init_tempstack()
+{
+    tempstack = mmap(
+        NULL, TEMP_STACK_SIZE,
+        PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS,
+        -1, 0
+    );
+}
+
+void __free_tempstack()
+{
+    munmap(tempstack, TEMP_STACK_SIZE);
+}
 
 void* get_currentthread()
 {

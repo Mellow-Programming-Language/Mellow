@@ -1,4 +1,4 @@
-// ISSUE: 25
+// ISSUE: Issue 25
 // EXPECTS: "3, 0, 3, 0, 3, 0, "
 
 import std.io;

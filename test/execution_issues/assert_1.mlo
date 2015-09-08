@@ -1,0 +1,7 @@
+// ISSUE: False assert expressions should halt the program
+// SHOULD: break
+// NO_OUTPUT: true
+
+func main() {
+    assert(1 == 0, "1 failed to equal 0");
+}

@@ -1,0 +1,6 @@
+// ISSUE: True assert expressions should not halt the program
+// NO_OUTPUT: true
+
+func main() {
+    assert(1 == 1, "1 equals 0");
+}

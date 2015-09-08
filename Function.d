@@ -215,7 +215,14 @@ class FunctionBuilder : Visitor
         {
             if (sig.funcName == curFuncName)
             {
-                sig.stackVarAllocSize = stackVarAllocSize[curFuncName];
+                if (sig.funcName in stackVarAllocSize)
+                {
+                    sig.stackVarAllocSize = stackVarAllocSize[curFuncName];
+                }
+                else
+                {
+                    sig.stackVarAllocSize = 0;
+                }
             }
         }
     }

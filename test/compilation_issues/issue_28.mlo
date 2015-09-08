@@ -1,5 +1,6 @@
-// ISSUE: 28
-// EXPECTS: success
+// ISSUE: Issue 28
+// COMPILES: yes
+// NO_OUTPUT: true
 
 func main() {
     a: []int;

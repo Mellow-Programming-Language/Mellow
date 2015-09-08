@@ -3,17 +3,28 @@ FILES = main.d Function.d FunctionSig.d Record.d parser.d visitor.d\
 		TemplateInstantiator.d Namespace.d
 
 .PHONY: all
-all: compiler stdlib runtime
-
-.PHONY: extra
-extra: compiler_debug compiler_multithread
+all: compiler runtime stdlib
 
 .PHONY: test
 test:
-	perl test/compilable.pl compiler
-	perl test/executable.pl compiler
-	perl test/compilable.pl compiler_multithread
-	perl test/executable.pl compiler_multithread
+	make test_singlethread
+	make test_multithread
+
+.PHONY: test_singlethread
+test_singlethread:
+	make
+	perl test/tester.pl --issuedir="examples" --compiler="compiler"
+	perl test/tester.pl --issuedir="test/compilation_issues" --compiler="compiler"
+	perl test/tester.pl --issuedir="test/execution_issues" --compiler="compiler"
+	perl test/tester.pl --issuedir="test/runtime_issues" --compiler="compiler"
+
+.PHONY: test_multithread
+test_multithread:
+	make compiler_multithread
+	perl test/tester.pl --issuedir="examples" --compiler="compiler_multithread"
+	perl test/tester.pl --issuedir="test/compilation_issues" --compiler="compiler_multithread"
+	perl test/tester.pl --issuedir="test/execution_issues" --compiler="compiler_multithread"
+	perl test/tester.pl --issuedir="test/runtime_issues" --compiler="compiler_multithread"
 
 compiler: $(FILES)
 	dmd -ofcompiler $(FILES)
@@ -23,6 +34,8 @@ compiler_debug: $(FILES)
 
 compiler_multithread: $(FILES)
 	dmd -ofcompiler_multithread $(FILES) -version=MULTITHREAD
+	make -C stdlib realclean
+	make -C stdlib COMPILER="../compiler_multithread"
 
 .PHONY: runtime
 runtime:
@@ -52,6 +65,9 @@ realclean: clean
 	rm -f compiler
 	rm -f compiler_debug
 	rm -f compiler_multithread
-	rm -rf ParserGenerator
 	make -C stdlib realclean
 	make -C runtime realclean
+
+.PHONY: ultraclean
+ultraclean: realclean
+	rm -rf ParserGenerator

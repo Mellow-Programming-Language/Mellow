@@ -1,0 +1,10 @@
+// ISSUE: Unittests do not execute without the --unittest flag set
+// EXPECTS: ""
+
+import std.io;
+
+unittest {
+    writeln("Unittest shouldn't execute!");
+}
+
+func main() {}

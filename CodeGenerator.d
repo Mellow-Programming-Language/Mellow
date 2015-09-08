@@ -730,6 +730,92 @@ struct Context
     }
 }
 
+// Compile the function prologue, which will grow the stack if necessary
+string compilePrologue(uint stackAlignedAlloc, Context* vars)
+{
+    vars.runtimeExterns["__realloc_stack"] = true;
+    version (MULTITHREAD)
+    {
+    vars.runtimeExterns["get_currentthread"] = true;
+    }
+    else
+    {
+    vars.runtimeExterns["currentthread"] = true;
+    }
+    auto str = "";
+    str ~= "    ; FUNCTION PROLOGUE (do we need to grow the stack?):\n";
+    str ~= "    sub    rsp, 16\n";
+    str ~= "    ; Preserve function argument registers (need extra scratch regs)\n";
+    str ~= "    mov    qword [rbp-8], rdi\n";
+    str ~= "    mov    qword [rbp-16], rcx\n";
+    str ~= "    ; Get current rsp in rdi and t_StackBot in r10\n";
+    version (MULTITHREAD)
+    {
+    str ~= "    call   get_currentthread\n";
+    }
+    else
+    {
+    str ~= "    mov    rax, qword [currentthread]\n";
+    }
+    str ~= "    mov    rdi, rsp\n";
+    str ~= "    mov    r10, qword [rax+16]\n";
+    str ~= "    ; Get stackSize in cl (rcx), and the stack size in bytes in r11\n";
+    str ~= "    mov    rcx, 0\n";
+    str ~= "    mov    cl, byte [rax+49]\n";
+    str ~= "    mov    r11, 1\n";
+    str ~= "    shl    r11, cl\n";
+    str ~= "    ; Get delta between bottom of stack and current rsp (used space)\n";
+    str ~= "    sub    r10, rdi\n";
+    str ~= "    ; Get the amount of leftover space\n";
+    str ~= "    sub    r11, r10\n";
+    str ~= "    ; Check if we'd be allocating more space than we have left\n";
+    auto allocsTooBigLabel = vars.getUniqLabel;
+    str ~= "    cmp    r11, " ~ stackAlignedAlloc.to!string ~ "\n";
+    str ~= "    jle    " ~ allocsTooBigLabel ~ "\n";
+    str ~= "    ; Get amount of space left after this function makes stack allocs\n";
+    str ~= "    sub    r11, " ~ stackAlignedAlloc.to!string ~ "\n" ;
+    // NOTE: The aggressive buffer here so that we have sufficient stack for C
+    // library calls like malloc. It is very likely that this stack, and other
+    // runtime structures, are allocated contiguously in memory. If the buffer
+    // isn't large enough, then while executing those C library functions (like
+    // malloc), execution will happily run off the end of our allocated stack
+    // and start using our other allocated memory (such as the ThreadData for
+    // this thread!) as a stack, causing mindblowingly-difficult-to-debug memory
+    // errors. In order to avoid ever dealing with that again, we're not only
+    // providing a large buffer, but we're also keeping a PROT_NONE page at the
+    // end of every stack, so that the program will actually _segfault_ when we
+    // run off the stack, instead of destroying all the memory beyond it.
+    str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
+    str ~= "    ; minus a 1024 byte buffer, then exec the realloc routine.\n";
+    str ~= "    cmp    r11, 1024\n";
+    auto skipReallocLabel = vars.getUniqLabel;
+    str ~= "    jg     " ~ skipReallocLabel ~ "\n";
+    str ~= allocsTooBigLabel ~ ":\n";
+    str ~= "    ; Preserve the rest of the function arguments\n";
+    str ~= "    sub    rsp, 32\n";
+    str ~= "    mov    qword [rbp-24], rsi\n";
+    str ~= "    mov    qword [rbp-32], rdx\n";
+    str ~= "    mov    qword [rbp-40], r8\n";
+    str ~= "    mov    qword [rbp-48], r9\n";
+    str ~= "    ; We need to pass the ThreadData* curThread, which happens to\n";
+    str ~= "    ; already be in rax\n";
+    str ~= "    mov    rdi, rax\n";
+    str ~= "    call   __realloc_stack\n";
+    str ~= "    ; Restore the rest of the function arguments\n";
+    str ~= "    mov    rsi, qword [rbp-24]\n";
+    str ~= "    mov    rdx, qword [rbp-32]\n";
+    str ~= "    mov    r8, qword [rbp-40]\n";
+    str ~= "    mov    r9, qword [rbp-48]\n";
+    str ~= "    add    rsp, 32\n";
+    str ~= skipReallocLabel ~ ":\n";
+    str ~= "    ; Restore last function argument register\n";
+    str ~= "    mov    rdi, qword [rbp-8]\n";
+    str ~= "    mov    rcx, qword [rbp-16]\n";
+    str ~= "    add    rsp, 16\n";
+    str ~= "    ; END FUNCTION PROLOGUE\n";
+    return str;
+}
+
 string compileFunction(FuncSig* sig, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
@@ -825,7 +911,9 @@ string compileFunction(FuncSig* sig, Context* vars)
     auto stackAlignedAlloc = totalStackSpaceUsed + (totalStackSpaceUsed % 16);
     auto stackRestoreStr = "    add    rsp, " ~ stackAlignedAlloc.to!string
                                            ~ "\n";
+    funcHeader ~= compilePrologue(stackAlignedAlloc, vars);
     funcHeader ~= "    sub    rsp, " ~ stackAlignedAlloc.to!string ~ "\n";
+
     funcDef = replace(funcDef, STACK_RESTORE_PLACEHOLDER, stackRestoreStr);
     auto funcFooter = "";
     funcFooter ~= stackRestoreStr;

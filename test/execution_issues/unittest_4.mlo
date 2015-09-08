@@ -1,0 +1,22 @@
+// ISSUE: All unittests in a file are executed
+// EXPECTS_UNORDERED: "1" "3" "2"
+// COMPILE_OPTIONS: unittest
+// DONT_RUN_FOR: multithread
+
+// NOTE: This test causes the multithreaded runtime to hang
+
+import std.io;
+
+unittest {
+    writeln("2");
+}
+
+unittest {
+    writeln("3");
+}
+
+unittest {
+    writeln("1");
+}
+
+func main() {}

@@ -1,4 +1,6 @@
+#define _GNU_SOURCE
 #include <assert.h>
+#include <inttypes.h> // So we can printf uint_t types
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +9,8 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <sys/mman.h>
-#include <unistd.h> // for sysconf and _SC_NPROCESSOR_ONLIN
+#include <unistd.h> // for sysconf
+#include "realloc_stack.h"
 #include "scheduler.h"
 
 static GlobalThreadMem* g_threadManager = NULL;
@@ -18,19 +21,105 @@ static uint32_t numThreads;
 static pthread_t* kernelThreads;
 static volatile SchedulerData* schedulerData;
 static volatile uint64_t programDone = 0;
+extern void __init_tempstack();
+extern void __free_tempstack();
+#else
+static void* tempstack;
+void* __get_tempstack()
+{
+    return tempstack;
+}
 #endif
+
+// This function is expected to be executed on a stack other than the stack that
+// it is reallocating. It doubles the size of the stack, and since the memory
+// might be moved, calculate the value of the new rsp
+uint64_t __mremap_stack(ThreadData* thread, const uint64_t rsp)
+{
+    void* oldStackRaw = thread->t_StackRaw;
+    void* oldStackUsable = oldStackRaw + PROT_PAGE_SIZE;
+    const size_t oldStackSizeUsable = 1 << thread->stackSize;
+    const size_t oldStackSize = oldStackSizeUsable + PROT_PAGE_SIZE;
+    thread->stackSize++;
+    const size_t newStackSizeUsable = 1 << thread->stackSize;
+    const size_t newStackSize = newStackSizeUsable + PROT_PAGE_SIZE;
+    // Allocate the new, twice-as-big stack...
+    thread->t_StackRaw = (uint8_t*)mmap(
+        NULL, newStackSize,
+        PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS,
+        -1, 0
+    );
+    void* newStackRaw = thread->t_StackRaw;
+    void* newStackUsable = newStackRaw + PROT_PAGE_SIZE;
+    // Set PROT_NONE on the first page of the new stack allocation, which
+    // would be the _top-most_ page of the stack (since the stack grows down),
+    // so that instead of running off the end of the stack and clobbering
+    // non-stack memory, we summarily segfault. This makes it easier to debug
+    // stack memory issues.
+    mprotect(newStackRaw, PROT_PAGE_SIZE, PROT_NONE);
+
+    // Set the bottom (where we start, so highest address) of the stack
+    thread->t_StackBot = newStackUsable + newStackSizeUsable;
+    // Copy the old stack over to this one. Remembering that stacks grow down,
+    // we're copying it over to be "right-justified" in the new allocation
+    memcpy(
+        newStackUsable + oldStackSizeUsable,
+        oldStackUsable,
+        oldStackSizeUsable
+    );
+    // Calculate the new rsp value
+    // If 0x00[........]0xFF is the whole stack space, we're calculating the
+    // length of 0x00[....rsp<used stack space>]0xFF
+    uint64_t deltaFromTop = (uint64_t)(
+        oldStackUsable + oldStackSizeUsable - rsp
+    );
+    // Take that same delta from the top of new stack, to get the new rsp
+    const uint64_t newRsp = (uint64_t)(
+        newStackUsable + newStackSizeUsable - deltaFromTop
+    );
+    // We need to fix all of the push'd rbp's in the stack, as they all
+    // currently point to locations in the old stack, meaning every single
+    // one of them wants us to segfault. Luckily, each rbp points to the
+    // previous rbp, all the way down, so just follow them like a pointer
+    // linked-list, fixing them as well go to point to their analog in the
+    // new stack allocation
+    uint64_t old_rbp_index = (rsp - (uint64_t)oldStackUsable) / 8;
+    uint64_t old_rbp = ((uint64_t*)oldStackUsable)[old_rbp_index];
+    while (old_rbp >= (uint64_t)oldStackUsable
+        && old_rbp <= (uint64_t)(oldStackUsable + oldStackSizeUsable))
+    {
+        deltaFromTop = (uint64_t)(
+            oldStackUsable + oldStackSizeUsable - old_rbp
+        );
+        uint64_t new_rbp = (uint64_t)(
+            newStackUsable + newStackSizeUsable - deltaFromTop
+        );
+        uint64_t new_raw_index = old_rbp_index + (oldStackSizeUsable / 8);
+        ((uint64_t*)newStackUsable)[new_raw_index] = new_rbp;
+        old_rbp_index = (old_rbp - (uint64_t)oldStackUsable) / 8;
+        old_rbp = ((uint64_t*)oldStackUsable)[old_rbp_index];
+    }
+    // Free the old stack
+    munmap(oldStackRaw, oldStackSize);
+
+    return newRsp;
+}
 
 void printThreadData(ThreadData* curThread, int32_t v)
 {
     printf("Print Thread Data:\n");
-    printf("    ThreadData* curThread %d: %p\n", v, curThread);
-    printf("    funcAddr              %d: %p\n", v, curThread->funcAddr);
-    printf("    curFuncAddr           %d: %p\n", v, curThread->curFuncAddr);
-    printf("    t_StackBot            %d: %p\n", v, curThread->t_StackBot);
-    printf("    t_StackCur            %d: %p\n", v, curThread->t_StackCur);
-    printf("    t_StackRaw            %d: %p\n", v, curThread->t_StackRaw);
-    printf("    t_rbp                 %d: %p\n", v, curThread->t_rbp);
-    printf("    stillValid            %d: %u\n", v, curThread->stillValid);
+    printf("    ThreadData* curThread %d: %p\n",          v, curThread);
+    printf("    funcAddr              %d: %p\n",          v, curThread->funcAddr);
+    printf("    curFuncAddr           %d: %p\n",          v, curThread->curFuncAddr);
+    printf("    t_StackBot            %d: %p\n",          v, curThread->t_StackBot);
+    printf("    t_StackCur            %d: %p\n",          v, curThread->t_StackCur);
+    printf("    t_StackRaw            %d: %p\n",          v, curThread->t_StackRaw);
+    printf("    t_rbp                 %d: %p\n",          v, curThread->t_rbp);
+    printf("    stillValid            %d: %u\n",          v, curThread->stillValid);
+    printf("    stackSize             %d: %" PRIu8 "\n",  v, curThread->stackSize);
+    printf("    stackArgsSize         %d: %" PRIu32 "\n", v, curThread->stackArgsSize);
+    printf("    regVars               %d: %p\n",          v, curThread->regVars);
 }
 
 void callThreadFunc(ThreadData* thread)
@@ -41,7 +130,7 @@ void callThreadFunc(ThreadData* thread)
 void deallocThreadData(ThreadData* thread)
 {
     // Unmap memory allocated for thread stack
-    munmap(thread->t_StackRaw, THREAD_STACK_SIZE);
+    munmap(thread->t_StackRaw, 1 << thread->stackSize);
     // Dealloc memory for struct
     free(thread);
 }
@@ -88,15 +177,32 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     newThread->stillValid = 0;
     // Thread starts off with unitialized stack frame pointer
     newThread->t_rbp = 0;
+    const size_t stackSizeUsable = 1 << THREAD_STACK_SIZE_EXP;
+    // Set starting stack size
+    const size_t stackSize = stackSizeUsable + PROT_PAGE_SIZE;
+    newThread->stackSize = THREAD_STACK_SIZE_EXP;
+
+    newThread->t_StackRaw = NULL;
     // mmap thread stack
-    newThread->t_StackRaw = (uint8_t*)mmap(NULL, THREAD_STACK_SIZE,
+    newThread->t_StackRaw = (uint8_t*)mmap(NULL, stackSize,
                                            PROT_READ|PROT_WRITE,
                                            MAP_PRIVATE|MAP_ANONYMOUS,
                                            -1, 0);
+    void* newStackRaw = newThread->t_StackRaw;
+    void* newStackUsable = newStackRaw + PROT_PAGE_SIZE;
+    // Set PROT_NONE on the first page of the new stack allocation, which
+    // would be the _top-most_ page of the stack (since the stack grows down),
+    // so that instead of running off the end of the stack and clobbering
+    // non-stack memory, we summarily segfault. This makes it easier to debug
+    // stack memory issues.
+    mprotect(newStackRaw, PROT_PAGE_SIZE, PROT_NONE);
+    // Clear the stack memory, for sanity's sake
+    memset(newStackUsable, 0, stackSizeUsable);
+
     // StackCur starts as a meaningless pointer
     newThread->t_StackCur = 0;
     // Make t_StackBot point to "bottom" of stack (highest address)
-    newThread->t_StackBot = newThread->t_StackRaw + THREAD_STACK_SIZE;
+    newThread->t_StackBot = newStackUsable + stackSizeUsable;
 
     // TODO finish putting things on the stack. Note that this is tricky because
     // after the 6th (or 8th, in the case of floats) register is accounted for,
@@ -208,6 +314,12 @@ void execScheduler()
     }
     scheduler();
 #else
+    tempstack = mmap(
+        NULL, TEMP_STACK_SIZE,
+        PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS,
+        -1, 0
+    );
     uint32_t i = 0;
     uint8_t stillValid = 0;
     for (i = 0; i < g_threadManager->threadArrIndex; i++)
@@ -224,6 +336,7 @@ void execScheduler()
             stillValid = 0;
         }
     }
+    munmap(tempstack, TEMP_STACK_SIZE);
 #endif
 }
 
@@ -303,6 +416,8 @@ SKIP_WORKER:
 void* awaitTask(void* arg)
 {
     uint64_t index = (uint64_t)arg;
+    // Init the TLS tempstack used when dynamically growing the thread stack
+    __init_tempstack();
     while (programDone == 0)
     {
         if (schedulerData[index].valid == 1)
@@ -312,6 +427,7 @@ void* awaitTask(void* arg)
             schedulerData[index].valid = 0;
         }
     }
+    __free_tempstack();
     return NULL;
 }
 #endif
