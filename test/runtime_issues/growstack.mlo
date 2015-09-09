@@ -1,6 +1,5 @@
-
 // ISSUE: Runtime stack dynamically grows when necessary
-// EXPECTS: "Starting... Finished!"
+// EXPECTS: "Starting... 1000... 750... 500... 250... 0... Finished!"
 // STATUS: ok
 
 import std.io;
@@ -13,6 +12,9 @@ func recurse(i: int) {
     d := "1";
     e := "1";
     f := "1";
+    if (i % 250 == 0) {
+        write(intToString(i) ~ "... ");
+    }
     if (i > 0) {
         recurse(i - 1);
     }
