@@ -211,23 +211,6 @@ string compileRegRestore(string[] regs, Context* vars)
     return str;
 }
 
-// Get the power-of-2 size larger than the input size, for use in array size
-// allocations. Arrays are always a power-of-2 in size.
-// Credit: Henry S. Warren, Jr.'s "Hacker's Delight.", and Larry Gritz from
-// http://stackoverflow.com/questions/364985/algorithm-for-finding-the-smallest-power-of-two-thats-greater-or-equal-to-a-giv
-auto getAllocSize(ulong requestedSize)
-{
-    auto x = requestedSize;
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    x |= x >> 32;
-    return x+1;
-}
-
 auto getStructAllocSize(StructType* type)
 {
     return REF_COUNT_SIZE
@@ -240,58 +223,6 @@ auto getVariantAllocSize(VariantType* type)
     return REF_COUNT_SIZE
          + VARIANT_TAG_SIZE
          + type.size;
-}
-
-// Derived from "gcc -S -O2" on:
-// unsigned long long getAllocSize(unsigned long long x)
-// {
-//     --x;
-//     x |= x >> 1;
-//     x |= x >> 2;
-//     x |= x >> 4;
-//     x |= x >> 8;
-//     x |= x >> 16;
-//     x |= x >> 32;
-//     return x+1;
-// }
-string getAllocSizeAsm(string inReg, string outReg)
-in {
-    assert(inReg != outReg, "inReg must be a different register than outReg");
-}
-body {
-    auto str = "";
-    str ~= "    sub    " ~ inReg ~ ", 1\n";
-    str ~= "    mov    " ~ outReg ~ ", " ~ inReg ~ "\n";
-    str ~= "    shr    " ~ outReg ~ ", 1\n";
-    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
-    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
-    str ~= "    shr    " ~ inReg ~ ", 2\n";
-    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
-    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
-    str ~= "    shr    " ~ inReg ~ ", 4\n";
-    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
-    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
-    str ~= "    shr    " ~ inReg ~ ", 8\n";
-    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
-    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
-    str ~= "    shr    " ~ inReg ~ ", 16\n";
-    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
-    str ~= "    mov    " ~ inReg ~ ", " ~ outReg ~ "\n";
-    str ~= "    shr    " ~ inReg ~ ", 32\n";
-    str ~= "    or     " ~ outReg ~ ", " ~ inReg ~ "\n";
-    str ~= "    add    " ~ outReg ~ ", 1\n";
-    return str;
-}
-
-unittest
-{
-    assert(0.getAllocSize == 0);
-    assert(1.getAllocSize == 1);
-    assert(2.getAllocSize == 2);
-    assert(3.getAllocSize == 4);
-    assert(4.getAllocSize == 4);
-    assert(6.getAllocSize == 8);
-    assert(1002.getAllocSize == 1024);
 }
 
 auto toNasmDataString(string input)
@@ -2136,7 +2067,7 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
             scope (exit) vars.deallocateStackSpace(8);
             auto arrayLenLoc = vars.getTop.to!string;
             str ~= "    mov    qword [rbp-" ~ arrayLenLoc ~ "], r8\n";
-            str ~= getAllocSizeAsm("r8", "rdi");
+            str ~= "    mov    rdi, r8\n";
             str ~= "    imul   rdi, " ~ elemSize.to!string ~ "\n";
             str ~= "    add    rdi, 8\n";
             str ~= "    call   malloc\n";
@@ -2437,7 +2368,7 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
     str ~= "    mov    r10d, dword [r13+4]\n";
     // Get alloc size in r12
     str ~= "    mov    r11, r10\n";
-    str ~= getAllocSizeAsm("r11", "r12");
+    str ~= "    mov    r12, r11\n";
     // Restore array length in r11
     str ~= "    mov    r11, r10\n";
     // Get the total array size and the total array alloc size
@@ -2466,7 +2397,7 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
     // alloc size algorithm, we'll get the new alloc size, one step larger.
     // The array length is still in r10
     str ~= "    add    r11, 1\n";
-    str ~= getAllocSizeAsm("r11", "rsi");
+    str ~= "    mov    rsi, r11\n";
     // Add back the ref count and array length portions
     str ~= "    add    rsi, 8\n";
     // r13 contains the original array pointer

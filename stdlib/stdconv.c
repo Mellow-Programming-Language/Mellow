@@ -30,10 +30,9 @@ void* chr(int c)
 
 void* charToString(char c)
 {
-    uint32_t allocSize = getAllocSize(1);
     // The 1 is for space for the null byte
     void* mellowStr = malloc(
-        REF_COUNT_SIZE + MELLOW_STR_SIZE + allocSize + 1
+        REF_COUNT_SIZE + MELLOW_STR_SIZE + sizeof(char) + 1
     );
     // Set the ref count
     ((uint32_t*)mellowStr)[0] = 1;
@@ -50,7 +49,7 @@ void* stringToChars(void* str) {
     uint32_t strLen = ((uint32_t*)(str + REF_COUNT_SIZE))[0];
     const uint32_t totalSize = REF_COUNT_SIZE
                              + MELLOW_STR_SIZE
-                             + getAllocSize(strLen);
+                             + strLen;
     void* mellowArr = malloc(totalSize);
     ((uint32_t*)mellowArr)[0] = 1;
     ((uint32_t*)mellowArr)[1] = strLen;

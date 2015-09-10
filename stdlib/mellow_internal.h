@@ -1,6 +1,7 @@
 #ifndef MELLOW_INTERNAL_H
 #define MELLOW_INTERNAL_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 // mellow-string:
@@ -13,9 +14,11 @@
 // Tag 1: None
 
 #define MELLOW_PTR_SIZE (sizeof(char*))
+#define REF_SIZE (4)
+#define LEN_SIZE (4)
+#define HEAD_SIZE (REF_SIZE + LEN_SIZE)
 #define REF_COUNT_SIZE (sizeof(uint32_t))
 #define MELLOW_STR_SIZE (sizeof(uint32_t))
-#define STR_START_OFFSET (REF_COUNT_SIZE + MELLOW_STR_SIZE)
 #define VARIANT_TAG_SIZE (sizeof(uint32_t))
 
 // Allocate space for a full mellow string, update ref-count to 1, populate
@@ -28,6 +31,19 @@ void* mellow_copyString(void* str);
 // Deallocate all memory allocated by mellow_allocString()
 void mellow_freeString(void* mellowString);
 
-unsigned long long getAllocSize(unsigned long long x);
+void* __arr_arr_append(void* left, void* right,
+                       size_t elem_size, uint64_t is_str);
+
+void* __elem_arr_append(uint64_t left, void* right,
+                        size_t elem_size, uint64_t is_str);
+
+void* __arr_elem_append(void* left, uint64_t right,
+                        size_t elem_size, uint64_t is_str);
+
+void* __elem_elem_append(uint64_t left, uint64_t right,
+                         size_t elem_size, uint64_t is_str);
+
+void* __arr_slice(void* arr, uint64_t lindex, uint64_t rindex,
+                  uint64_t elem_size, uint64_t is_str);
 
 #endif

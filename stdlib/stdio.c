@@ -8,12 +8,12 @@
 
 void writeln(void* mellowStr)
 {
-    printf("%s\n", (char*)(mellowStr + STR_START_OFFSET));
+    printf("%s\n", (char*)(mellowStr + HEAD_SIZE));
 }
 
 void write(void* mellowStr)
 {
-    printf("%s", (char*)(mellowStr + STR_START_OFFSET));
+    printf("%s", (char*)(mellowStr + HEAD_SIZE));
 }
 
 void* readln()
@@ -22,16 +22,15 @@ void* readln()
     size_t len = 0;
 
     size_t bytesRead = getline(&buffer, &len, stdin);
-    uint32_t allocSize = getAllocSize(bytesRead);
     // The 1 is for space for the null byte
     void* mellowStr = malloc(
-        REF_COUNT_SIZE + MELLOW_STR_SIZE + allocSize + 1
+        HEAD_SIZE + bytesRead + 1
     );
     // Set the ref count
     ((uint32_t*)mellowStr)[0] = 1;
     // Set the string length
     ((uint32_t*)mellowStr)[1] = bytesRead;
-    memcpy(mellowStr + STR_START_OFFSET, buffer, bytesRead + 1);
+    memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
     free(buffer);
     return mellowStr;
 }
@@ -45,12 +44,12 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
     FILE* file;
     switch (mode->mode)
     {
-    case 0: file = fopen(str + STR_START_OFFSET, "r");  break;
-    case 1: file = fopen(str + STR_START_OFFSET, "w");  break;
-    case 2: file = fopen(str + STR_START_OFFSET, "a");  break;
-    case 3: file = fopen(str + STR_START_OFFSET, "r+"); break;
-    case 4: file = fopen(str + STR_START_OFFSET, "w+"); break;
-    case 5: file = fopen(str + STR_START_OFFSET, "a+"); break;
+    case 0: file = fopen(str + HEAD_SIZE, "r");  break;
+    case 1: file = fopen(str + HEAD_SIZE, "w");  break;
+    case 2: file = fopen(str + HEAD_SIZE, "a");  break;
+    case 3: file = fopen(str + HEAD_SIZE, "r+"); break;
+    case 4: file = fopen(str + HEAD_SIZE, "w+"); break;
+    case 5: file = fopen(str + HEAD_SIZE, "a+"); break;
     default:
         // It is a programming error to get here, as we are switching on the
         // possible variant tags
@@ -107,18 +106,15 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
         {
             // Set tag to Some
             str->variantTag = 0;
-            // Mellow strings have power-of-2 space allocated for the characters
-            // in the string, not including the null byte
-            uint32_t allocSize = getAllocSize(bytesRead);
             // The 1 is for space for the null byte
             void* mellowStr = malloc(
-                REF_COUNT_SIZE + MELLOW_STR_SIZE + allocSize + 1
+                HEAD_SIZE + bytesRead + 1
             );
             // Set the ref count
             ((uint32_t*)mellowStr)[0] = 1;
             // Set the string length
             ((uint32_t*)mellowStr)[1] = bytesRead;
-            memcpy(mellowStr + STR_START_OFFSET, buffer, bytesRead + 1);
+            memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
             free(buffer);
             str->str = mellowStr;
         }

@@ -720,28 +720,6 @@ string compileArgvStringArray(Context* vars)
     mov    r14, rdi
     ; argv is in rsi, and in r15
     mov    r15, rsi
-    ; Get alloc size for []string in rdi using getAllocSize algorithm
-    mov    r8, rdi
-    sub    r8, 1
-    mov    rdi, r8
-    shr    rdi, 1
-    or     rdi, r8
-    mov    r8, rdi
-    shr    r8, 2
-    or     rdi, r8
-    mov    r8, rdi
-    shr    r8, 4
-    or     rdi, r8
-    mov    r8, rdi
-    shr    r8, 8
-    or     rdi, r8
-    mov    r8, rdi
-    shr    r8, 16
-    or     rdi, r8
-    mov    r8, rdi
-    shr    r8, 32
-    or     rdi, r8
-    add    rdi, 1
     ; Multiply alloc'd space by the size of string ptrs
     imul   rdi, 8
     ; Add space for ref count and array length
@@ -765,29 +743,10 @@ string compileArgvStringArray(Context* vars)
     add    r9, r10
     mov    rdi, qword [r9]
     call   strlen
-    ; string length in rax, get alloc size for string in r9, save rax in rbx
+    ; string length in rax, r8, r9, save rax in rbx
     mov    r8, rax
+    mov    r9, rax
     mov    rbx, rax
-    sub    r8, 1
-    mov    r9, r8
-    shr    r9, 1
-    or     r9, r8
-    mov    r8, r9
-    shr    r8, 2
-    or     r9, r8
-    mov    r8, r9
-    shr    r8, 4
-    or     r9, r8
-    mov    r8, r9
-    shr    r8, 8
-    or     r9, r8
-    mov    r8, r9
-    shr    r8, 16
-    or     r9, r8
-    mov    r8, r9
-    shr    r8, 32
-    or     r9, r8
-    add    r9, 1
     ; Allocate space for string. Alloc space plus ref count plus string size
     ; plus space for the null byte
     mov    rdi, r9
