@@ -927,10 +927,7 @@ string compileTrailer(TrailerNode node, Context* vars)
 string compileDynArrAccess(DynArrAccessNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-
-    // TODO implement string range indexing. Currently only string single
-    // indexing works, to yield a char
-
+    vars.runtimeExterns["__arr_slice"] = true;
     auto arrayType = node.data["parenttype"].get!(Type*);
     auto indexType = node.data["type"].get!(Type*);
     Type* resultType;
@@ -969,111 +966,22 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         // array with the range of values from the sliced array.
         // Get the start index in r8 and the end index in r9
         str ~= compileSlicing(cast(SlicingNode)node.children[0], vars);
-        // Store just the start index, for when we need to memcpy
-        vars.allocateStackSpace(8);
-        auto startIndexLoc = vars.getTop.to!string;
-        str ~= "    mov    qword [rbp-" ~ startIndexLoc ~ "], r8\n";
-        scope (exit) vars.deallocateStackSpace(8);
-        auto nonsenseSliceLabel = vars.getUniqLabel;
-        auto sliceEndLabel = vars.getUniqLabel;
-        auto acceptableEndIndexLabel = vars.getUniqLabel;
-        // Compare start index to size of original array, and if it's larger,
-        // allocate an empty array
-        str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
-        str ~= "    mov    r10d, dword [r10+4]\n";
-        str ~= "    cmp    r10, r8\n";
-        str ~= "    jbe    " ~ nonsenseSliceLabel ~ "\n";
-        // Force the end index to be within the bounds of the array
-        str ~= "    cmp    r10, r9\n";
-        str ~= "    jae    " ~ acceptableEndIndexLabel ~ "\n";
-        str ~= "    mov    r9, r10\n";
-        str ~= acceptableEndIndexLabel ~ ":\n";
-        // The start index is within the bounds of the array, so get the total
-        // size of the slice
-        str ~= "    mov    r10, r9\n";
-        str ~= "    sub    r10, r8\n";
-        // If the slice size is negative or zero, allocate empty array
-        str ~= "    jbe    " ~ nonsenseSliceLabel ~ "\n";
-        // Store the length of the slice in a callee-saved register
-        str ~= "    mov    r12, r10\n";
-        // Get the alloc size of the slice
-        str ~= "    mov    rdi, r10\n";
-        // Multiply the alloc size by the element size
-        str ~= "    imul   rdi, " ~ resultType.size.to!string ~ "\n";
-        // Add 8 for the ref count and array size
-        str ~= "    add    rdi, 8\n";
-        if (arrayType.tag == TypeEnum.STRING)
+        str ~= "    mov    rdi, qword [rbp-" ~ valLoc ~ "]\n";
+        str ~= "    mov    rsi, r8\n";
+        str ~= "    mov    rdx, r9\n";
+        str ~= "    mov    rcx, " ~ resultType.size
+                                              .to!string
+                                  ~ "\n";
+        if (resultType.tag == TypeEnum.CHAR)
         {
-            // Add the null byte to the memory allocation
-            str ~= "    add    rdi, 1\n";
+            str ~= "    mov    r8, 1\n";
         }
-        // Get the allocated memory pointer in rax
-        str ~= "    call   malloc\n";
-        // Store the new allocation pointer
-        vars.allocateStackSpace(8);
-        auto newAllocLoc = vars.getTop.to!string;
-        str ~= "    mov    qword [rbp-" ~ newAllocLoc ~ "], rax\n";
-        scope (exit) vars.deallocateStackSpace(8);
-        // Set the ref-count to 0
-        str ~= "    mov    dword [rax], 0\n";
-        // Set the array length
-        str ~= "    mov    dword [rax+4], r12d\n";
-        // Get the original array pointer
-        str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
-        // memcpy the slice into the new memory allocation
-        str ~= "    mov    rdi, rax\n";
-        str ~= "    add    rdi, 8\n";
-        // Get the start index value
-        str ~= "    mov    rsi, qword [rbp-" ~ startIndexLoc ~ "]\n";
-        str ~= "    imul   rsi, " ~ resultType.size.to!string ~ "\n";
-        str ~= "    add    rsi, 8\n";
-        str ~= "    add    rsi, r10\n";
-        str ~= "    mov    rdx, r12\n";
-        str ~= "    imul   rdx, " ~ resultType.size.to!string ~ "\n";
-        str ~= "    call   memcpy\n";
-        // Add the actual null byte into the memory location
-        if (arrayType.tag == TypeEnum.STRING)
+        else
         {
-            // memcpy returns the destination pointer in rax, so we have
-            // a pointer to the beginning of the actual data (past the refcount
-            // and size). r12 is a callee saved register, so we still have the
-            // string length in hand. Characters are a single byte, so adding
-            // the length to the pointer yields where the null byte needs to go
-            str ~= "    add    rax, r12\n";
-            str ~= "    mov    byte [rax], 0\n";
+            str ~= "    mov    r8, 0\n";
         }
-        str ~= "    mov    r8, qword [rbp-" ~ newAllocLoc ~ "]\n";
-        str ~= "    jmp    " ~ sliceEndLabel ~ "\n";
-        // If we're dealing with a "nonsense" slice, then create an array of
-        // size zero with zero elements and no allocation for data (1 byte for
-        // null byte if string)
-        str ~= nonsenseSliceLabel ~ ":\n";
-        str ~= "    mov    rdi, 0\n";
-        // Add 8 for the ref count and array size
-        str ~= "    add    rdi, 8\n";
-        if (arrayType.tag == TypeEnum.STRING)
-        {
-            // Add the null byte to the memory allocation
-            str ~= "    add    rdi, 1\n";
-        }
-        // Get the allocated memory pointer in rax
-        str ~= "    call   malloc\n";
-        // Store the new allocation pointer
-        vars.allocateStackSpace(8);
-        auto emptyAllocLoc = vars.getTop.to!string;
-        str ~= "    mov    qword [rbp-" ~ emptyAllocLoc ~ "], rax\n";
-        scope (exit) vars.deallocateStackSpace(8);
-        // Set the ref-count to 0
-        str ~= "    mov    dword [rax], 0\n";
-        // Set the array length to 0
-        str ~= "    mov    dword [rax+4], 0\n";
-        // Place a null byte into the single data byte allocated, if a string
-        if (arrayType.tag == TypeEnum.STRING)
-        {
-            str ~= "    mov    byte [rax+8], 0\n";
-        }
-        str ~= "    mov    r8, qword [rbp-" ~ emptyAllocLoc ~ "]\n";
-        str ~= sliceEndLabel ~ ":\n";
+        str ~= "    call    __arr_slice\n";
+        str ~= "    mov     r8, rax\n";
     }
     else
     {
