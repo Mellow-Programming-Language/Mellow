@@ -1,0 +1,19 @@
+// ISSUE: The length sentinel ($) should work at arbitrary indexing depths
+// EXPECTS: "9 3 working!"
+// STATUS: todo
+
+import std.io;
+import std.conv;
+
+func printSentinel(i: int): int {
+    write(intToString(i) ~ " ");
+    return i;
+}
+
+func main() {
+    is := [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    arr := ["hello", "working!", "goodbye"];
+    slice := arr[is[printSentinel($)-8]..printSentinel($)];
+    write(slice[0]);
+    writeln("");
+}

@@ -1,0 +1,39 @@
+// ISSUE: Ensure slicing works correctly
+// EXPECTS: "012345 012345 1234 23 [] 45 [] [] [] corn"
+
+import std.io;
+
+struct Dummy {
+    str: string;
+}
+
+func main() {
+    str := "012345";
+    write(str[0..]);
+    write(" ");
+    write(str[..$]);
+    write(" ");
+    write(str[1..5]);
+    write(" ");
+    write(str[2..4]);
+    write(" [");
+    write(str[3..3]);
+    write("] ");
+    write(str[4..8]);
+    write(" [");
+    write(str[7..8]);
+    write("] [");
+    write(str[4..2]);
+    write("] [");
+    write(str[7..$]);
+    write("] ");
+
+    a := Dummy { str = "hero" };
+    b := Dummy { str = "deep" };
+    c := Dummy { str = "corn" };
+    d := Dummy { str = "stir" };
+    e := Dummy { str = "grab" };
+    ds := [a, b, c, d, e];
+    write(ds[1..4][1].str);
+    writeln("");
+}
