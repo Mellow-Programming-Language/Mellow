@@ -316,7 +316,7 @@ string compileSumExpr(SumExprNode node, Context* vars)
         rightType = node.children[i].data["type"].get!(Type*);
         str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
         vars.deallocateStackSpace(8);
-        if (leftType.isIntegral && rightType.isIntegral)
+        if (leftType.isIntegral && rightType.isIntegral && op != "~")
         {
             final switch (op)
             {
@@ -329,9 +329,7 @@ string compileSumExpr(SumExprNode node, Context* vars)
                 break;
             }
         }
-        else if ((leftType.isFloat || rightType.isFloat)
-            && leftType.tag != TypeEnum.ARRAY
-            && rightType.tag != TypeEnum.ARRAY)
+        else if ((leftType.isFloat || rightType.isFloat) && op != "~")
         {
             assert(false, "Unimplemented");
             final switch (op)
@@ -354,6 +352,7 @@ string compileSumExpr(SumExprNode node, Context* vars)
                 break;
             }
         }
+        leftType = node.children[i-1].data["type"].get!(Type*);
     }
     return str;
 }
@@ -367,15 +366,15 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     vars.runtimeExterns["__arr_elem_append"] = true;
     auto str = "";
     str ~= "    ; append op (~) algorithm start\n";
-    // Appending two non-array, non-string types
+    // Appending two non-array, non-string types. This means left and right
+    // must be the same type, as well
     if (leftType.tag != TypeEnum.ARRAY && leftType.tag != TypeEnum.STRING
         && rightType.tag != TypeEnum.ARRAY && rightType.tag != TypeEnum.STRING)
     {
         str ~= "    mov     rdi, r8\n";
         str ~= "    mov     rsi, r9\n";
-        // sizeof char
-        str ~= "    mov     rdx, " ~ char.sizeof
-                                         .to!string
+        str ~= "    mov     rdx, " ~ leftType.size
+                                             .to!string
                                    ~ "\n";
         // String special case
         if (leftType.tag == TypeEnum.CHAR)
@@ -414,7 +413,9 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     {
         str ~= "    mov     rdi, r8\n";
         str ~= "    mov     rsi, r9\n";
-        str ~= "    mov     rdx, " ~ char.sizeof ~ "\n";
+        str ~= "    mov     rdx, " ~ char.sizeof
+                                         .to!string
+                                   ~ "\n";
         str ~= "    mov     rcx, 1\n";
         // Left type is char
         str ~= "    call    __elem_arr_append\n";
@@ -448,9 +449,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     {
         str ~= "    mov     rdi, r8\n";
         str ~= "    mov     rsi, r9\n";
-        str ~= "    mov     rdx, " ~ leftType.array
-                                             .arrayType
-                                             .size
+        str ~= "    mov     rdx, " ~ leftType.size
                                              .to!string
                                    ~ "\n";
         str ~= "    mov     rcx, 0\n";

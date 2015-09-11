@@ -789,6 +789,12 @@ class FunctionBuilder : Visitor
                     }
                 }
             }
+            // Set the type of the result of the _expression_, as in the 'op'
+            // node. This is particularly important for complex append expr's,
+            // like "1 ~ 2 ~ 3 ~ 4" so that we can see that after "1 ~ 2", we're
+            // actually appending "3" and "4" each to the array result of the
+            // previous step
+            node.children[i-1].data["type"] = resultType;
         }
         builderStack[$-1] ~= resultType;
         node.data["type"] = builderStack[$-1][$-1];

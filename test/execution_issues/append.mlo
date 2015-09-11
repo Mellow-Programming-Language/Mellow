@@ -1,8 +1,6 @@
 // ISSUE: Ensure appending works correctly
-// EXPECTS: "[] 12 34 1234 AZ AYZ ABZ [] 12 34, 1234 134 123 1234"
-// STATUS: todo
-
-// This actually SIGSEGV's the compiler
+// EXPECTS: "[] AB YZ ABYZ AZ AYZ ABZ [] 12 34 1234 134 123 12 1234"
+// STATUS: ok
 
 import std.io;
 import std.conv;
@@ -47,6 +45,8 @@ func main() {
     printIntArr(1 ~ [3, 4]);
     write(" ");
     printIntArr([1, 2] ~ 3);
+    write(" ");
+    printIntArr(1 ~ 2);
     write(" ");
     printIntArr(1 ~ 2 ~ 3 ~ 4);
     writeln("");

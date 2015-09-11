@@ -136,7 +136,7 @@ void* __arr_elem_append(void* left, uint64_t right,
 void* __elem_elem_append(uint64_t left, uint64_t right,
                          size_t elem_size, uint64_t is_str)
 {
-    size_t nlen = elem_size + elem_size;
+    size_t nlen = 1 + 1;
     size_t full_len = HEAD_SIZE + (nlen * elem_size);
     void* new_arr;
     if (is_str != 0)
