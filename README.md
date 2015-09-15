@@ -46,10 +46,7 @@ List of working features:
   * floats can be declared
   * array literals
   * array slice ranges
-  * array-element append
-  * array-array append
-  * string-string append
-  * array-element append-equals
+  * array append semantics
   * green threads (`spawn`, `yield`)
   * channels (both read and write, with implicit yield)
   * expressions
@@ -64,18 +61,15 @@ List of working features:
   * function templating
   * `match` statements
   * full M:N multithreading scheduler
+  * module system
 
 
 List of unimplemented or broken features:
 -----------------------------------------
 
-  * array-array append-equals
-  * string-string append-equals
-  * string-char append-equals
-  * string-char append
   * closures
-  * meaningful ref-counting
-  * all op-equals operators besides aforementioned append-equals exceptions
+  * garbage collection
+  * most op-equals operators
   * `in` blocks
   * `out` blocks
   * `const` semantics
@@ -86,4 +80,3 @@ List of unimplemented or broken features:
   * float comparison operators
   * float arithmetic
   * lambdas
-  * any sort of module system whatsoever
