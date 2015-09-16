@@ -12,4 +12,8 @@ typedef struct {
     uint64_t allocs_end;
 } GC_Env;
 
+void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env);
+void __GC_free_all_allocs(GC_Env* gc_env);
+void __GC_sweep(GC_Env* gc_env);
+
 #endif
