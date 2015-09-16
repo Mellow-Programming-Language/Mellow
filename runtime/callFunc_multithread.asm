@@ -131,6 +131,8 @@ callFunc:
     call    set_mainstack
     mov     rsp, rdx
 
+    mov     r11, qword [rcx+8]  ; ThreadData->curFuncAddr, start of function
+
     ; Move the register function arguments into the relevant registers
     mov     rdi,  qword [rax]
     mov     rsi,  qword [rax+8]
