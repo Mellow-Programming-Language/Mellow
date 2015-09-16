@@ -9,8 +9,13 @@
 
 typedef struct
 {
-    // Address of function to exec
-    void* funcAddr_or_gcEnv;
+    // Address of function to exec or the GC object. We only need the address
+    // of the function to exec for this thread until we've actually started
+    // executing it, and we only need the GC object after we've begun execution
+    union {
+        void* funcAddr;
+        void* gcEnv;
+    };
     // Current position in function (0 if start of function)
     // Will be the value that eip needs to be to continue execution
     void* curFuncAddr;
