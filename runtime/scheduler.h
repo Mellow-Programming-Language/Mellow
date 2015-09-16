@@ -10,7 +10,7 @@
 typedef struct
 {
     // Address of function to exec
-    void* funcAddr;
+    void* funcAddr_or_gcEnv;
     // Current position in function (0 if start of function)
     // Will be the value that eip needs to be to continue execution
     void* curFuncAddr;
