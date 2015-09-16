@@ -110,7 +110,7 @@ void printThreadData(ThreadData* curThread, int32_t v)
 {
     printf("Print Thread Data:\n");
     printf("    ThreadData* curThread %d: %p\n",          v, curThread);
-    printf("    funcAddr              %d: %p\n",          v, curThread->funcAddr);
+    printf("    funcAddr_or_gcEnv     %d: %p\n",          v, curThread->funcAddr_or_gcEnv);
     printf("    curFuncAddr           %d: %p\n",          v, curThread->curFuncAddr);
     printf("    t_StackBot            %d: %p\n",          v, curThread->t_StackBot);
     printf("    t_StackCur            %d: %p\n",          v, curThread->t_StackCur);
@@ -167,7 +167,7 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     // Alloc new ThreadData
     ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
     // Init the address of the function this green thread manages
-    newThread->funcAddr = funcAddr;
+    newThread->funcAddr_or_gcEnv = funcAddr;
     // Init the instruction position within the function. 0 means the
     // beginning of the function, and curFuncAddr will later take on the
     // role of remembering the eip instruction pointer

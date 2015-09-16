@@ -81,7 +81,7 @@ callFunc:
     mov     rcx, rdi            ; ThreadData* thread
     xor     rdi, rdi
     mov     edi, dword [rcx+52] ; ThreadData->stackArgsSize
-    mov     r11, qword [rcx]    ; ThreadData->funcAddr
+    mov     r11, qword [rcx]    ; ThreadData->funcAddr_or_gcEnv
     mov     rdx, qword [rcx+16] ; ThreadData->t_StackBot
     mov     rax, qword [rcx+56] ; ThreadData->regVars
     ; First set the currentthread value
