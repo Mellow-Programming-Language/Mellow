@@ -1,6 +1,5 @@
 
     extern malloc
-    extern free
 
     ; From tls.asm
     extern get_currentthread
@@ -79,17 +78,13 @@ callFunc:
     mov     rbp, rsp
 
     ; ThreadData* curThread is initially in rdi
+    mov     rcx,  rdi
 
     ; Set currentthread pointer to TLS
     call    set_currentthread
 
-    ; Populate registers for operation.
-    mov     rcx,  rdi            ; ThreadData* curThread is in rdi
-    xor     r10,  r10            ; Zero r10 so r10d is cleared before set
-    mov     r10d, dword [rcx+52] ; ThreadData->stackArgsSize
-    mov     r11,  qword [rcx]    ; ThreadData->funcAddr
-    mov     rdx,  qword [rcx+16] ; ThreadData->t_StackBot
-    mov     rax,  qword [rcx+56] ; ThreadData->regVars
+    ; curThread is still in rcx, a guarantee we assume about the implementation
+    ; of set_currentthread
 
     ; Determine if we are starting a new thread, or if we're continuing
     ; execution
@@ -100,7 +95,28 @@ callFunc:
 
     ; If we get here, we're starting the execution of a new thread
 
+    ; Since we're starting a new thread, grab and save the funcAddr
+    mov     r11,  qword [rcx]    ; ThreadData->funcAddr
     mov     qword [rcx+8], r11  ; ThreadData->curFuncAddr, init to start of func
+
+    ; Re-use the funcAddr_or_gcEnv field to malloc a new GC_Env object
+    push    rcx
+    mov     rdi, 24             ; sizeof(GC_Env)
+    call    malloc
+    pop     rcx
+    ; Initialize the new GC_Env object
+    mov     qword [rax], 0      ; Set GC_Env->allocs to NULL
+    mov     qword [rax+8], 0    ; Set GC_Env->allocs_len to 0
+    mov     qword [rax+16], 0   ; Set GC_Env->allocs_end to 0
+    ; Set ThreadData->funcAddr_or_gcEnv to the new GC_Env object
+    mov     qword [rcx], rax
+
+    ; Set edi (rdi) to stackArgsSize (64 bit registers are upper-cleared when
+    ; assigned by 32-bit mov's)
+    mov     edi, dword [rcx+52] ; ThreadData->stackArgsSize
+    ; Grab other necessary ThreadData fields
+    mov     rdx, qword [rcx+16] ; ThreadData->t_StackBot
+    mov     rax, qword [rcx+56] ; ThreadData->regVars
 
     ; Set stack pointer to be before arguments
     sub     rdx, r10            ; Note that we're using the value in r10d here
@@ -113,6 +129,8 @@ callFunc:
     mov     rdi, rsp
     call    set_mainstack
     mov     rsp, rdx
+
+    mov     r11, qword [rcx+8]  ; ThreadData->curFuncAddr, start of function
 
     ; Move the register function arguments into the relevant registers
     mov     rdi,  qword [rax]

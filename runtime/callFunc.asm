@@ -1,4 +1,6 @@
 
+    extern malloc
+
     ; Defined in scheduler.c
     extern __get_tempstack
     extern __mremap_stack
@@ -77,14 +79,10 @@ callFunc:
     push    rbp                     ; set up stack frame
     mov     rbp, rsp
 
-    ; Populate registers for operation. ThreadData* thread is initially in rdi
+    ; ThreadData* thread is initially in rdi
     mov     rcx, rdi            ; ThreadData* thread
-    xor     rdi, rdi
-    mov     edi, dword [rcx+52] ; ThreadData->stackArgsSize
-    mov     r11, qword [rcx]    ; ThreadData->funcAddr_or_gcEnv
-    mov     rdx, qword [rcx+16] ; ThreadData->t_StackBot
-    mov     rax, qword [rcx+56] ; ThreadData->regVars
-    ; First set the currentthread value
+
+    ; Set the currentthread value
     mov     qword [currentthread], rcx ; ThreadData* thread
 
     ; Determine if we are starting a new thread, or if we're continuing
@@ -96,9 +94,30 @@ callFunc:
 
     ; If we get here, we're starting the execution of a new thread
 
+    ; Since we're starting a new thread, grab and save the funcAddr
+    mov     r11, qword [rcx]    ; ThreadData->funcAddr_or_gcEnv
     mov     qword [rcx+8], r11  ; ThreadData->curFuncAddr, init to start of func
 
-    ; Set stack pointer to be before arguments
+    ; Re-use the funcAddr_or_gcEnv field to malloc a new GC_Env object
+    push    rcx
+    mov     rdi, 24             ; sizeof(GC_Env)
+    call    malloc
+    pop     rcx
+    ; Initialize the new GC_Env object
+    mov     qword [rax], 0      ; Set GC_Env->allocs to NULL
+    mov     qword [rax+8], 0    ; Set GC_Env->allocs_len to 0
+    mov     qword [rax+16], 0   ; Set GC_Env->allocs_end to 0
+    ; Set ThreadData->funcAddr_or_gcEnv to the new GC_Env object
+    mov     qword [rcx], rax
+
+    ; Set edi (rdi) to stackArgsSize (64 bit registers are upper-cleared when
+    ; assigned by 32-bit mov's)
+    mov     edi, dword [rcx+52] ; ThreadData->stackArgsSize
+    ; Grab other necessary ThreadData fields
+    mov     rdx, qword [rcx+16] ; ThreadData->t_StackBot
+    mov     rax, qword [rcx+56] ; ThreadData->regVars
+
+    ; Set stack pointer to be before arguments. Note that rdi is set by edi
     sub     rdx, rdi
     ; Allocate 8 bytes on stack for return address
     sub     rdx, 8
@@ -108,6 +127,8 @@ callFunc:
     push    rbp
     mov     qword [mainstack], rsp
     mov     rsp, rdx
+
+    mov     r11, qword [rcx+8]  ; ThreadData->curFuncAddr, start of function
 
     ; Move the register function arguments into the relevant registers
     mov     rdi, qword [rax]
