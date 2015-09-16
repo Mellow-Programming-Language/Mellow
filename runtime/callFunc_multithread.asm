@@ -100,9 +100,19 @@ callFunc:
     mov     r11, qword [rcx]    ; ThreadData->funcAddr_or_gcEnv
     mov     qword [rcx+8], r11  ; ThreadData->curFuncAddr, init to start of func
 
-    ; ...
+    ; Re-use the funcAddr_or_gcEnv field to malloc a new GC_Env object
+    push    rcx
+    mov     rdi, 24             ; sizeof(GC_Env)
+    call    malloc
+    pop     rcx
+    ; Initialize the new GC_Env object
+    mov     qword [rax], 0      ; Set GC_Env->allocs to NULL
+    mov     qword [rax+8], 0    ; Set GC_Env->allocs_len to 0
+    mov     qword [rax+16], 0   ; Set GC_Env->allocs_end to 0
+    ; Set ThreadData->funcAddr_or_gcEnv to the new GC_Env object
+    mov     qword [rcx], rax
 
-    ; Set edi (rdi) to stackArgsSize (64 bit registers are upper-cleared when
+    ; Set r10d (r10) to stackArgsSize (64 bit registers are upper-cleared when
     ; assigned by 32-bit mov's)
     mov     r10d, dword [rcx+52] ; ThreadData->stackArgsSize
     ; Grab other necessary ThreadData fields
