@@ -94,15 +94,20 @@ callFunc:
     ; If not zero, then continue where we left off
     jne     continueThread
 
-    ; Populate registers for operation.
-    mov     r10d, dword [rcx+52] ; ThreadData->stackArgsSize
-    mov     r11,  qword [rcx]    ; ThreadData->funcAddr
-    mov     rdx,  qword [rcx+16] ; ThreadData->t_StackBot
-    mov     rax,  qword [rcx+56] ; ThreadData->regVars
-
     ; If we get here, we're starting the execution of a new thread
 
+    ; Since we're starting a new thread, grab and save the funcAddr
+    mov     r11, qword [rcx]    ; ThreadData->funcAddr_or_gcEnv
     mov     qword [rcx+8], r11  ; ThreadData->curFuncAddr, init to start of func
+
+    ; ...
+
+    ; Set edi (rdi) to stackArgsSize (64 bit registers are upper-cleared when
+    ; assigned by 32-bit mov's)
+    mov     r10d, dword [rcx+52] ; ThreadData->stackArgsSize
+    ; Grab other necessary ThreadData fields
+    mov     rdx,  qword [rcx+16] ; ThreadData->t_StackBot
+    mov     rax,  qword [rcx+56] ; ThreadData->regVars
 
     ; Set stack pointer to be before arguments
     sub     rdx, r10            ; Note that we're using the value in r10d here
