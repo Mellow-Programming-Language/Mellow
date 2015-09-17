@@ -2045,7 +2045,8 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         str ~= "    mov    rdi, " ~ (RUNTIME_DATA_SIZE
                                    + STR_SIZE).to!string
                                   ~ "\n";
-        str ~= "    call   malloc\n";
+        str ~= compileGetGCEnv("rsi", vars);
+        str ~= "    call   __GC_malloc\n";
         // Set the length of the string, where the string size location is just
         // past the runtime data
         str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
@@ -2075,7 +2076,8 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
             str ~= "    imul   rdi, " ~ elemSize.to!string ~ "\n";
             str ~= "    add    rdi, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
                                       ~ "\n";
-            str ~= "    call   malloc\n";
+            str ~= compileGetGCEnv("rsi", vars);
+            str ~= "    call   __GC_malloc\n";
             // Retrive the array length value
             str ~= "    mov    r8, qword [rbp-" ~ arrayLenLoc ~ "]\n";
             // Set array length to number of elements
@@ -2087,7 +2089,8 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         {
             str ~= "    mov    rdi, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
                                       ~ "\n";
-            str ~= "    call   malloc\n";
+            str ~= compileGetGCEnv("rsi", vars);
+            str ~= "    call   __GC_malloc\n";
             str ~= "    mov    qword [rax], 1\n";
             str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
                                             ~ "], 0\n";
@@ -2110,7 +2113,8 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
                             + elemSize;
         str ~= "    mov    rdi, " ~ totalAllocSize.to!string
                                   ~ "\n";
-        str ~= "    call   malloc\n";
+        str ~= compileGetGCEnv("rsi", vars);
+        str ~= "    call   __GC_malloc\n";
         // Set chan valid-element segment to false
         str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
                                         ~ "], 0\n";

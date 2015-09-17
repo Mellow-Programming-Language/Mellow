@@ -39,6 +39,11 @@ void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env)
     return alloc;
 }
 
+void __GC_track(void* ptr, GC_Env* gc_env)
+{
+    add_alloc(ptr, gc_env);
+}
+
 void __GC_free_all_allocs(GC_Env* gc_env)
 {
     uint64_t i;

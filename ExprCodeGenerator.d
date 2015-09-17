@@ -573,7 +573,8 @@ string compileValue(ValueNode node, Context* vars)
                                             .getVariantAllocSize
                                             .to!string
                                       ~ "\n";
-            str ~= "    call   malloc\n";
+            str ~= compileGetGCEnv("rsi", vars);
+            str ~= "    call   __GC_malloc\n";
             // Set the variant tag
             str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
                                             ~ "], "
@@ -652,7 +653,8 @@ string compileStructConstructor(StructConstructorNode node, Context* vars)
     }
     str ~= "    mov    rdi, " ~ getStructAllocSize(structDef).to!string
                               ~ "\n";
-    str ~= "    call   malloc\n";
+    str ~= compileGetGCEnv("rsi", vars);
+    str ~= "    call   __GC_malloc\n";
     str ~= "    mov    r8, rax\n";
     vars.allocateStackSpace(8);
     auto structLoc = vars.getTop.to!string;
@@ -719,7 +721,8 @@ string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
     auto totalAllocSize = numElems * elemSize + (RUNTIME_DATA_SIZE + STR_SIZE);
     auto str = "";
     str ~= "    mov    rdi, " ~ totalAllocSize.to!string ~ "\n";
-    str ~= "    call   malloc\n";
+    str ~= compileGetGCEnv("rsi", vars);
+    str ~= "    call   __GC_malloc\n";
     // Set array length to number of elements
     str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
                                     ~ "], "
