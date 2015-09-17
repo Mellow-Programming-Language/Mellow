@@ -807,7 +807,8 @@ string compileStringLit(StringLitNode node, Context* vars)
                                         : (stringLit[0..10])
                                        ) ~ "]\n";
     str ~= "    mov    rdi, " ~ strAllocSize.to!string ~ "\n";
-    str ~= "    call   malloc\n";
+    str ~= compileGetGCEnv("rsi", vars);
+    str ~= "    call   __GC_malloc\n";
     // Set the length of the string, where the string size location is just
     // past the runtime data area
     str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string ~ "], "

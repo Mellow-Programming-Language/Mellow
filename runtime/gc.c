@@ -3,18 +3,11 @@
 #include <stdlib.h>
 #include "gc.h"
 
-void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env)
-{
-    void* alloc = malloc(alloc_size);
-    add_alloc(alloc, gc_env);
-    return alloc;
-}
-
 void add_alloc(void* alloc, GC_Env* gc_env)
 {
     if (gc_env->allocs == NULL)
     {
-        uint64_t start_size = ALLOCS_START_SIZE;
+        uint64_t start_size = ALLOCS_START_SIZE * sizeof(void*);
         void** allocs = malloc(start_size);
         if (allocs == NULL)
         {
@@ -39,6 +32,13 @@ void add_alloc(void* alloc, GC_Env* gc_env)
     gc_env->allocs_len += 1;
 }
 
+void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env)
+{
+    void* alloc = malloc(alloc_size);
+    add_alloc(alloc, gc_env);
+    return alloc;
+}
+
 void __GC_free_all_allocs(GC_Env* gc_env)
 {
     uint64_t i;
@@ -52,12 +52,12 @@ void __GC_free_all_allocs(GC_Env* gc_env)
     gc_env->allocs_end = 0;
 }
 
-inline uint64_t is_marked(void* ptr)
+uint64_t is_marked(void* ptr)
 {
     // The leftmost bit of the allocated memory is the 'mark' bit. The object
     // header is 16 bytes:
     // [1 bit 'mark'][7+3*8 'util'][4 bytes 'type'][8 bytes 'util']
-    if (((uint8_t*)ptr)[0] & 0b10000000 != 0)
+    if ((((uint8_t*)ptr)[0] & 0b10000000) != 0)
     {
         return 1;
     }
@@ -75,13 +75,13 @@ void __GC_sweep(GC_Env* gc_env)
     // algorithm is O(n), as the list of allocs need not be sorted
     for (; i < j; i++)
     {
-        if (__GC_is_marked(gc_env->allocs[i]) == 0)
+        if (is_marked(gc_env->allocs[i]) == 0)
         {
             // Free the unmarked ptr
             free(gc_env->allocs[i]);
             // While rightmost ptr is unmarked, move left in search of a marked
             // ptr, free'ing along the way
-            for (; j > i && __GC_is_marked(gc_env->allocs[j] == 0); j--)
+            for (; j > i && is_marked(gc_env->allocs[j]) == 0; j--)
             {
                 free(gc_env->allocs[j]);
             }

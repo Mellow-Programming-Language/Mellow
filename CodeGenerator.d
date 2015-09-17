@@ -661,18 +661,44 @@ struct Context
     }
 }
 
+string compileGetCurrentThread(string reg, Context* vars)
+{
+    version (MULTITHREAD)
+    {
+        vars.runtimeExterns["get_currentthread"] = true;
+    }
+    else
+    {
+        vars.runtimeExterns["currentthread"] = true;
+    }
+    auto str = "";
+    version (MULTITHREAD)
+    {
+        str ~= "    call   get_currentthread\n";
+        if (reg != "rax")
+        {
+            str ~= "    mov    " ~ reg ~ ", rax\n";
+        }
+    }
+    else
+    {
+        str ~= "    mov    " ~ reg ~ ", qword [currentthread]\n";
+    }
+    return str;
+}
+
+string compileGetGCEnv(string reg, Context* vars)
+{
+    vars.runtimeExterns["__GC_malloc"] = true;
+    auto str = compileGetCurrentThread(reg, vars);
+    str ~= "    mov    " ~ reg ~ ", qword [" ~ reg ~ "]\n";
+    return str;
+}
+
 // Compile the function prologue, which will grow the stack if necessary
 string compilePrologue(uint stackAlignedAlloc, Context* vars)
 {
     vars.runtimeExterns["__realloc_stack"] = true;
-    version (MULTITHREAD)
-    {
-    vars.runtimeExterns["get_currentthread"] = true;
-    }
-    else
-    {
-    vars.runtimeExterns["currentthread"] = true;
-    }
     auto str = "";
     str ~= "    ; FUNCTION PROLOGUE (do we need to grow the stack?):\n";
     str ~= "    sub    rsp, 16\n";
@@ -680,14 +706,7 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    mov    qword [rbp-8], rdi\n";
     str ~= "    mov    qword [rbp-16], rcx\n";
     str ~= "    ; Get current rsp in rdi and t_StackBot in r10\n";
-    version (MULTITHREAD)
-    {
-    str ~= "    call   get_currentthread\n";
-    }
-    else
-    {
-    str ~= "    mov    rax, qword [currentthread]\n";
-    }
+    str ~= compileGetCurrentThread("rax", vars);
     str ~= "    mov    rdi, rsp\n";
     str ~= "    mov    r10, qword [rax+16]\n";
     str ~= "    ; Get stackSize in cl (rcx), and the stack size in bytes in r11\n";
