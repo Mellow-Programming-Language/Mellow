@@ -12,6 +12,7 @@
 #include <unistd.h> // for sysconf
 #include "realloc_stack.h"
 #include "scheduler.h"
+#include "gc.h"
 
 static GlobalThreadMem* g_threadManager = NULL;
 #ifdef MULTITHREAD
@@ -330,6 +331,19 @@ void execScheduler()
             stillValid = 1;
             callThreadFunc(curThread);
         }
+        // This green thread has finished executing, and needs to be cleaned
+        // up. Meaning, free all GC'd memory, and (TODO) remove from thread
+        // list
+        else
+        {
+            GC_Env* gcEnv = curThread->gcEnv;
+            if (gcEnv != NULL)
+            {
+                __GC_free_all_allocs(gcEnv);
+                free(gcEnv);
+                curThread->gcEnv = NULL;
+            }
+        }
         if (i + 1 >= g_threadManager->threadArrIndex && stillValid != 0)
         {
             i = -1;
@@ -388,6 +402,19 @@ void scheduler()
                 stillValid = 1;
                 // We've scheduled a gthread for this worker thread
                 break;
+            }
+            // This green thread has finished executing, and needs to be cleaned
+            // up. Meaning, free all GC'd memory, and (TODO) remove from thread
+            // list
+            else
+            {
+                GC_Env* gcEnv = curThread->gcEnv;
+                if (gcEnv != NULL)
+                {
+                    __GC_free_all_allocs(gcEnv);
+                    free(gcEnv);
+                    curThread->gcEnv = NULL;
+                }
             }
         }
 SKIP_WORKER:
