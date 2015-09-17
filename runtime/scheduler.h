@@ -58,6 +58,9 @@ typedef struct
 extern void callFunc(ThreadData* curThread);
 extern void yield();
 
+#ifndef MULTITHREAD
+void* __get_tempstack();
+#endif
 uint64_t __mremap_stack(ThreadData* thread, uint64_t rsp);
 
 // The size values in argLens can be positive or negative. If they're positive,
