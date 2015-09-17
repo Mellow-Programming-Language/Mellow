@@ -690,6 +690,7 @@ string compileGetCurrentThread(string reg, Context* vars)
 string compileGetGCEnv(string reg, Context* vars)
 {
     vars.runtimeExterns["__GC_malloc"] = true;
+    vars.runtimeExterns["__GC_track"] = true;
     auto str = compileGetCurrentThread(reg, vars);
     str ~= "    mov    " ~ reg ~ ", qword [" ~ reg ~ "]\n";
     return str;

@@ -464,6 +464,18 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     {
         assert(false, "Unreachable");
     }
+    vars.allocateStackSpace(8);
+    auto scratchLoc = vars.getTop.to!string;
+    scope (exit) vars.deallocateStackSpace(8);
+    // The ptr is in r8; add the ptr to be tracked by the gc ensure r8 isn't
+    // overwritten
+    str ~= "    mov     qword [rbp-" ~ scratchLoc
+                                    ~ "], r8\n";
+    str ~= "    mov     rdi, r8\n";
+    str ~= compileGetGCEnv("rsi", vars);
+    str ~= "    call    __GC_track\n";
+    str ~= "    mov     r8, qword [rbp-" ~ scratchLoc
+                                         ~ "]\n";
     str ~= "    ; append op (~) algorithm end\n";
     return str;
 }
