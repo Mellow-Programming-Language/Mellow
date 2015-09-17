@@ -736,8 +736,8 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     // end of every stack, so that the program will actually _segfault_ when we
     // run off the stack, instead of destroying all the memory beyond it.
     str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
-    str ~= "    ; minus a 1024 byte buffer, then exec the realloc routine.\n";
-    str ~= "    cmp    r11, 1024\n";
+    str ~= "    ; minus a 1024+512 byte buffer, then exec the realloc routine.\n";
+    str ~= "    cmp    r11, 1024+512\n";
     auto skipReallocLabel = vars.getUniqLabel;
     str ~= "    jg     " ~ skipReallocLabel ~ "\n";
     str ~= allocsTooBigLabel ~ ":\n";

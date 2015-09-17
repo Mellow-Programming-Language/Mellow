@@ -7,8 +7,8 @@ void add_alloc(void* alloc, GC_Env* gc_env)
 {
     if (gc_env->allocs == NULL)
     {
-        uint64_t start_size = ALLOCS_START_SIZE * sizeof(void*);
-        void** allocs = malloc(start_size);
+        uint64_t start_size = ALLOCS_START_SIZE;
+        void** allocs = malloc(start_size * sizeof(void*));
         if (allocs == NULL)
         {
             // Error case
@@ -19,8 +19,8 @@ void add_alloc(void* alloc, GC_Env* gc_env)
     }
     else if (gc_env->allocs_len >= gc_env->allocs_end)
     {
-        uint64_t new_size = gc_env->allocs_end * 2;
-        void** new_allocs = realloc(gc_env->allocs, new_size);
+        uint64_t new_size = (uint64_t)(gc_env->allocs_end * 1.5);
+        void** new_allocs = realloc(gc_env->allocs, new_size  * sizeof(void*));
         if (new_allocs == NULL)
         {
             // Error case
