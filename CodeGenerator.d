@@ -55,14 +55,14 @@ const STACK_PROLOGUE_SIZE = RBP_SIZE + RETURN_ADDRESS_SIZE;
 const ENVIRON_PTR_SIZE = 8;
 
 const MELLOW_PTR_SIZE = 8; // sizeof(char*))
-const REF_COUNT_SIZE = 4; // sizeof(uint32_t))
+const RUNTIME_DATA_SIZE = 8; // sizeof(uint32_t))
 // THe struct buffer bytes are simply so that the elements of the struct are
 // aligned on an eight-byte boundary to begin with
-const STRUCT_BUFFER_SIZE = 4; // sizeof(uint32_t))
-const MELLOW_STR_SIZE = 4; // sizeof(uint32_t))
-const CHAN_VALID_SIZE = 4; // sizeof(uint32_t))
-const STR_START_OFFSET = REF_COUNT_SIZE + MELLOW_STR_SIZE;
-const VARIANT_TAG_SIZE = 4; // sizeof(uint32_t))
+const STRUCT_BUFFER_SIZE = 8; // sizeof(uint32_t))
+const STR_SIZE = 8; // sizeof(uint32_t))
+const CHAN_VALID_SIZE = 8; // sizeof(uint32_t))
+const STR_START_OFFSET = RUNTIME_DATA_SIZE + STR_SIZE;
+const VARIANT_TAG_SIZE = 8; // sizeof(uint32_t))
 
 const INT_REG = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 const FLOAT_REG = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
@@ -213,14 +213,14 @@ string compileRegRestore(string[] regs, Context* vars)
 
 auto getStructAllocSize(StructType* type)
 {
-    return REF_COUNT_SIZE
+    return RUNTIME_DATA_SIZE
         + STRUCT_BUFFER_SIZE
         + type.size;
 }
 
 auto getVariantAllocSize(VariantType* type)
 {
-    return REF_COUNT_SIZE
+    return RUNTIME_DATA_SIZE
          + VARIANT_TAG_SIZE
          + type.size;
 }
@@ -792,9 +792,6 @@ string compileFunction(FuncSig* sig, Context* vars)
         {
             if (intRegIndex >= INT_REG.length)
             {
-
-                // TODO increase the refcount of any reftype passed as an arg
-
                 vars.funcArgs ~= arg;
             }
             else
@@ -806,11 +803,6 @@ string compileFunction(FuncSig* sig, Context* vars)
                 funcHeader_2 ~= "    mov    r10, r8\n";
                 funcHeader_2 ~= "    mov    r8, " ~ INT_REG[intRegIndex]
                                                   ~ "\n";
-                if (arg.type.isRefType)
-                {
-                    // Increase refcount of ref type as argument to function
-                    funcHeader_2 ~= "    add    dword [r8], 1\n";
-                }
                 funcHeader_2 ~= vars.compileVarSet(arg.varName);
                 funcHeader_2 ~= "    mov    r8, r10\n";
                 intRegIndex++;
@@ -932,7 +924,8 @@ string compileAssertStmt(AssertStmtNode node, Context* vars)
     if (node.children.length > 1)
     {
         str ~= compileExpression(cast(BoolExprNode)node.children[1], vars);
-        str ~= "    add    r8, 8\n";
+        str ~= "    add    r8, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                                 ~ "\n";
         str ~= "    mov    rdi, r8\n";
         str ~= "    call   printf\n";
         str ~= "    mov    rdi, __NEWLINE\n";
@@ -1216,7 +1209,8 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
             str ~= "    mov    r8, r11\n";
         }
         // Get the array size
-        str ~= "    mov    r9d, dword [r8+4]\n";
+        str ~= "    mov    r9, qword [r8+" ~ RUNTIME_DATA_SIZE.to!string
+                                           ~ "]\n";
         str ~= "    cmp    r10, r9\n";
         str ~= "    jge    " ~ endForeach
                              ~ "\n";
@@ -1225,8 +1219,8 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         // Multiply counter by size of the array elements to get the elem offset
         str ~= "    imul   r10, " ~ elemSize.to!string
                                   ~ "\n";
-        // Add 8 to get past the ref count and array length bytes
-        str ~= "    add    r10, 8\n";
+        str ~= "    add    r10, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                                  ~ "\n";
         // Actually add in the array pointer value
         str ~= "    add    r10, r8\n";
         // Zero the register if the type is less than 4 bytes
@@ -1391,7 +1385,8 @@ string compileDestructVariantPattern(DestructVariantPatternNode node,
                                               .to!string
                                         ~ "]\n";
     str ~= "    ; variant deconstruction match\n";
-    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    mov    r9, qword [r8+" ~ RUNTIME_DATA_SIZE.to!string
+                                       ~ "]\n";
     str ~= "    cmp    r9, " ~ memberTag.to!string
                              ~ "\n";
     // If the tag doesn't match, jump to the next match arm
@@ -1438,7 +1433,7 @@ string compileDestructVariantPattern(DestructVariantPatternNode node,
                                        ~ ", "
                                        ~ getWordSize(valueSize)
                                        ~ " [r8+"
-                                       ~ (REF_COUNT_SIZE
+                                       ~ (RUNTIME_DATA_SIZE
                                         + VARIANT_TAG_SIZE
                                         + memberOffset).to!string
                                        ~ "]\n";
@@ -1482,7 +1477,7 @@ string compileStructPattern(StructPatternNode node, Context* vars)
         str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2].to!string
                                             ~ "]\n";
         // r8 is now a pointer to the beginning of the member of the struct
-        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+        str ~= "    add    r8, " ~ (RUNTIME_DATA_SIZE
                                   + STRUCT_BUFFER_SIZE
                                   + memberOffset).to!string
                                  ~ "\n";
@@ -1542,12 +1537,13 @@ string compileStringPattern(StringPatternNode node, Context* vars)
     str ~= compileStringLit(cast(StringLitNode)node.children[0], vars);
     str ~= "    mov    r9, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
                                         ~ "]\n";
-    // Strings to compare are in r8 and r9
-    // Increment pointers to point at the beginning of the string data, skipping
-    // ref count and string length. Since these strings are null-terminated,
-    // we can just call strcmp
-    str ~= "    add    r8, 8\n";
-    str ~= "    add    r9, 8\n";
+    // Strings to compare are in r8 and r9 Increment pointers to point at the
+    // beginning of the string data, skipping runtime data and string length.
+    // Since these strings are null-terminated, we can just call strcmp
+    str ~= "    add    r8, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                             ~ "\n";
+    str ~= "    add    r9, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                             ~ "\n";
     str ~= "    mov    rdi, r9\n";
     str ~= "    mov    rsi, r8\n";
     str ~= "    call   strcmp\n";
@@ -1667,7 +1663,8 @@ string compileArrayEmptyPattern(ArrayEmptyPatternNode node, Context* vars)
     str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
                                         ~ "]\n";
     // Get array length
-    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    mov    r9, qword [r8+" ~ RUNTIME_DATA_SIZE.to!string
+                                       ~ "]\n";
     str ~= "    cmp    r9, 0\n";
     str ~= "    jne    " ~ vars.matchNextWhenLabel[$-1]
                          ~ "\n";
@@ -1696,7 +1693,8 @@ string compileArrayPattern(ArrayPatternNode node, Context* vars)
     }
     auto length = endIndex;
     // Get array length
-    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    mov    r9, qword [r8+" ~ RUNTIME_DATA_SIZE.to!string
+                                       ~ "]\n";
     str ~= "    cmp    r9, " ~ length.to!string
                              ~ "\n";
     // In this case, we're matching against an exact array length
@@ -1755,8 +1753,8 @@ string compileArrayPattern(ArrayPatternNode node, Context* vars)
                                    ~ ", "
                                    ~ getWordSize(valueSize)
                                    ~ " [r8+"
-                                   ~ (REF_COUNT_SIZE
-                                    + MELLOW_STR_SIZE
+                                   ~ (RUNTIME_DATA_SIZE
+                                    + STR_SIZE
                                     + memberOffset).to!string
                                    ~ "]\n";
             str ~= "    mov    qword [rbp-"
@@ -1794,7 +1792,8 @@ string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
         headId = getIdentifier(cast(IdentifierNode)node.children[0]);
     }
     // Get array length
-    str ~= "    mov    r9d, dword [r8+4]\n";
+    str ~= "    mov    r9, qword [r8+" ~ RUNTIME_DATA_SIZE.to!string
+                                       ~ "]\n";
     // Determine if there are enough elements in the array to compare against
     // every node in the array match
     str ~= "    cmp    r9, " ~ (node.children.length - startIndex).to!string
@@ -1851,8 +1850,8 @@ string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
         case 4:
         case 8:
         default:
-            str ~= "    add    r8, " ~ (REF_COUNT_SIZE
-                                      + MELLOW_STR_SIZE).to!string
+            str ~= "    add    r8, " ~ (RUNTIME_DATA_SIZE
+                                      + STR_SIZE).to!string
                                      ~ "\n";
             str ~= "    add    r8, r9\n";
             // Get the value and put it in the top of the match type
@@ -1899,7 +1898,8 @@ string compileVarOrBareVariantPattern(VarOrBareVariantPatternNode node,
     {
         str ~= "    ; Bare variant match\n";
         auto memberTag = type.variantDef.getMemberIndex(name);
-        str ~= "    mov    r9d, dword [r8+4]\n";
+        str ~= "    mov    r9, qword [r8+" ~ RUNTIME_DATA_SIZE.to!string
+                                           ~ "]\n";
         str ~= "    cmp    r9, " ~ memberTag.to!string
                                  ~ "\n";
         // If the tag doesn't match, jump to the next match arm
@@ -1914,11 +1914,6 @@ string compileVarOrBareVariantPattern(VarOrBareVariantPatternNode node,
         var.varName = name;
         var.type = type;
         vars.addStackVar(var);
-        // Increase the ref-count by 1 for dynamically allocated types
-        if (type.isRefType)
-        {
-            str ~= "    add    dword [r8], 1\n";
-        }
         str ~= vars.compileVarSet(name);
     }
     return str;
@@ -1955,13 +1950,6 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
         var.varName = varName;
         var.type = type;
         vars.addStackVar(var);
-        // Increase the ref-count by 1 for dynamically allocated types
-        if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING
-            || type.tag == TypeEnum.VARIANT || type.tag == TypeEnum.STRUCT
-            || type.tag == TypeEnum.HASH || type.tag == TypeEnum.SET)
-        {
-            str ~= "    add    dword [r8], 1\n";
-        }
         // Note the use of str in the expression, which is why we're not ~=ing
         str = "    ; var infer assign [" ~ varName
                                          ~ "]\n"
@@ -2035,16 +2023,13 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
     {
     case TypeEnum.STRING:
         str ~= "    ; allocate empty string\n";
-        str ~= "    mov    rdi, " ~ (REF_COUNT_SIZE
-                                   + MELLOW_STR_SIZE).to!string
+        str ~= "    mov    rdi, " ~ (RUNTIME_DATA_SIZE
+                                   + STR_SIZE).to!string
                                   ~ "\n";
         str ~= "    call   malloc\n";
-        // Set the refcount to 1, as we're assigning this empty string to a
-        // variable
-        str ~= "    mov    dword [rax], 1\n";
         // Set the length of the string, where the string size location is just
-        // past the ref count
-        str ~= "    mov    dword [rax+" ~ REF_COUNT_SIZE.to!string
+        // past the runtime data
+        str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
                                         ~ "], 0\n";
         // The string value ptr sits in r8
         str ~= "    mov    r8, rax\n";
@@ -2069,23 +2054,24 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
             str ~= "    mov    qword [rbp-" ~ arrayLenLoc ~ "], r8\n";
             str ~= "    mov    rdi, r8\n";
             str ~= "    imul   rdi, " ~ elemSize.to!string ~ "\n";
-            str ~= "    add    rdi, 8\n";
+            str ~= "    add    rdi, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                                      ~ "\n";
             str ~= "    call   malloc\n";
-            // Set the refcount to 1, as we're assigning this array to a
-            // variable
-            str ~= "    mov    dword [rax], 1\n";
             // Retrive the array length value
             str ~= "    mov    r8, qword [rbp-" ~ arrayLenLoc ~ "]\n";
             // Set array length to number of elements
-            str ~= "    mov    dword [rax+4], r8d\n";
+            str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
+                                            ~ "], r8\n";
             str ~= "    mov    r8, rax\n";
         }
         else
         {
-            str ~= "    mov    rdi, 8\n";
+            str ~= "    mov    rdi, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                                      ~ "\n";
             str ~= "    call   malloc\n";
-            str ~= "    mov    dword [rax], 1\n";
-            str ~= "    mov    dword [rax+4], 0\n";
+            str ~= "    mov    qword [rax], 1\n";
+            str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
+                                            ~ "], 0\n";
             str ~= "    mov    r8, rax\n";
         }
         break;
@@ -2100,16 +2086,15 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         break;
     case TypeEnum.CHAN:
         auto elemSize = pair.type.chan.chanType.size;
-        auto totalAllocSize = REF_COUNT_SIZE
+        auto totalAllocSize = RUNTIME_DATA_SIZE
                             + CHAN_VALID_SIZE
                             + elemSize;
         str ~= "    mov    rdi, " ~ totalAllocSize.to!string
                                   ~ "\n";
         str ~= "    call   malloc\n";
-        // Set the refcount to 1, as we're assigning this chan to a variable
-        str ~= "    mov    dword [rax], 1\n";
         // Set chan valid-element segment to false
-        str ~= "    mov    dword [rax+4], 0\n";
+        str ~= "    mov    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
+                                        ~ "], 0\n";
         str ~= "    mov    r8, rax\n";
         break;
     case TypeEnum.LONG:
@@ -2142,16 +2127,6 @@ string compileAssignExisting(AssignExistingNode node, Context* vars)
     auto leftType = node.children[0].data["type"].get!(Type*);
     auto rightType = node.children[2].data["type"].get!(Type*);
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[2], vars);
-    // Set the refcount for array and string temporaries to 1, since we're
-    // actually storing the value now
-    if (rightType.tag == TypeEnum.ARRAY || rightType.tag == TypeEnum.STRING)
-    {
-        auto label = vars.getUniqLabel();
-        str ~= "    cmp    dword [r8], 0\n";
-        str ~= "    jnz    " ~ label ~ "\n";
-        str ~= "    mov    dword [r8], 1\n";
-        str ~= label ~ ":\n";
-    }
     vars.allocateStackSpace(8);
     auto valLoc = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
@@ -2365,7 +2340,8 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
     // Get actual array pointer from the address of the pointer in r8
     str ~= "    mov    r13, [r8]\n";
     // Get array length
-    str ~= "    mov    r10d, dword [r13+4]\n";
+    str ~= "    mov    r10, qword [r13+" ~ RUNTIME_DATA_SIZE.to!string
+                                         ~ "]\n";
     // Get alloc size in r12
     str ~= "    mov    r11, r10\n";
     str ~= "    mov    r12, r11\n";
@@ -2380,14 +2356,16 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
     auto newAlloc = vars.getUniqLabel;
     str ~= "    je     " ~ newAlloc ~ "\n";
     // Move the new element in r9 into the next empty spot in the array in r13
-    str ~= "    add    r11, 8\n";
+    str ~= "    add    r11, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                              ~ "\n";
     str ~= "    add    r11, r13\n";
     str ~= "    mov    " ~ getWordSize(typeSize)
                          ~ " [r11], r9"
                          ~ getRRegSuffix(typeSize)
                          ~ "\n";
     // Increment array length
-    str ~= "    add    dword [r13+4], 1\n";
+    str ~= "    add    qword [r13+" ~ RUNTIME_DATA_SIZE.to!string
+                                    ~ "], 1\n";
     auto endAppend = vars.getUniqLabel;
     str ~= "    jmp    " ~ endAppend ~ "\n";
     str ~= newAlloc ~ ":\n";
@@ -2398,16 +2376,19 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
     // The array length is still in r10
     str ~= "    add    r11, 1\n";
     str ~= "    mov    rsi, r11\n";
-    // Add back the ref count and array length portions
-    str ~= "    add    rsi, 8\n";
+    // Add back the runtime data and array length portions
+    str ~= "    add    rsi, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                              ~ "\n";
     // r13 contains the original array pointer
     str ~= "    mov    rdi, r13\n";
     str ~= compileRegSave(["r8", "r9", "r12"], vars);
     str ~= "    call   realloc\n";
     str ~= compileRegRestore(["r8", "r9", "r12"], vars);
     // r12 still contains the old array alloc length, which happens to be where
-    // the new element needs to go, minus the ref count and array length offset
-    str ~= "    add    r12, 8\n";
+    // the new element needs to go, minus the runtime data and array length
+    // offset
+    str ~= "    add    r12, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                              ~ "\n";
     // Add in the actual array pointer
     str ~= "    add    r12, rax\n";
     // Mov the new element into its spot
@@ -2416,7 +2397,8 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
                          ~ getRRegSuffix(typeSize)
                          ~ "\n";
     // Increment realloc'd array length
-    str ~= "    add    dword [rax+4], 1\n";
+    str ~= "    add    qword [rax+" ~ RUNTIME_DATA_SIZE.to!string
+                                    ~ "], 1\n";
     // r8 contains the address within which the array pointer is stored, so
     // we can just shove the new rax pointer back into [r8]
     str ~= "    mov    qword [r8], rax\n";
@@ -2471,7 +2453,7 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
         // be doing a dot access is a pointer with elements.
         str ~= "    mov    r8, qword [r8]\n";
         // r8 is now a pointer to the beginning of the member of the struct
-        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+        str ~= "    add    r8, " ~ (RUNTIME_DATA_SIZE
                                   + STRUCT_BUFFER_SIZE
                                   + memberOffset).to!string
                                  ~ "\n";
@@ -2494,14 +2476,16 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
 
         // Populate length sentinel
         str ~= "    mov    r9, [r8]\n";
-        str ~= "    mov    r11d, dword [r9+4]\n";
+        str ~= "    mov    r11, qword [r9+" ~ RUNTIME_DATA_SIZE.to!string
+                                            ~ "]\n";
         str ~= "    mov    qword [__ZZlengthSentinel], r11\n";
         str ~= compileSingleIndex(cast(SingleIndexNode)child, vars);
         str ~= "    mov    r9, qword [rbp-" ~ valLoc ~ "]\n";
         if (!vars.release)
         {
             str ~= "    mov    r11, [r9]\n";
-            str ~= "    mov    r11d, dword [r11+4]\n";
+            str ~= "    mov    r11, qword [r11+" ~ RUNTIME_DATA_SIZE.to!string
+                                                 ~ "]\n";
             vars.runtimeExterns["printf"] = true;
             // Now, compare the array size to the index value
             auto inBoundsLabel = vars.getUniqLabel;
@@ -2526,8 +2510,9 @@ string compileLorRTrailer(LorRTrailerNode node, Context* vars)
         // [r9] is the actual variable we're indexing, so
         // [r9]+(header offset + r8 * type.size) is the address we want
         str ~= "    mov    r9, [r9]\n";
-        // Add offset for ref count and array length
-        str ~= "    add    r9, 8\n";
+        // Add offset for runtime data and array length
+        str ~= "    add    r9, " ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                                 ~ "\n";
         // Get index offset
         str ~= "    imul   r8, " ~ type.size.to!string ~ "\n";
         // Get completed address in r8
@@ -2594,13 +2579,6 @@ string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
         var.varName = varName;
         var.type = type;
         vars.addStackVar(var);
-        // Increase the ref-count by 1 for dynamically allocated types
-        if (type.tag == TypeEnum.ARRAY || type.tag == TypeEnum.STRING
-            || type.tag == TypeEnum.VARIANT || type.tag == TypeEnum.STRUCT
-            || type.tag == TypeEnum.HASH || type.tag == TypeEnum.SET)
-        {
-            str ~= "    add    dword [r8], 1\n";
-        }
         // Note the use of str in the expression, which is why we're not ~=ing
         str = "    ; var infer assign [" ~ varName
                                          ~ "]\n"
@@ -2803,15 +2781,18 @@ string compileChanWrite(ChanWriteNode node, Context* vars)
     str ~= tryWrite ~ ":\n";
     str ~= "    ; Test if the channel has a valid value in it already,\n";
     str ~= "    ; yield if yes, write if not\n";
-    str ~= "    cmp    dword [r9+4], 0\n";
+    str ~= "    cmp    qword [r9+" ~ RUNTIME_DATA_SIZE.to!string
+                                   ~ "], 0\n";
     str ~= "    jnz    " ~ cannotWrite
                          ~ "\n";
     str ~= "    mov    " ~ getWordSize(valSize)
-                         ~ " [r9+8], r8"
+                         ~ " [r9+" ~ (RUNTIME_DATA_SIZE + STR_SIZE).to!string
+                                   ~ "], r8"
                          ~ getRRegSuffix(valSize)
                          ~ "\n";
     // Set the channel to declare it contains valid data
-    str ~= "    mov    dword [r9+4], 1\n";
+    str ~= "    mov    qword [r9+" ~ RUNTIME_DATA_SIZE.to!string
+                                   ~ "], 1\n";
     str ~= "    jmp    " ~ successfulWrite
                          ~ "\n";
     str ~= cannotWrite ~ ":\n";
@@ -3019,7 +3000,7 @@ string compileVariantArgList(FuncCallArgListNode node, Context* vars)
             auto memberOffset = memberTypeSizes.getAlignedIndexOffset(i);
             str ~= "    mov    r10, qword [rbp-" ~ variantLoc
                                                  ~ "]\n";
-            str ~= "    add    r10, " ~ (REF_COUNT_SIZE
+            str ~= "    add    r10, " ~ (RUNTIME_DATA_SIZE
                                        + VARIANT_TAG_SIZE
                                        + memberOffset).to!string
                                       ~ "\n";

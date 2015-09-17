@@ -3,8 +3,8 @@
 
 struct MaybeChar
 {
-    uint32_t refCount;
-    uint32_t variantTag;
+    uint64_t runtimeData;
+    uint64_t variantTag;
     char c;
 };
 

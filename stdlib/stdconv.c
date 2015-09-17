@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
-#include "stdconv.h"
 #include <string.h>
+#include "stdconv.h"
 #include "mellow_internal.h"
 
 int ord(char c)
@@ -13,7 +13,7 @@ void* chr(int c)
 {
     struct MaybeChar* maybeChar =
         (struct MaybeChar*)malloc(sizeof(struct MaybeChar));
-    maybeChar->refCount = 1;
+    maybeChar->runtimeData = 0;
     if (c <= 0xFF)
     {
         // Set tag to Some
@@ -32,30 +32,28 @@ void* charToString(char c)
 {
     // The 1 is for space for the null byte
     void* mellowStr = malloc(
-        REF_COUNT_SIZE + MELLOW_STR_SIZE + sizeof(char) + 1
+        HEAD_SIZE + sizeof(char) + 1
     );
     // Set the ref count
-    ((uint32_t*)mellowStr)[0] = 1;
+    ((uint64_t*)mellowStr)[0] = 1;
     // Set the string length
-    ((uint32_t*)mellowStr)[1] = 1;
+    ((uint64_t*)mellowStr)[1] = 1;
     // Set the char in the string
-    ((uint32_t*)mellowStr)[2] = c;
+    ((uint8_t*)(mellowStr + HEAD_SIZE))[0] = c;
     // Set the null byte
-    ((uint32_t*)mellowStr)[3] = '\0';
+    ((uint8_t*)(mellowStr + HEAD_SIZE))[1] = '\0';
     return mellowStr;
 }
 
 void* stringToChars(void* str) {
-    uint32_t strLen = ((uint32_t*)(str + REF_COUNT_SIZE))[0];
-    const uint32_t totalSize = REF_COUNT_SIZE
-                             + MELLOW_STR_SIZE
-                             + strLen;
+    uint64_t strLen = ((uint64_t*)(str + RUNTIME_DATA_SIZE))[0];
+    const uint64_t totalSize = HEAD_SIZE + strLen;
     void* mellowArr = malloc(totalSize);
-    ((uint32_t*)mellowArr)[0] = 1;
-    ((uint32_t*)mellowArr)[1] = strLen;
+    ((uint64_t*)mellowArr)[0] = 1;
+    ((uint64_t*)mellowArr)[1] = strLen;
     memcpy(
-        mellowArr + REF_COUNT_SIZE + MELLOW_STR_SIZE,
-        str + REF_COUNT_SIZE + MELLOW_STR_SIZE,
+        mellowArr + HEAD_SIZE,
+        str + HEAD_SIZE,
         strLen
     );
     return mellowArr;
@@ -63,7 +61,7 @@ void* stringToChars(void* str) {
 
 void* charsToString(void* chs) {
     return mellow_allocString(
-        chs + REF_COUNT_SIZE + MELLOW_STR_SIZE,
-        ((uint32_t*)(chs + REF_COUNT_SIZE))[0]
+        chs + HEAD_SIZE,
+        ((uint64_t*)(chs + RUNTIME_DATA_SIZE))[0]
     );
 }

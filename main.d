@@ -730,7 +730,7 @@ string compileArgvStringArray(Context* vars)
     ; Set refcount to 1
     mov    dword [r13], 1
     ; Set []string length
-    mov    dword [r13+4], r14d
+    mov    qword [r13+8], r14
     ; r12 is the counter for looping through argc
     mov    r12, 0
 .loop:
@@ -755,7 +755,7 @@ string compileArgvStringArray(Context* vars)
     ; Set ref count to 1 for new string
     mov    dword [rax], 1
     ; Set string length for new string
-    mov    dword [rax+4], ebx
+    mov    qword [rax+8], rbx
     ; Place pointer for string into []string, which is still in r13.
     ; Need to calculate offset into r13 using the r12 counter
     mov    r8, r13
