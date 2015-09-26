@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "../runtime/gc.h"
 
 // mellow-string:
 // [uint64_t ref-count, uint64_t string length, len bytes char[], 1 null-byte]
@@ -28,22 +29,24 @@ void* mellow_allocString(const char* str, const uint64_t length);
 // Make a copy of the string, with a ref-count of 1
 void* mellow_copyString(void* str);
 
-// Deallocate all memory allocated by mellow_allocString()
-void mellow_freeString(void* mellowString);
-
 void* __arr_arr_append(void* left, void* right,
-                       size_t elem_size, uint64_t is_str);
+                       size_t elem_size, uint64_t is_str,
+                       GC_Env* gc_env);
 
 void* __elem_arr_append(uint64_t left, void* right,
-                        size_t elem_size, uint64_t is_str);
+                        size_t elem_size, uint64_t is_str,
+                        GC_Env* gc_env);
 
 void* __arr_elem_append(void* left, uint64_t right,
-                        size_t elem_size, uint64_t is_str);
+                        size_t elem_size, uint64_t is_str,
+                        GC_Env* gc_env);
 
 void* __elem_elem_append(uint64_t left, uint64_t right,
-                         size_t elem_size, uint64_t is_str);
+                         size_t elem_size, uint64_t is_str,
+                         GC_Env* gc_env);
 
 void* __arr_slice(void* arr, uint64_t lindex, uint64_t rindex,
-                  uint64_t elem_size, uint64_t is_str);
+                  uint64_t elem_size, uint64_t is_str,
+                  GC_Env* gc_env);
 
 #endif

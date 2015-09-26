@@ -388,6 +388,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
         {
             str ~= "    mov     rcx, 0\n";
         }
+        str ~= compileGetGCEnv("r8", vars);
         str ~= "    call    __elem_elem_append\n";
         str ~= "    mov     r8, rax\n";
     }
@@ -399,6 +400,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
                                          .to!string
                                    ~ "\n";
         str ~= "    mov     rcx, 1\n";
+        str ~= compileGetGCEnv("r8", vars);
         if (rightType.tag == TypeEnum.STRING)
         {
             str ~= "    call    __arr_arr_append\n";
@@ -419,6 +421,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
                                          .to!string
                                    ~ "\n";
         str ~= "    mov     rcx, 1\n";
+        str ~= compileGetGCEnv("r8", vars);
         // Left type is char
         str ~= "    call    __elem_arr_append\n";
         str ~= "    mov     r8, rax\n";
@@ -433,6 +436,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
                                              .to!string
                                    ~ "\n";
         str ~= "    mov     rcx, 0\n";
+        str ~= compileGetGCEnv("r8", vars);
         // Appending two arrays of the same type
         if (leftType.cmp(rightType))
         {
@@ -455,6 +459,7 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
                                              .to!string
                                    ~ "\n";
         str ~= "    mov     rcx, 0\n";
+        str ~= compileGetGCEnv("r8", vars);
         // Appending an element of the array type (left) to the
         // array (right)
         str ~= "    call    __elem_arr_append\n";
@@ -464,18 +469,6 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     {
         assert(false, "Unreachable");
     }
-    vars.allocateStackSpace(8);
-    auto scratchLoc = vars.getTop.to!string;
-    scope (exit) vars.deallocateStackSpace(8);
-    // The ptr is in r8; add the ptr to be tracked by the gc ensure r8 isn't
-    // overwritten
-    str ~= "    mov     qword [rbp-" ~ scratchLoc
-                                    ~ "], r8\n";
-    str ~= "    mov     rdi, r8\n";
-    str ~= compileGetGCEnv("rsi", vars);
-    str ~= "    call    __GC_track\n";
-    str ~= "    mov     r8, qword [rbp-" ~ scratchLoc
-                                         ~ "]\n";
     str ~= "    ; append op (~) algorithm end\n";
     return str;
 }
@@ -998,6 +991,7 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         {
             str ~= "    mov    r8, 0\n";
         }
+        str ~= compileGetGCEnv("r9", vars);
         str ~= "    call    __arr_slice\n";
         str ~= "    mov     r8, rax\n";
     }

@@ -107,3 +107,12 @@ void __GC_sweep(GC_Env* gc_env)
     // After this algorithm: gc_env->allocs_len == i + 1 == j + 1
     gc_env->allocs_len = i + 1;
 }
+
+void __GC_clear_marks(GC_Env* gc_env)
+{
+    uint64_t i;
+    for (i = 0; i < gc_env->allocs_end; i++)
+    {
+        ((uint8_t*)(gc_env->allocs[i]))[0] &= 0b01111111;
+    }
+}
