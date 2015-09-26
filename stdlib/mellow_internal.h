@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "../runtime/gc.h"
 
 // mellow-string:
 // [uint64_t ref-count, uint64_t string length, len bytes char[], 1 null-byte]
@@ -30,23 +29,18 @@ void* mellow_allocString(const char* str, const uint64_t length);
 void* mellow_copyString(void* str);
 
 void* __arr_arr_append(void* left, void* right,
-                       size_t elem_size, uint64_t is_str,
-                       GC_Env* gc_env);
+                       size_t elem_size, uint64_t is_str);
 
 void* __elem_arr_append(uint64_t left, void* right,
-                        size_t elem_size, uint64_t is_str,
-                        GC_Env* gc_env);
+                        size_t elem_size, uint64_t is_str);
 
 void* __arr_elem_append(void* left, uint64_t right,
-                        size_t elem_size, uint64_t is_str,
-                        GC_Env* gc_env);
+                        size_t elem_size, uint64_t is_str);
 
 void* __elem_elem_append(uint64_t left, uint64_t right,
-                         size_t elem_size, uint64_t is_str,
-                         GC_Env* gc_env);
+                         size_t elem_size, uint64_t is_str);
 
 void* __arr_slice(void* arr, uint64_t lindex, uint64_t rindex,
-                  uint64_t elem_size, uint64_t is_str,
-                  GC_Env* gc_env);
+                  uint64_t elem_size, uint64_t is_str);
 
 #endif

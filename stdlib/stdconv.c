@@ -1,8 +1,8 @@
-#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include "stdconv.h"
 #include "mellow_internal.h"
+#include "../runtime/runtime_vars.h"
 
 int ord(char c)
 {
@@ -11,8 +11,9 @@ int ord(char c)
 
 void* chr(int c)
 {
+    GC_Env* gc_env = __get_GC_Env();
     struct MaybeChar* maybeChar =
-        (struct MaybeChar*)malloc(sizeof(struct MaybeChar));
+        (struct MaybeChar*)__GC_malloc(sizeof(struct MaybeChar), gc_env);
     maybeChar->runtimeData = 0;
     if (c <= 0xFF)
     {
@@ -30,9 +31,11 @@ void* chr(int c)
 
 void* charToString(char c)
 {
+    GC_Env* gc_env = __get_GC_Env();
     // The 1 is for space for the null byte
-    void* mellowStr = malloc(
-        HEAD_SIZE + sizeof(char) + 1
+    void* mellowStr = __GC_malloc(
+        HEAD_SIZE + sizeof(char) + 1,
+        gc_env
     );
     // Set the ref count
     ((uint64_t*)mellowStr)[0] = 1;
@@ -46,9 +49,10 @@ void* charToString(char c)
 }
 
 void* stringToChars(void* str) {
+    GC_Env* gc_env = __get_GC_Env();
     uint64_t strLen = ((uint64_t*)(str + RUNTIME_DATA_SIZE))[0];
     const uint64_t totalSize = HEAD_SIZE + strLen;
-    void* mellowArr = malloc(totalSize);
+    void* mellowArr = __GC_malloc(totalSize, gc_env);
     ((uint64_t*)mellowArr)[0] = 1;
     ((uint64_t*)mellowArr)[1] = strLen;
     memcpy(

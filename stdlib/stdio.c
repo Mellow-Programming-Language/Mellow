@@ -5,6 +5,7 @@
 #include <assert.h>
 #include "stdio.h"
 #include "mellow_internal.h"
+#include "../runtime/runtime_vars.h"
 
 void writeln(void* mellowStr)
 {
@@ -18,13 +19,15 @@ void write(void* mellowStr)
 
 void* readln()
 {
+    GC_Env* gc_env = __get_GC_Env();
     char* buffer = NULL;
     size_t len = 0;
 
     size_t bytesRead = getline(&buffer, &len, stdin);
     // The 1 is for space for the null byte
-    void* mellowStr = malloc(
-        HEAD_SIZE + bytesRead + 1
+    void* mellowStr = __GC_malloc(
+        HEAD_SIZE + bytesRead + 1,
+        gc_env
     );
     // Set the ref count
     ((uint32_t*)mellowStr)[0] = 1;
@@ -37,10 +40,11 @@ void* readln()
 
 struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
 {
+    GC_Env* gc_env = __get_GC_Env();
     // Allocate space for a Maybe!File, which needs space for the ref-count, the
     // variant tag and space for the File ref in Some (File)
     struct MaybeFile* maybeFile =
-        (struct MaybeFile*)malloc(sizeof(struct MaybeFile));
+        (struct MaybeFile*)__GC_malloc(sizeof(struct MaybeFile), gc_env);
     FILE* file;
     switch (mode->mode)
     {
@@ -57,8 +61,10 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
     }
     if (file != NULL)
     {
-        struct MellowFile* fileRef = (struct MellowFile*)
-                                   malloc(sizeof(struct MellowFile));
+        struct MellowFile* fileRef = (struct MellowFile*)__GC_malloc(
+            sizeof(struct MellowFile),
+            gc_env
+        );
         fileRef->refCount = 1;
         fileRef->openMode = mode->mode;
         fileRef->ptr = file;
@@ -89,7 +95,11 @@ void mellow_fclose(struct MellowFile* file)
 
 struct MaybeStr* mellow_freadln(struct MellowFile* file)
 {
-    struct MaybeStr* str = (struct MaybeStr*)malloc(sizeof(struct MaybeStr));
+    GC_Env* gc_env = __get_GC_Env();
+    struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
+        sizeof(struct MaybeStr),
+        gc_env
+    );
     str->refCount = 0;
     if (file->isOpen)
     {
@@ -107,8 +117,9 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
             // Set tag to Some
             str->variantTag = 0;
             // The 1 is for space for the null byte
-            void* mellowStr = malloc(
-                HEAD_SIZE + bytesRead + 1
+            void* mellowStr = __GC_malloc(
+                HEAD_SIZE + bytesRead + 1,
+                gc_env
             );
             // Set the ref count
             ((uint32_t*)mellowStr)[0] = 1;

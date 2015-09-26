@@ -4,13 +4,16 @@
 #include <string.h>
 #include "mellow_internal.h"
 #include "../runtime/gc.h"
+#include "../runtime/runtime_vars.h"
 
-void* mellow_allocString(const char* str, const uint64_t strLength) {
+void* mellow_allocString(const char* str, const uint64_t strLength)
+{
+    GC_Env* gc_env = __get_GC_Env();
     // The length of the array of characters plus the bytes allocated to hold
     // the ref-count plus the bytes allocated to hold the string length plus
     // a byte to hold the null byte
     const uint64_t totalSize = HEAD_SIZE + strLength + 1;
-    void* mellowString = malloc(totalSize);
+    void* mellowString = __GC_malloc(totalSize, gc_env);
     // Set the ref-count to 1
     ((uint64_t*)mellowString)[0] = 1;
     // set the str-len to the length of the array of characters
@@ -31,9 +34,9 @@ void* mellow_copyString(void* str)
 }
 
 void* __arr_arr_append(void* left, void* right,
-                       size_t elem_size, uint64_t is_str,
-                       GC_Env* gc_env)
+                       size_t elem_size, uint64_t is_str)
 {
+    GC_Env* gc_env = __get_GC_Env();
     size_t llen = ((uint64_t*)left)[1];
     size_t rlen = ((uint64_t*)right)[1];
     size_t nlen = llen + rlen;
@@ -66,9 +69,9 @@ void* __arr_arr_append(void* left, void* right,
 }
 
 void* __elem_arr_append(uint64_t left, void* right,
-                        size_t elem_size, uint64_t is_str,
-                        GC_Env* gc_env)
+                        size_t elem_size, uint64_t is_str)
 {
+    GC_Env* gc_env = __get_GC_Env();
     size_t rlen = ((uint64_t*)right)[1];
     size_t nlen = 1 + rlen;
     size_t full_len = HEAD_SIZE + (nlen * elem_size);
@@ -100,9 +103,9 @@ void* __elem_arr_append(uint64_t left, void* right,
 }
 
 void* __arr_elem_append(void* left, uint64_t right,
-                        size_t elem_size, uint64_t is_str,
-                        GC_Env* gc_env)
+                        size_t elem_size, uint64_t is_str)
 {
+    GC_Env* gc_env = __get_GC_Env();
     size_t llen = ((uint64_t*)left)[1];
     size_t nlen = llen + 1;
     size_t full_len = HEAD_SIZE + (nlen * elem_size);
@@ -134,9 +137,9 @@ void* __arr_elem_append(void* left, uint64_t right,
 }
 
 void* __elem_elem_append(uint64_t left, uint64_t right,
-                         size_t elem_size, uint64_t is_str,
-                         GC_Env* gc_env)
+                         size_t elem_size, uint64_t is_str)
 {
+    GC_Env* gc_env = __get_GC_Env();
     size_t nlen = 1 + 1;
     size_t full_len = HEAD_SIZE + (nlen * elem_size);
     void* new_arr;
@@ -167,9 +170,9 @@ void* __elem_elem_append(uint64_t left, uint64_t right,
 }
 
 void* __arr_slice(void* arr, uint64_t lindex, uint64_t rindex,
-                  uint64_t elem_size, uint64_t is_str,
-                  GC_Env* gc_env)
+                  uint64_t elem_size, uint64_t is_str)
 {
+    GC_Env* gc_env = __get_GC_Env();
     size_t len = ((uint64_t*)arr)[1];
     size_t nlen;
     void* new_arr;

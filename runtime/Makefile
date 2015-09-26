@@ -13,13 +13,16 @@ CC_MULTITHREAD = -D MULTITHREAD -pthread
 LD_LIBS = $(shell find / -name 'libpthread.*' -print 2> /dev/null | perl -MFile::Basename -e 'print join " ", map {$$t = $$_; chomp $$t; (undef, $$t, undef) = fileparse $$t; "-L $$t"} <STDIN>')
 LD_MULTITHREAD = $(LD_LIBS) -lpthread
 
-runtime.o: callFunc.o scheduler.o realloc_stack.o gc.o
-	ld -r callFunc.o scheduler.o realloc_stack.o gc.o -o runtime.o
+runtime.o: callFunc.o scheduler.o realloc_stack.o gc.o runtime_vars.o
+	ld -r callFunc.o scheduler.o realloc_stack.o gc.o runtime_vars.o \
+		-o runtime.o
 
 runtime_multithread.o: callFunc_multithread.o scheduler_multithread.o tls.o \
-					   realloc_stack_multithread.o gc.o
+					   realloc_stack_multithread.o gc.o \
+					   runtime_vars_multithread.o
 	ld $(LD_MULTITHREAD) -r callFunc_multithread.o scheduler_multithread.o \
-	    tls.o realloc_stack_multithread.o gc.o -o runtime_multithread.o
+		tls.o realloc_stack_multithread.o gc.o runtime_vars_multithread.o \
+		-o runtime_multithread.o
 
 callFunc.o: callFunc.asm
 	$(ASM) $(ASM_FLAGS) callFunc.asm
@@ -38,7 +41,15 @@ realloc_stack_multithread.o: scheduler.c scheduler.h realloc_stack.c \
 	$(ASM) $(ASM_FLAGS) stack_realloc.asm
 	$(CC) $(CC_FLAGS) $(CC_MULTITHREAD) -c realloc_stack.c -o realloc_stack_c.o
 	ld $(LD_MULTITHREAD) -r stack_realloc.o realloc_stack_c.o -o \
-	    realloc_stack_multithread.o
+		realloc_stack_multithread.o
+
+runtime_vars.o: runtime_vars.c runtime_vars.h gc.c gc.h scheduler.c scheduler.h
+	$(CC) $(CC_FLAGS) -c runtime_vars.c
+
+runtime_vars_multithread.o: runtime_vars.c runtime_vars.h gc.c gc.h \
+							scheduler.c scheduler.h
+	$(CC) $(CC_FLAGS) $(CC_MULTITHREAD) -c runtime_vars.c \
+		-o runtime_vars_multithread.o
 
 scheduler.o: scheduler.c scheduler.h
 	$(CC) $(CC_FLAGS) -c scheduler.c
