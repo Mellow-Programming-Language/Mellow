@@ -1,7 +1,7 @@
 all: runtime.o runtime_multithread.o
 
 CC = gcc
-CC_FLAGS = -Wall -g
+CC_FLAGS = -Wall
 ASM = nasm
 ASM_FLAGS = -f elf64
 CC_MULTITHREAD = -D MULTITHREAD -pthread
@@ -13,13 +13,13 @@ CC_MULTITHREAD = -D MULTITHREAD -pthread
 LD_LIBS = $(shell find / -name 'libpthread.*' -print 2> /dev/null | perl -MFile::Basename -e 'print join " ", map {$$t = $$_; chomp $$t; (undef, $$t, undef) = fileparse $$t; "-L $$t"} <STDIN>')
 LD_MULTITHREAD = $(LD_LIBS) -lpthread
 
-runtime.o: callFunc.o scheduler.o stack_realloc.o
-	ld -r callFunc.o scheduler.o stack_realloc.o -o runtime.o
+runtime.o: callFunc.o scheduler.o realloc_stack.o
+	ld -r callFunc.o scheduler.o realloc_stack.o -o runtime.o
 
 runtime_multithread.o: callFunc_multithread.o scheduler_multithread.o tls.o \
-					   stack_realloc.o
+					   realloc_stack_multithread.o
 	ld $(LD_MULTITHREAD) -r callFunc_multithread.o scheduler_multithread.o \
-	tls.o stack_realloc.o -o runtime_multithread.o
+	    tls.o realloc_stack_multithread.o -o runtime_multithread.o
 
 callFunc.o: callFunc.asm
 	$(ASM) $(ASM_FLAGS) callFunc.asm
@@ -27,15 +27,25 @@ callFunc.o: callFunc.asm
 callFunc_multithread.o: callFunc_multithread.asm
 	$(ASM) $(ASM_FLAGS) callFunc_multithread.asm
 
-stack_realloc.o: scheduler.c scheduler.h stack_realloc.asm
+realloc_stack.o: scheduler.c scheduler.h realloc_stack.c realloc_stack.h \
+				 stack_realloc.asm
 	$(ASM) $(ASM_FLAGS) stack_realloc.asm
+	$(CC) $(CC_FLAGS) -c realloc_stack.c -o realloc_stack_c.o
+	ld -r stack_realloc.o realloc_stack_c.o -o realloc_stack.o
+
+realloc_stack_multithread.o: scheduler.c scheduler.h realloc_stack.c \
+							 realloc_stack.h stack_realloc.asm
+	$(ASM) $(ASM_FLAGS) stack_realloc.asm
+	$(CC) $(CC_FLAGS) $(CC_MULTITHREAD) -c realloc_stack.c -o realloc_stack_c.o
+	ld $(LD_MULTITHREAD) -r stack_realloc.o realloc_stack_c.o -o \
+	    realloc_stack_multithread.o
 
 scheduler.o: scheduler.c scheduler.h
 	$(CC) $(CC_FLAGS) -c scheduler.c
 
 scheduler_multithread.o: scheduler.c scheduler.h
 	$(CC) $(CC_FLAGS) $(CC_MULTITHREAD) -c scheduler.c \
-	-o scheduler_multithread.o
+	    -o scheduler_multithread.o
 
 tls.o: tls.asm
 	as tls.asm -o tls.o
