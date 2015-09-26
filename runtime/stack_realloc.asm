@@ -1,7 +1,7 @@
 
-    ; Defined in scheduler.c or tls.asm
+    ; Defined in realloc_stack.c or tls.asm
     extern __get_tempstack
-    ; Defined in scheduler.c
+    ; Defined in realloc_stack.c
     extern __mremap_stack
 
     SECTION .text
