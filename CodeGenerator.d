@@ -55,14 +55,14 @@ const STACK_PROLOGUE_SIZE = RBP_SIZE + RETURN_ADDRESS_SIZE;
 const ENVIRON_PTR_SIZE = 8;
 
 const MELLOW_PTR_SIZE = 8; // sizeof(char*))
-const RUNTIME_DATA_SIZE = 8; // sizeof(uint32_t))
+const RUNTIME_DATA_SIZE = 8; // sizeof(uint64_t))
 // THe struct buffer bytes are simply so that the elements of the struct are
 // aligned on an eight-byte boundary to begin with
-const STRUCT_BUFFER_SIZE = 8; // sizeof(uint32_t))
-const STR_SIZE = 8; // sizeof(uint32_t))
-const CHAN_VALID_SIZE = 8; // sizeof(uint32_t))
+const STRUCT_BUFFER_SIZE = 8; // sizeof(uint64_t))
+const STR_SIZE = 8; // sizeof(uint64_t))
+const CHAN_VALID_SIZE = 8; // sizeof(uint64_t))
 const STR_START_OFFSET = RUNTIME_DATA_SIZE + STR_SIZE;
-const VARIANT_TAG_SIZE = 8; // sizeof(uint32_t))
+const VARIANT_TAG_SIZE = 8; // sizeof(uint64_t))
 
 const INT_REG = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 const FLOAT_REG = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
