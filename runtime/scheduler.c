@@ -323,6 +323,8 @@ SKIP_WORKER:
     {
         pthread_join(kernelThreads[i], NULL);
     }
+    // Reset programDone in case we restart the runtime
+    programDone = 0;
 }
 
 void* awaitTask(void* arg)

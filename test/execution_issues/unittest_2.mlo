@@ -1,9 +1,6 @@
 // ISSUE: Unittests with succeeding asserts should not halt the program
 // NO_OUTPUT: true
 // COMPILE_OPTIONS: unittest
-// DONT_RUN_FOR: multithread
-
-// NOTE: This test causes the multithreaded runtime to hang
 
 unittest {
     assert(1 == 1, "1 equals 1");
