@@ -1996,11 +1996,15 @@ class FunctionBuilder : Visitor
         }
         // BareBlockNode
         node.children[2].accept(this);
-        funcScopes[$-1].syms.length--;
         // ElseIfsNode
         node.children[3].accept(this);
         // ElseStmtNode
         node.children[4].accept(this);
+        // Remove all of the scopes opened by any "else if" children
+        funcScopes[$-1].syms.length -= (cast(ElseIfsNode)(
+            node.children[3]
+        )).children.length;
+        funcScopes[$-1].syms.length--;
     }
 
     void visit(ElseIfsNode node)
@@ -2031,7 +2035,6 @@ class FunctionBuilder : Visitor
         }
         // BareBlockNode
         node.children[2].accept(this);
-        funcScopes[$-1].syms.length--;
     }
 
     void visit(ElseStmtNode node)

@@ -1,8 +1,6 @@
-// ISSUE: 78
+// ISSUE: Issues 78 and 79
 // COMPILES: yes
 // NO_OUTPUT: true
-
-// Also addresses Issue 79
 
 func example(T)(v: T) {
     a := v;

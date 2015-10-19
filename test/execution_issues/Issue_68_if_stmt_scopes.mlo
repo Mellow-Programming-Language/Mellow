@@ -1,0 +1,22 @@
+// ISSUE: Issue 68
+// EXPECTS: "if [A] elif [A, B] else [A, B] "
+
+import std.io;
+
+func printer(i: int) {
+    if (a := "A"; i == 0) {
+        write("if [" ~ a ~ "] ");
+    }
+    else if (b := "B"; i == 1) {
+        write("elif [" ~ a ~ ", " ~ b ~ "] ");
+    }
+    else {
+        write("else [" ~ a ~ ", " ~ b ~ "] ");
+    }
+}
+
+func main() {
+    printer(0);
+    printer(1);
+    printer(2);
+}
