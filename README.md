@@ -16,8 +16,8 @@ To build the compiler, run `make` in the toplevel project directory. With the
 proper dependencies installed, and an internet connection, a simple `make`
 should build the full compiler. Note that the `make` process will attempt to
 `git clone` a secondary repository (the parser generator project at
-https://github.com/CollinReeser/ParserGenerator), which is necessary to build
-the compiler.
+https://github.com/Mellow-Programming-Language/ParserGenerator), which is
+necessary to build the compiler.
 
 Help
 ----
