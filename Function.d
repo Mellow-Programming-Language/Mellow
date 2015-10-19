@@ -1847,10 +1847,16 @@ class FunctionBuilder : Visitor
             );
         }
         curFuncCallSig = funcLookup.sig;
+        if (curFuncCallSig.templateParams.length > 0
+            && !cast(TemplateInstantiationNode)node.children[1])
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Template [" ~ name ~ "] must be instantiated to spawn"
+            );
+        }
         if (cast(TemplateInstantiationNode)node.children[1])
         {
-
-
             builderStack.length++;
             node.children[1].accept(this);
             auto templateInstantiations = builderStack[$-1];
@@ -1876,8 +1882,6 @@ class FunctionBuilder : Visitor
             );
             newIdNode.children ~= terminal;
             node.children[0] = newIdNode;
-
-
             node.children[2].accept(this);
         }
         else
@@ -2809,19 +2813,67 @@ class FunctionBuilder : Visitor
         {
             throw new Exception(
                 errorHeader(node) ~ "\n"
-                ~ "No function " ~ name ~ " to spawn"
-            );
-        }
-        if (funcLookup.sig.returnType.tag != TypeEnum.VOID)
-        {
-            throw new Exception(
-                errorHeader(node) ~ "\n"
-                ~ "Cannot spawn non-void function"
+                ~ "No function [" ~ name ~ "] to spawn"
             );
         }
         curFuncCallSig = funcLookup.sig;
-        node.data["sig"] = funcLookup.sig;
-        node.children[1].accept(this);
+        if (curFuncCallSig.templateParams.length > 0
+            && !cast(TemplateInstantiationNode)node.children[1])
+        {
+            throw new Exception(
+                errorHeader(node) ~ "\n"
+                ~ "Template [" ~ name ~ "] must be instantiated to spawn"
+            );
+        }
+        if (cast(TemplateInstantiationNode)node.children[1])
+        {
+            builderStack.length++;
+            node.children[1].accept(this);
+            auto templateInstantiations = builderStack[$-1];
+            builderStack.length--;
+            auto instantiator = new TemplateInstantiator(records);
+            curFuncCallSig = instantiator.instantiateFunction(
+                curFuncCallSig, templateInstantiations
+            );
+            if (curFuncCallSig.returnType.tag != TypeEnum.VOID)
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot spawn non-void function"
+                );
+            }
+            auto existsLookup = funcSigLookup(
+                toplevelFuncs ~ importedFuncSigs, curFuncCallSig.funcName
+            );
+            if (!existsLookup.success)
+            {
+                toplevelFuncs ~= curFuncCallSig;
+                // Add this instantiated, templated function to the end of the
+                // abstract syntax tree, effectively bringing it into existence,
+                // and allowing it to get typechecked later
+                topNode.children ~= curFuncCallSig.funcDefNode;
+            }
+            auto newIdNode = new IdentifierNode();
+            auto terminal = new ASTTerminal(
+                curFuncCallSig.funcName, 0
+            );
+            newIdNode.children ~= terminal;
+            node.data["sig"] = curFuncCallSig;
+            node.children[0] = newIdNode;
+            node.children[2].accept(this);
+        }
+        else
+        {
+            if (curFuncCallSig.returnType.tag != TypeEnum.VOID)
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Cannot spawn non-void function"
+                );
+            }
+            node.data["sig"] = curFuncCallSig;
+            node.children[1].accept(this);
+        }
     }
 
     void visit(YieldStmtNode node)

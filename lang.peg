@@ -99,7 +99,7 @@ ForeachArgs :: Identifier (#"," Identifier)*;
 
 Declaration :: DeclAssignment | DeclTypeInfer | VariableTypePair;
 
-SpawnStmt :: #'spawn' #Sp Identifier FuncCallArgList;
+SpawnStmt :: #'spawn' #Sp Identifier TemplateInstantiation? FuncCallArgList;
 
 YieldStmt :: #'yield' #Sp?;
 
