@@ -1,6 +1,19 @@
 Changelog
 =========
 
+0.9.2
+-----
+
+* Fixed being unable to append a string to an array of strings
+
+* Updated README to note new location of the Parser Generator within the
+Mellow Programming Language organization
+
+0.9.1
+-----
+
+* Fixed not being able to `spawn` templated functions
+
 0.9.0
 -----
 
