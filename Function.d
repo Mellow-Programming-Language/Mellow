@@ -705,9 +705,26 @@ class FunctionBuilder : Visitor
             case "~":
                 if (resultType.tag == TypeEnum.STRING)
                 {
+                    if (nextType.tag == TypeEnum.ARRAY)
+                    {
+                        if (nextType.array.arrayType.tag != TypeEnum.STRING)
+                        {
+                            throw new Exception(
+                                errorHeader(node) ~ "\n"
+                                ~ "Cannot append string to array of "
+                                ~ "non-strings."
+                            );
+                        }
+                        auto arrayType = new ArrayType();
+                        arrayType.arrayType = nextType.array.arrayType;
+                        auto type = new Type();
+                        type.tag = TypeEnum.ARRAY;
+                        type.array = arrayType;
+                        resultType = type;
+                    }
                     // We can only append a string or a char to a string, and
                     // the end result is always a string
-                    if (nextType.tag != TypeEnum.CHAR
+                    else if (nextType.tag != TypeEnum.CHAR
                         && nextType.tag != TypeEnum.STRING)
                     {
                         throw new Exception(
@@ -718,17 +735,31 @@ class FunctionBuilder : Visitor
                 }
                 else if (nextType.tag == TypeEnum.STRING)
                 {
-                    // We can only append a string or a char to a string, and
-                    // the end result is always a string
-                    if (resultType.tag != TypeEnum.CHAR
-                        && resultType.tag != TypeEnum.STRING)
+                    if (resultType.tag == TypeEnum.ARRAY)
                     {
-                        throw new Exception(
-                            errorHeader(node) ~ "\n"
-                            ~ "String append without char or string."
-                        );
+                        if (resultType.array.arrayType.tag != TypeEnum.STRING)
+                        {
+                            throw new Exception(
+                                errorHeader(node) ~ "\n"
+                                ~ "Cannot append string to array of "
+                                ~ "non-strings."
+                            );
+                        }
                     }
-                    resultType = nextType.copy;
+                    else
+                    {
+                        // We can only append a string or a char to a string,
+                        // and the end result is always a string
+                        if (resultType.tag != TypeEnum.CHAR
+                            && resultType.tag != TypeEnum.STRING)
+                        {
+                            throw new Exception(
+                                errorHeader(node) ~ "\n"
+                                ~ "String append without char or string."
+                            );
+                        }
+                        resultType = nextType.copy;
+                    }
                 }
                 else if (resultType.cmp(nextType))
                 {
