@@ -1,9 +1,6 @@
 // ISSUE: Unittests execute with the --unittest flag set
 // EXPECTS: "Unittest executed!"
 // COMPILE_OPTIONS: unittest
-// DONT_RUN_FOR: multithread
-
-// NOTE: This test causes the multithreaded runtime to hang
 
 import std.io;
 

@@ -1,0 +1,18 @@
+// ISSUE: Issue 47
+// EXPECTS: "A B C C A B "
+
+import std.io;
+import std.string;
+
+func main() {
+    strs := ["A", "B"];
+    strs_2 := strs ~ "C";
+    strs_3 := "C" ~ strs;
+    foreach (x; strs_2) {
+        write(x ~ " ");
+    }
+    foreach (x; strs_3) {
+        write(x ~ " ");
+    }
+    writeln("");
+}

@@ -135,19 +135,27 @@ EOF".write;
                 }
                 return 1;
             }
-            if (objFileName == "")
+            if (objFileName != "")
             {
-                return 1;
+                objFileNames ~= objFileName;
             }
-            objFileNames ~= objFileName;
         }
     }
 
     if (context.generateMain)
     {
-        objFileNames ~= compileEntryPoint(
+        auto objFileName = compileEntryPoint(
             context.mainTakesArgv, context, subContext
         );
+        if (objFileName != "")
+        {
+            objFileNames ~= objFileName;
+        }
+    }
+
+    if (objFileNames.length == 0)
+    {
+        return 0;
     }
 
     if (!context.assembleOnly)
@@ -707,7 +715,24 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
     str ~= "    ret\n";
-    return assembleString(str, topContext);
+    if (topContext.compileOnly)
+    {
+        try
+        {
+            std.file.write("__mellow_main_entry.asm", str);
+        }
+        catch (Exception ex)
+        {
+            writeln(
+                "Error: Could not write outfile [__mellow_main_entry.asm]."
+            );
+        }
+        return "";
+    }
+    else
+    {
+        return assembleString(str, topContext);
+    }
 }
 
 // This assembly algorithm assumes the OS-provided argc is in rdi, the

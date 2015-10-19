@@ -1,0 +1,11 @@
+// ISSUE: Issues 78 and 79
+// COMPILES: yes
+// NO_OUTPUT: true
+
+func example(T)(v: T) {
+    a := v;
+}
+
+func main() {
+    spawn example!int(5);
+}

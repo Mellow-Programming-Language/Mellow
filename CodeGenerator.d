@@ -2671,7 +2671,9 @@ string compileSpawnStmt(SpawnStmtNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     vars.runtimeExterns["newProc"] = true;
     auto sig = node.data["sig"].get!(FuncSig*);
-    auto argExprs = (cast(ASTNonTerminal)node.children[1]).children;
+    auto argExprs = (cast(TemplateInstantiationNode)node.children[1])
+                    ? (cast(ASTNonTerminal)node.children[2]).children
+                    : (cast(ASTNonTerminal)node.children[1]).children;
     auto funcArgs = sig.funcArgs;
     auto str = "";
 

@@ -395,32 +395,61 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     {
         str ~= "    mov     rdi, r8\n";
         str ~= "    mov     rsi, r9\n";
-        str ~= "    mov     rdx, " ~ char.sizeof
-                                         .to!string
-                                   ~ "\n";
-        str ~= "    mov     rcx, 1\n";
         if (rightType.tag == TypeEnum.STRING)
         {
+            str ~= "    mov     rdx, " ~ char.sizeof
+                                             .to!string
+                                       ~ "\n";
+            str ~= "    mov     rcx, 1\n";
             str ~= "    call    __arr_arr_append\n";
         }
-        // Right type is char
+        else if (rightType.tag == TypeEnum.CHAR)
+        {
+            str ~= "    mov     rdx, " ~ char.sizeof
+                                             .to!string
+                                       ~ "\n";
+            str ~= "    mov     rcx, 1\n";
+            str ~= "    call    __arr_elem_append\n";
+        }
+        // Right type is array of strings, do elem-arr append without string
+        // mode enabled
         else
         {
-            str ~= "    call    __arr_elem_append\n";
+            str ~= "    mov     rdx, " ~ rightType.array
+                                                  .arrayType
+                                                  .size
+                                                  .to!string
+                                       ~ "\n";
+            str ~= "    mov     rcx, 0\n";
+            str ~= "    call    __elem_arr_append\n";
         }
         str ~= "    mov     r8, rax\n";
     }
-    // Left type must be char
+    // Left type must either be char or array
     else if (rightType.tag == TypeEnum.STRING)
     {
         str ~= "    mov     rdi, r8\n";
         str ~= "    mov     rsi, r9\n";
-        str ~= "    mov     rdx, " ~ char.sizeof
-                                         .to!string
-                                   ~ "\n";
-        str ~= "    mov     rcx, 1\n";
-        // Left type is char
-        str ~= "    call    __elem_arr_append\n";
+        if (leftType.tag == TypeEnum.CHAR)
+        {
+            str ~= "    mov     rdx, " ~ char.sizeof
+                                             .to!string
+                                       ~ "\n";
+            str ~= "    mov     rcx, 1\n";
+            str ~= "    call    __elem_arr_append\n";
+        }
+        // Left type is array of strings, do arr-elem append without string
+        // mode enabled
+        else
+        {
+            str ~= "    mov     rdx, " ~ leftType.array
+                                                  .arrayType
+                                                  .size
+                                                  .to!string
+                                       ~ "\n";
+            str ~= "    mov     rcx, 0\n";
+            str ~= "    call    __arr_elem_append\n";
+        }
         str ~= "    mov     r8, rax\n";
     }
     else if (leftType.tag == TypeEnum.ARRAY)
