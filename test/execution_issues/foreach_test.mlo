@@ -1,0 +1,37 @@
+// ISSUE: General tests of foreach stmt
+// EXPECTS: "123 0A 1B 2C A AB ABC 12 14"
+
+import std.io;
+import std.conv;
+
+func main() {
+    // Sanity case
+    foreach (x; [1, 2, 3]) {
+        write(intToString(x));
+    }
+    write(" ");
+    // Testing index variable
+    foreach (i, x; ["A", "B", "C"]) {
+        write(intToString(i) ~ x ~ " ");
+    }
+    // Testing condassignments
+    foreach (str := ""; x; ["A", "B", "C"]) {
+        str = str ~ x;
+        write(str ~ " ");
+    }
+    // Testing break
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    write(" ");
+    // Testing continue
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+}
