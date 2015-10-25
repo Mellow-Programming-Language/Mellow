@@ -691,21 +691,105 @@ class TemplateInstantiator : Visitor
         assert(false, "Unimplemented");
     }
 
-    void visit(ForInitNode node)
+    void visit(ForUpdateStmtNode node)
     {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForInitNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForUpdateStmtNode"));
         assert(false, "Unimplemented");
     }
 
-    void visit(ForConditionalNode node)
+    void visit(EndBlocksNode node)
     {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForConditionalNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("EndBlocksNode"));
         assert(false, "Unimplemented");
     }
 
-    void visit(ForPostExpressionNode node)
+    void visit(ThenElseCodaNode node)
     {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForPostExpressionNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenElseCodaNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ThenCodaElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenCodaElseNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ElseThenCodaNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseThenCodaNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ElseCodaThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseCodaThenNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(CodaElseThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaElseThenNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(CodaThenElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaThenElseNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ThenElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenElseNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ThenCodaNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenCodaNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ElseThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseThenNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ElseCodaNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseCodaNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(CodaThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaThenNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(CodaElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaElseNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ThenBlockNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenBlockNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(ElseBlockNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseBlockNode"));
+        assert(false, "Unimplemented");
+    }
+
+    void visit(CodaBlockNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaBlockNode"));
         assert(false, "Unimplemented");
     }
 

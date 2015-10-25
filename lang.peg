@@ -85,17 +85,47 @@ ElseStmt :: (#"else" BareBlock)?;
 
 WhileStmt :: #"while" #"(" CondAssignments (IsExpr | BoolExpr) #")" BareBlock;
 
-ForStmt :: #"for" #"(" ForInit ForConditional ForPostExpression #")"
-           BareBlock
+ForStmt :: #"for" #"(" CondAssignments BoolExpr? #";" ForUpdateStmt? #")"
+           BareBlock ^EndBlocks?
            ;
-ForInit :: Assignment? #";";
-ForConditional :: BoolExpr? #";";
-ForPostExpression :: BoolExpr?;
+ForUpdateStmt :: AssignExisting (#"," AssignExisting)*;
 
 ForeachStmt :: #"foreach" #"(" ForeachArgs #";" BoolExpr #")"
                BareBlock
                ;
 ForeachArgs :: Identifier (#"," Identifier)*;
+
+EndBlocks :: ThenElseCoda
+           | ThenCodaElse
+           | ElseThenCoda
+           | ElseCodaThen
+           | CodaElseThen
+           | CodaThenElse
+           | ThenElse
+           | ThenCoda
+           | ElseThen
+           | ElseCoda
+           | CodaThen
+           | CodaElse
+           | ThenBlock
+           | ElseBlock
+           | CodaBlock
+           ;
+ThenElseCoda :: ^ThenBlock ^ElseBlock ^CodaBlock;
+ThenCodaElse :: ^ThenBlock ^CodaBlock ^ElseBlock;
+ElseThenCoda :: ^ElseBlock ^ThenBlock ^CodaBlock;
+ElseCodaThen :: ^ElseBlock ^CodaBlock ^ThenBlock;
+CodaElseThen :: ^CodaBlock ^ElseBlock ^ThenBlock;
+CodaThenElse :: ^CodaBlock ^ThenBlock ^ElseBlock;
+ThenElse :: ^ThenBlock ^ElseBlock;
+ThenCoda :: ^ThenBlock ^CodaBlock;
+ElseThen :: ^ElseBlock ^ThenBlock;
+ElseCoda :: ^ElseBlock ^CodaBlock;
+CodaThen :: ^CodaBlock ^ThenBlock;
+CodaElse :: ^CodaBlock ^ElseBlock;
+ThenBlock :: #"then" BareBlock;
+ElseBlock :: #"else" BareBlock;
+CodaBlock :: #"coda" BareBlock;
 
 Declaration :: DeclAssignment | DeclTypeInfer | VariableTypePair;
 

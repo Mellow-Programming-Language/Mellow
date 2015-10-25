@@ -2917,13 +2917,169 @@ class FunctionBuilder : Visitor
 
     void visit(ForStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForStmtNode"));
         insideLoop++;
+        funcScopes[$-1].syms.length++;
+        // CondAssignmentsNode
+        node.children[0].accept(this);
+        auto nodeIndex = 1;
+        // Try BoolExprNode
+        if (cast(BoolExprNode)node.children[nodeIndex])
+        {
+            // BoolExprNode
+            node.children[nodeIndex].accept(this);
+            auto boolType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (boolType.tag != TypeEnum.BOOL)
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-bool expr in for bool expr."
+                );
+            }
+            nodeIndex++;
+        }
+        if (cast(ForUpdateStmtNode)node.children[nodeIndex])
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
+        // BareBlockNode
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
+        // EndBlocksNode
+        if (node.children.length > nodeIndex)
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
+        funcScopes[$-1].syms.length--;
         insideLoop--;
     }
 
-    void visit(ForInitNode node) {}
-    void visit(ForConditionalNode node) {}
-    void visit(ForPostExpressionNode node) {}
+    void visit(ForUpdateStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForUpdateStmtNode"));
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(EndBlocksNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("EndBlocksNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ThenElseCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenElseCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ThenCodaElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenCodaElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ElseThenCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseThenCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ElseCodaThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseCodaThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(CodaElseThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaElseThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(CodaThenElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaThenElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ThenElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ThenCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ElseThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ElseCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(CodaThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(CodaElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ThenBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenBlockNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ElseBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseBlockNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(CodaBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaBlockNode"));
+        node.children[0].accept(this);
+    }
+
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
     void visit(StructFunctionNode node) {}

@@ -1110,6 +1110,11 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     auto blockEndLabel = vars.getUniqLabel();
     vars.breakLabels ~= [blockEndLabel];
     vars.continueLabels ~= [blockLoopLabel];
+    scope (success)
+    {
+        vars.breakLabels.length--;
+        vars.continueLabels.length--;
+    }
     auto str = "";
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
@@ -1129,16 +1134,26 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
     str ~= blockEndLabel ~ ":\n";
-    vars.breakLabels.length--;
-    vars.continueLabels.length--;
     return str;
 }
 
 string compileForStmt(ForStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto blockLoopLabel = vars.getUniqLabel();
+    auto blockEndLabel = vars.getUniqLabel();
+    vars.breakLabels ~= [blockEndLabel];
+    vars.continueLabels ~= [blockLoopLabel];
+    scope (success)
+    {
+        vars.breakLabels.length--;
+        vars.continueLabels.length--;
+    }
+    auto str = "";
+    str ~= compileCondAssignments(
+        cast(CondAssignmentsNode)node.children[0], vars
+    );
+    return str;
 }
 
 string compileForeachStmt(ForeachStmtNode node, Context* vars)
