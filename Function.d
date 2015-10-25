@@ -2144,10 +2144,15 @@ class FunctionBuilder : Visitor
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForeachStmtNode"));
         insideLoop++;
-        // ForeachArgsNode
+        // Open scope for condassignments, which will be closed after
+        // any `then`/`else`/`coda` blocks
+        funcScopes[$-1].syms.length++;
+        // CondAssignmentsNode
         node.children[0].accept(this);
-        // BoolExprNode
+        // ForeachArgsNode
         node.children[1].accept(this);
+        // BoolExprNode
+        node.children[2].accept(this);
         auto loopType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         Type*[] loopTypes;
@@ -2228,7 +2233,11 @@ class FunctionBuilder : Visitor
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
         }
         // BareBlockNode
-        node.children[2].accept(this);
+        node.children[3].accept(this);
+        // Remove loop variables from scope
+        funcScopes[$-1].syms.length--;
+        // TODO Place handling for EndBlocks (then, coda, else) here
+        // Remove condassignment variables from scope
         funcScopes[$-1].syms.length--;
         node.data["type"] = loopType;
         node.data["argnames"] = foreachArgs;

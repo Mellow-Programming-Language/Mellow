@@ -1164,7 +1164,10 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
     auto endForeach = vars.getUniqLabel;
     vars.breakLabels ~= [endForeach];
     vars.continueLabels ~= [foreachLoop];
-    str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
+    str ~= compileCondAssignments(
+        cast(CondAssignmentsNode)node.children[0], vars
+    );
+    str ~= compileBoolExpr(cast(BoolExprNode)node.children[2], vars);
     if (loopType.tag == TypeEnum.ARRAY || loopType.tag == TypeEnum.STRING)
     {
         auto loopVarName = foreachArgs[0];
@@ -1257,7 +1260,7 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         // Set the loop var
         str ~= "    mov    r8, r11\n";
         str ~= vars.compileVarSet(loopVarName);
-        str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+        str ~= compileBlock(cast(BareBlockNode)node.children[3], vars);
         str ~= "    jmp    " ~ foreachLoop
                              ~ "\n";
         str ~= endForeach ~ ":\n";

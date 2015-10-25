@@ -92,7 +92,7 @@ ForInit :: Assignment? #";";
 ForConditional :: BoolExpr? #";";
 ForPostExpression :: BoolExpr?;
 
-ForeachStmt :: #"foreach" #"(" ForeachArgs #";" BoolExpr #")"
+ForeachStmt :: #"foreach" #"(" CondAssignments ForeachArgs #";" BoolExpr #")"
                BareBlock
                ;
 ForeachArgs :: Identifier (#"," Identifier)*;
