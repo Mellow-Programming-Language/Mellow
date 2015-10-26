@@ -1110,11 +1110,6 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     auto blockEndLabel = vars.getUniqLabel();
     vars.breakLabels ~= [blockEndLabel];
     vars.continueLabels ~= [blockLoopLabel];
-    scope (success)
-    {
-        vars.breakLabels.length--;
-        vars.continueLabels.length--;
-    }
     auto str = "";
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
@@ -1134,6 +1129,8 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
     str ~= blockEndLabel ~ ":\n";
+    vars.breakLabels.length--;
+    vars.continueLabels.length--;
     return str;
 }
 
@@ -1144,15 +1141,289 @@ string compileForStmt(ForStmtNode node, Context* vars)
     auto blockEndLabel = vars.getUniqLabel();
     vars.breakLabels ~= [blockEndLabel];
     vars.continueLabels ~= [blockLoopLabel];
-    scope (success)
-    {
-        vars.breakLabels.length--;
-        vars.continueLabels.length--;
-    }
     auto str = "";
+    auto nodeIndex = 0;
     str ~= compileCondAssignments(
-        cast(CondAssignmentsNode)node.children[0], vars
+        cast(CondAssignmentsNode)node.children[nodeIndex], vars
     );
+    nodeIndex++;
+    // Allocate space for and set the hasRun value, which tracks whether the
+    // loop has looped or not
+    vars.allocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    scope (exit) vars.deallocateStackSpace(8);
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
+    str ~= blockLoopLabel ~ ":\n";
+    // If we do have the conditional, then test it. If we don't have the
+    // conditional, simply fall through to the block
+    if (cast(BoolExprNode)node.children[nodeIndex])
+    {
+        str ~= compileBoolExpr(
+            cast(BoolExprNode)node.children[nodeIndex], vars
+        );
+        str ~= "    cmp    r8, 0\n";
+        // If it's zero, then it's false, meaning don't enter the loop
+        str ~= "    je     " ~ blockEndLabel ~ "\n";
+        nodeIndex++;
+    }
+    auto updateStmt = "";
+    if (cast(ForUpdateStmtNode)node.children[nodeIndex])
+    {
+        updateStmt ~= compileForUpdateStmt(
+            cast(ForUpdateStmtNode)node.children[nodeIndex], vars
+        );
+        nodeIndex++;
+    }
+    // We're officially about to execute the block of the loop, so set hasRun
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[nodeIndex], vars);
+    str ~= updateStmt;
+    str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
+    str ~= blockEndLabel ~ ":\n";
+    vars.breakLabels.length--;
+    vars.continueLabels.length--;
+    // If we have an EndBlocks chain, then move hasRun into r8 and compile the
+    // chain
+    if (cast(EndBlocksNode)node.children[$-1])
+    {
+        str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+        str ~= compileEndBlocks(
+            cast(EndBlocksNode)node.children[$-1], vars
+        );
+    }
+    return str;
+}
+
+string compileForUpdateStmt(ForUpdateStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    foreach (child; node.children)
+    {
+        str ~= compileAssignExisting(cast(AssignExistingNode)child, vars);
+    }
+    return str;
+}
+
+// For all of these, we assume a value is in r8, such that if the value is  non-
+// zero, we executed the block or chain these were attached to at least once.
+// So, we executed the if or one of the else ifs in an if chain, or one of the
+// arms matched in a match statement, or the while, for, or foreach loop looped
+// at least once
+string compileEndBlocks(EndBlocksNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    if (cast(ThenElseCodaNode)node.children[0])
+    {
+        str ~= compileThenElseCoda(
+            cast(ThenElseCodaNode)node.children[0], vars
+        );
+    }
+    else if (cast(ThenCodaElseNode)node.children[0])
+    {
+        str ~= compileThenCodaElse(
+            cast(ThenCodaElseNode)node.children[0], vars
+        );
+    }
+    else if (cast(ElseThenCodaNode)node.children[0])
+    {
+        str ~= compileElseThenCoda(
+            cast(ElseThenCodaNode)node.children[0], vars
+        );
+    }
+    else if (cast(ElseCodaThenNode)node.children[0])
+    {
+        str ~= compileElseCodaThen(
+            cast(ElseCodaThenNode)node.children[0], vars
+        );
+    }
+    else if (cast(CodaElseThenNode)node.children[0])
+    {
+        str ~= compileCodaElseThen(
+            cast(CodaElseThenNode)node.children[0], vars
+        );
+    }
+    else if (cast(CodaThenElseNode)node.children[0])
+    {
+        str ~= compileCodaThenElse(
+            cast(CodaThenElseNode)node.children[0], vars
+        );
+    }
+    else if (cast(ThenElseNode)node.children[0])
+    {
+        str ~= compileThenElse(cast(ThenElseNode)node.children[0], vars);
+    }
+    else if (cast(ThenCodaNode)node.children[0])
+    {
+        str ~= compileThenCoda(cast(ThenCodaNode)node.children[0], vars);
+    }
+    else if (cast(ElseThenNode)node.children[0])
+    {
+        str ~= compileElseThen(cast(ElseThenNode)node.children[0], vars);
+    }
+    else if (cast(ElseCodaNode)node.children[0])
+    {
+        str ~= compileElseCoda(cast(ElseCodaNode)node.children[0], vars);
+    }
+    else if (cast(CodaThenNode)node.children[0])
+    {
+        str ~= compileCodaThen(cast(CodaThenNode)node.children[0], vars);
+    }
+    else if (cast(CodaElseNode)node.children[0])
+    {
+        str ~= compileCodaElse(cast(CodaElseNode)node.children[0], vars);
+    }
+    else if (cast(ThenBlockNode)node.children[0])
+    {
+        str ~= compileThenBlock(cast(ThenBlockNode)node.children[0], vars);
+    }
+    else if (cast(ElseBlockNode)node.children[0])
+    {
+        str ~= compileElseBlock(cast(ElseBlockNode)node.children[0], vars);
+    }
+    else if (cast(CodaBlockNode)node.children[0])
+    {
+        str ~= compileCodaBlock(cast(CodaBlockNode)node.children[0], vars);
+    }
+    return str;
+}
+
+string compileThenElseCoda(ThenElseCodaNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    //vars.allocateStackSpace(8);
+    //auto hasRun = vars.getTop.to!string;
+    //scope (exit) vars.deallocateStackSpace(8);
+    //str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    return str;
+}
+
+string compileThenCodaElse(ThenCodaElseNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileElseThenCoda(ElseThenCodaNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileElseCodaThen(ElseCodaThenNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileCodaElseThen(CodaElseThenNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileCodaThenElse(CodaThenElseNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileThenElse(ThenElseNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileThenCoda(ThenCodaNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileElseThen(ElseThenNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileElseCoda(ElseCodaNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto endLabel = vars.getUniqLabel;
+    auto elseLabel = vars.getUniqLabel;
+    auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ elseLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    jmp    " ~ endLabel ~ "\n";
+    str ~= elseLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= endLabel ~ ":\n";
+    return str;
+}
+
+string compileCodaThen(CodaThenNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    return str;
+}
+
+string compileCodaElse(CodaElseNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto endLabel = vars.getUniqLabel;
+    auto elseLabel = vars.getUniqLabel;
+    auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ elseLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    jmp    " ~ endLabel ~ "\n";
+    str ~= elseLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= endLabel ~ ":\n";
+    return str;
+}
+
+string compileThenBlock(ThenBlockNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto str = "";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    return str;
+}
+
+string compileElseBlock(ElseBlockNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto endElseLabel = vars.getUniqLabel;
+    auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ endElseLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= endElseLabel ~ ":\n";
+    return str;
+}
+
+string compileCodaBlock(CodaBlockNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+    auto endCodaLabel = vars.getUniqLabel;
+    auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ endCodaLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= endCodaLabel ~ ":\n";
     return str;
 }
 

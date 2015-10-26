@@ -86,7 +86,7 @@ ElseStmt :: (#"else" BareBlock)?;
 WhileStmt :: #"while" #"(" CondAssignments (IsExpr | BoolExpr) #")" BareBlock;
 
 ForStmt :: #"for" #"(" CondAssignments BoolExpr? #";" ForUpdateStmt? #")"
-           BareBlock ^EndBlocks?
+           BareBlock EndBlocks?
            ;
 ForUpdateStmt :: AssignExisting (#"," AssignExisting)*;
 
