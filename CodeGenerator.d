@@ -1137,7 +1137,10 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
 string compileForStmt(ForStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    // This one is the one that `continue` will loop to
     auto blockLoopLabel = vars.getUniqLabel();
+    // This one is what we'll actually use for looping to
+    auto blockRealLoopLabel = vars.getUniqLabel();
     auto blockEndLabel = vars.getUniqLabel();
     vars.breakLabels ~= [blockEndLabel];
     vars.continueLabels ~= [blockLoopLabel];
@@ -1153,7 +1156,7 @@ string compileForStmt(ForStmtNode node, Context* vars)
     auto hasRun = vars.getTop.to!string;
     scope (exit) vars.deallocateStackSpace(8);
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
-    str ~= blockLoopLabel ~ ":\n";
+    str ~= blockRealLoopLabel ~ ":\n";
     // If we do have the conditional, then test it. If we don't have the
     // conditional, simply fall through to the block
     if (cast(BoolExprNode)node.children[nodeIndex])
@@ -1177,8 +1180,9 @@ string compileForStmt(ForStmtNode node, Context* vars)
     // We're officially about to execute the block of the loop, so set hasRun
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
     str ~= compileBlock(cast(BareBlockNode)node.children[nodeIndex], vars);
+    str ~= blockLoopLabel ~ ":\n";
     str ~= updateStmt;
-    str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
+    str ~= "    jmp    " ~ blockRealLoopLabel ~ "\n";
     str ~= blockEndLabel ~ ":\n";
     vars.breakLabels.length--;
     vars.continueLabels.length--;
