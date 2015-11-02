@@ -1,0 +1,398 @@
+// ISSUE: Tests for end block (then/else/coda) functionality on for-stmt
+// EXPECTS: "AA B1 C1 D1 E12 F1 G2 H2 I12 J1 K13 L12 M23 N23 O13 P12 -- A B1 C D1 E1 F12 G12 H1 I2 J2 K12 L13 M12 N13 O23 P23 "
+
+// Specifically, we're just testing to ensure that each of those blocks are
+// executed when their semantics claim they should be executed, and in the
+// correct order, since order is respected
+
+import std.io;
+import std.conv;
+
+func main() {
+    //
+    // When the for loop _does_ execute the block at least once
+    //
+
+    // Sanity case
+    for (x := 1; x <= 2; x += 1) {
+        write("A");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("B");
+    }
+    then {
+        write("1");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("C");
+    }
+    coda {
+        write("1");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("D1");
+    }
+    else {
+        write("D2");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("E");
+    }
+    then {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("F");
+    }
+    then {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("G");
+    }
+    else {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("H");
+    }
+    else {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("I");
+    }
+    coda {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("J");
+    }
+    coda {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("K");
+    }
+    then {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("L");
+    }
+    then {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("M");
+    }
+    else {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("N");
+    }
+    else {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("O");
+    }
+    coda {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    for (x := 1; x <= 1; x += 1) {
+        write("P");
+    }
+    coda {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+
+    // Separator for the two test case classes
+    write("-- ");
+
+    //
+    // When the for loop _does not_ execute the block at least once
+    //
+
+    // Sanity case
+    write("A");
+    for (x := 2; x <= 1; x += 1) {
+        write(".A.");
+    }
+    write(" ");
+
+    write("B");
+    for (x := 2; x <= 1; x += 1) {
+        write(".B.");
+    }
+    then {
+        write("1");
+    }
+    write(" ");
+
+    write("C");
+    for (x := 2; x <= 1; x += 1) {
+        write(".C.");
+    }
+    coda {
+        write("1");
+    }
+    write(" ");
+
+    write("D");
+    for (x := 2; x <= 1; x += 1) {
+        write(".D.");
+    }
+    else {
+        write("1");
+    }
+    write(" ");
+
+    write("E");
+    for (x := 2; x <= 1; x += 1) {
+        write(".E.");
+    }
+    then {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    write(" ");
+
+    write("F");
+    for (x := 2; x <= 1; x += 1) {
+        write(".F.");
+    }
+    then {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    write(" ");
+
+    write("G");
+    for (x := 2; x <= 1; x += 1) {
+        write(".G.");
+    }
+    else {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    write(" ");
+
+    write("H");
+    for (x := 2; x <= 1; x += 1) {
+        write(".H.");
+    }
+    else {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    write(" ");
+
+    write("I");
+    for (x := 2; x <= 1; x += 1) {
+        write(".I.");
+    }
+    coda {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    write(" ");
+
+    write("J");
+    for (x := 2; x <= 1; x += 1) {
+        write(".J.");
+    }
+    coda {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    write(" ");
+
+    write("K");
+    for (x := 2; x <= 1; x += 1) {
+        write(".K.");
+    }
+    then {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    write("L");
+    for (x := 2; x <= 1; x += 1) {
+        write(".L.");
+    }
+    then {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+
+    write("M");
+    for (x := 2; x <= 1; x += 1) {
+        write(".M.");
+    }
+    else {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    write("N");
+    for (x := 2; x <= 1; x += 1) {
+        write(".N.");
+    }
+    else {
+        write("1");
+    }
+    coda {
+        write("2");
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    write("O");
+    for (x := 2; x <= 1; x += 1) {
+        write(".O.");
+    }
+    coda {
+        write("1");
+    }
+    else {
+        write("2");
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    write("P");
+    for (x := 2; x <= 1; x += 1) {
+        write(".P.");
+    }
+    coda {
+        write("1");
+    }
+    then {
+        write("2");
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+}

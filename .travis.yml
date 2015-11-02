@@ -8,4 +8,4 @@ d:
   - dmd
 script:
   - make
-  - make test
+  - travis_retry make test

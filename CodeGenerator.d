@@ -1153,8 +1153,8 @@ string compileForStmt(ForStmtNode node, Context* vars)
     // Allocate space for and set the hasRun value, which tracks whether the
     // loop has looped or not
     vars.allocateStackSpace(8);
-    auto hasRun = vars.getTop.to!string;
     scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
     str ~= blockRealLoopLabel ~ ":\n";
     // If we do have the conditional, then test it. If we don't have the
@@ -1296,81 +1296,187 @@ string compileEndBlocks(EndBlocksNode node, Context* vars)
 string compileThenElseCoda(ThenElseCodaNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    auto codaLabel = vars.getUniqLabel;
+    auto endLabel = vars.getUniqLabel;
     auto str = "";
-    //vars.allocateStackSpace(8);
-    //auto hasRun = vars.getTop.to!string;
-    //scope (exit) vars.deallocateStackSpace(8);
-    //str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ codaLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= "    jmp    " ~ endLabel ~ "\n";
+    str ~= codaLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= endLabel ~ ":\n";
     return str;
 }
 
 string compileThenCodaElse(ThenCodaElseNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    auto elseLabel = vars.getUniqLabel;
+    auto endLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ elseLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= "    jmp    " ~ endLabel ~ "\n";
+    str ~= elseLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= endLabel ~ ":\n";
     return str;
 }
 
 string compileElseThenCoda(ElseThenCodaNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    auto thenLabel = vars.getUniqLabel;
+    auto endLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ thenLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= thenLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ endLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= endLabel ~ ":\n";
     return str;
 }
 
 string compileElseCodaThen(ElseCodaThenNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto codaLabel = vars.getUniqLabel;
+    auto thenLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ codaLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    jmp    " ~ thenLabel ~ "\n";
+    str ~= codaLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= thenLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     return str;
 }
 
 string compileCodaElseThen(CodaElseThenNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto elseLabel = vars.getUniqLabel;
+    auto thenLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ elseLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    jmp    " ~ thenLabel ~ "\n";
+    str ~= elseLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= thenLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     return str;
 }
 
 string compileCodaThenElse(CodaThenElseNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    auto thenLabel = vars.getUniqLabel;
+    auto endLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ thenLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= thenLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ endLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= endLabel ~ ":\n";
     return str;
 }
 
 string compileThenElse(ThenElseNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    auto endLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ endLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= endLabel ~ ":\n";
     return str;
 }
 
 string compileThenCoda(ThenCodaNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    auto endLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ endLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= endLabel ~ ":\n";
     return str;
 }
 
 string compileElseThen(ElseThenNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto thenLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    jne    " ~ thenLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= thenLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
     return str;
 }
 
 string compileElseCoda(ElseCodaNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto codaLabel = vars.getUniqLabel;
     auto endLabel = vars.getUniqLabel;
-    auto elseLabel = vars.getUniqLabel;
     auto str = "";
     str ~= "    cmp    r8, 0\n";
-    str ~= "    jne    " ~ elseLabel ~ "\n";
+    str ~= "    jne    " ~ codaLabel ~ "\n";
     str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
     str ~= "    jmp    " ~ endLabel ~ "\n";
-    str ~= elseLabel ~ ":\n";
+    str ~= codaLabel ~ ":\n";
     str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
     str ~= endLabel ~ ":\n";
     return str;
@@ -1379,7 +1485,13 @@ string compileElseCoda(ElseCodaNode node, Context* vars)
 string compileCodaThen(CodaThenNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto thenLabel = vars.getUniqLabel;
     auto str = "";
+    str ~= "    cmp    r8, 0\n";
+    str ~= "    je     " ~ thenLabel ~ "\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= thenLabel ~ ":\n";
+    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
     return str;
 }
 
