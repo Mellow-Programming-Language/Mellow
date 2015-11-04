@@ -1,4 +1,4 @@
-// ISSUE: Tests for end block (then/else/coda) functionality on for-stmt
+// ISSUE: Tests for end block (then/else/coda) functionality on while-stmt
 // EXPECTS: "AA B1 C1 D1 E12 F1 G2 H2 I12 J1 K13 L12 M23 N23 O13 P12 -- A B1 C D1 E1 F12 G12 H1 I2 J2 K12 L13 M12 N13 O23 P23 "
 
 // Specifically, we're just testing to ensure that each of those blocks are
@@ -10,41 +10,46 @@ import std.conv;
 
 func main() {
     //
-    // When the for loop _does_ execute the block at least once
+    // When the while loop _does_ execute the block at least once
     //
 
     // Sanity case
-    for (x := 1; x <= 2; x += 1) {
+    while (x := 1; x <= 2) {
         write("A");
+        x += 1;
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("B");
+        x += 1;
     }
     then {
         write("1");
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("C");
+        x += 1;
     }
     coda {
         write("1");
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("D1");
+        x += 1;
     }
     else {
         write("D2");
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("E");
+        x += 1;
     }
     then {
         write("1");
@@ -54,8 +59,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("F");
+        x += 1;
     }
     then {
         write("1");
@@ -65,8 +71,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("G");
+        x += 1;
     }
     else {
         write("1");
@@ -76,8 +83,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("H");
+        x += 1;
     }
     else {
         write("1");
@@ -87,8 +95,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("I");
+        x += 1;
     }
     coda {
         write("1");
@@ -98,8 +107,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("J");
+        x += 1;
     }
     coda {
         write("1");
@@ -109,8 +119,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("K");
+        x += 1;
     }
     then {
         write("1");
@@ -123,8 +134,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("L");
+        x += 1;
     }
     then {
         write("1");
@@ -137,8 +149,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("M");
+        x += 1;
     }
     else {
         write("1");
@@ -151,8 +164,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("N");
+        x += 1;
     }
     else {
         write("1");
@@ -165,8 +179,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("O");
+        x += 1;
     }
     coda {
         write("1");
@@ -179,8 +194,9 @@ func main() {
     }
     write(" ");
 
-    for (x := 1; x <= 1; x += 1) {
+    while (x := 1; x <= 1) {
         write("P");
+        x += 1;
     }
     coda {
         write("1");
@@ -197,19 +213,21 @@ func main() {
     write("-- ");
 
     //
-    // When the for loop _does not_ execute the block at least once
+    // When the while loop _does not_ execute the block at least once
     //
 
     // Sanity case
     write("A");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".A.");
+        x += 1;
     }
     write(" ");
 
     write("B");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".B.");
+        x += 1;
     }
     then {
         write("1");
@@ -217,8 +235,9 @@ func main() {
     write(" ");
 
     write("C");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".C.");
+        x += 1;
     }
     coda {
         write("1");
@@ -226,8 +245,9 @@ func main() {
     write(" ");
 
     write("D");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".D.");
+        x += 1;
     }
     else {
         write("1");
@@ -235,8 +255,9 @@ func main() {
     write(" ");
 
     write("E");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".E.");
+        x += 1;
     }
     then {
         write("1");
@@ -247,8 +268,9 @@ func main() {
     write(" ");
 
     write("F");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".F.");
+        x += 1;
     }
     then {
         write("1");
@@ -259,8 +281,9 @@ func main() {
     write(" ");
 
     write("G");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".G.");
+        x += 1;
     }
     else {
         write("1");
@@ -271,8 +294,9 @@ func main() {
     write(" ");
 
     write("H");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".H.");
+        x += 1;
     }
     else {
         write("1");
@@ -283,8 +307,9 @@ func main() {
     write(" ");
 
     write("I");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".I.");
+        x += 1;
     }
     coda {
         write("1");
@@ -295,8 +320,9 @@ func main() {
     write(" ");
 
     write("J");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".J.");
+        x += 1;
     }
     coda {
         write("1");
@@ -307,8 +333,9 @@ func main() {
     write(" ");
 
     write("K");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".K.");
+        x += 1;
     }
     then {
         write("1");
@@ -322,8 +349,9 @@ func main() {
     write(" ");
 
     write("L");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".L.");
+        x += 1;
     }
     then {
         write("1");
@@ -337,8 +365,9 @@ func main() {
     write(" ");
 
     write("M");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".M.");
+        x += 1;
     }
     else {
         write("1");
@@ -352,8 +381,9 @@ func main() {
     write(" ");
 
     write("N");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".N.");
+        x += 1;
     }
     else {
         write("1");
@@ -367,8 +397,9 @@ func main() {
     write(" ");
 
     write("O");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".O.");
+        x += 1;
     }
     coda {
         write("1");
@@ -382,8 +413,9 @@ func main() {
     write(" ");
 
     write("P");
-    for (x := 2; x <= 1; x += 1) {
+    while (x := 2; x <= 1) {
         write(".P.");
+        x += 1;
     }
     coda {
         write("1");

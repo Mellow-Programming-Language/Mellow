@@ -1114,6 +1114,12 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
     );
+    // Allocate space for and set the hasRun value, which tracks whether the
+    // loop has looped or not
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
     str ~= blockLoopLabel ~ ":\n";
     if (cast(IsExprNode)node.children[1])
     {
@@ -1126,11 +1132,22 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     str ~= "    cmp    r8, 0\n";
     // If it's zero, then it's false, meaning don't enter the loop
     str ~= "    je     " ~ blockEndLabel ~ "\n";
+    // We're officially about to execute the block of the loop, so set hasRun
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
     str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
     str ~= blockEndLabel ~ ":\n";
     vars.breakLabels.length--;
     vars.continueLabels.length--;
+    // If we have an EndBlocks chain, then move hasRun into r8 and compile the
+    // chain
+    if (cast(EndBlocksNode)node.children[$-1])
+    {
+        str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+        str ~= compileEndBlocks(
+            cast(EndBlocksNode)node.children[$-1], vars
+        );
+    }
     return str;
 }
 

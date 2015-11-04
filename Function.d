@@ -1860,6 +1860,10 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             builderStack[$-1] ~= variant;
         }
+        else
+        {
+            assert(false, "Unreachable");
+        }
     }
 
     void visit(FuncCallNode node)
@@ -2106,10 +2110,13 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("WhileStmtNode"));
         insideLoop++;
         funcScopes[$-1].syms.length++;
+        auto nodeIndex = 0;
         // CondAssignmentsNode
-        node.children[0].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         // BoolExprNode
-        node.children[1].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         auto boolType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (boolType.tag != TypeEnum.BOOL)
@@ -2120,7 +2127,14 @@ class FunctionBuilder : Visitor
             );
         }
         // BareBlockNode
-        node.children[2].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
+        // EndBlocksNode
+        if (node.children.length > nodeIndex)
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
         funcScopes[$-1].syms.length--;
         insideLoop--;
     }

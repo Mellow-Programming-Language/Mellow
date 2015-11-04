@@ -83,7 +83,8 @@ ElseIfStmt :: #'else' #Sp #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
               BareBlock;
 ElseStmt :: (#"else" BareBlock)?;
 
-WhileStmt :: #"while" #"(" CondAssignments (IsExpr | BoolExpr) #")" BareBlock;
+WhileStmt :: #"while" #"(" CondAssignments (IsExpr | BoolExpr) #")" BareBlock
+             EndBlocks?;
 
 ForStmt :: #"for" #"(" CondAssignments BoolExpr? #";" ForUpdateStmt? #")"
            BareBlock EndBlocks?
