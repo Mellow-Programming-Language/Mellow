@@ -92,7 +92,7 @@ ForStmt :: #"for" #"(" CondAssignments BoolExpr? #";" ForUpdateStmt? #")"
 ForUpdateStmt :: AssignExisting (#"," AssignExisting)*;
 
 ForeachStmt :: #"foreach" #"(" CondAssignments ForeachArgs #";" BoolExpr #")"
-               BareBlock
+               BareBlock EndBlocks?
                ;
 ForeachArgs :: Identifier (#"," Identifier)*;
 

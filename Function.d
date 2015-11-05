@@ -2129,6 +2129,7 @@ class FunctionBuilder : Visitor
         // BareBlockNode
         node.children[nodeIndex].accept(this);
         nodeIndex++;
+        insideLoop--;
         // EndBlocksNode
         if (node.children.length > nodeIndex)
         {
@@ -2136,7 +2137,6 @@ class FunctionBuilder : Visitor
             nodeIndex++;
         }
         funcScopes[$-1].syms.length--;
-        insideLoop--;
     }
 
     void visit(CondAssignmentsNode node)
@@ -2161,12 +2161,16 @@ class FunctionBuilder : Visitor
         // Open scope for condassignments, which will be closed after
         // any `then`/`else`/`coda` blocks
         funcScopes[$-1].syms.length++;
+        auto nodeIndex = 0;
         // CondAssignmentsNode
-        node.children[0].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         // ForeachArgsNode
-        node.children[1].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         // BoolExprNode
-        node.children[2].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         auto loopType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         Type*[] loopTypes;
@@ -2247,16 +2251,22 @@ class FunctionBuilder : Visitor
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
         }
         // BareBlockNode
-        node.children[3].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         // Remove loop variables from scope
         funcScopes[$-1].syms.length--;
-        // TODO Place handling for EndBlocks (then, coda, else) here
+        insideLoop--;
+        // EndBlocksNode
+        if (node.children.length > nodeIndex)
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
         // Remove condassignment variables from scope
         funcScopes[$-1].syms.length--;
         node.data["type"] = loopType;
         node.data["argnames"] = foreachArgs;
         node.data["hasindex"] = hasIndex;
-        insideLoop--;
     }
 
     void visit(ForeachArgsNode node)
@@ -2969,6 +2979,7 @@ class FunctionBuilder : Visitor
         }
         // BareBlockNode
         node.children[nodeIndex].accept(this);
+        insideLoop--;
         nodeIndex++;
         // EndBlocksNode
         if (node.children.length > nodeIndex)
@@ -2977,7 +2988,6 @@ class FunctionBuilder : Visitor
             nodeIndex++;
         }
         funcScopes[$-1].syms.length--;
-        insideLoop--;
     }
 
     void visit(ForUpdateStmtNode node)

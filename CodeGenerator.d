@@ -1583,6 +1583,12 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
     auto endForeach = vars.getUniqLabel;
     vars.breakLabels ~= [endForeach];
     vars.continueLabels ~= [foreachLoop];
+    // Allocate space for and set the hasRun value, which tracks whether the
+    // loop has looped or not
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
     );
@@ -1679,6 +1685,9 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         // Set the loop var
         str ~= "    mov    r8, r11\n";
         str ~= vars.compileVarSet(loopVarName);
+        // We're officially about to execute the block of the loop, so set
+        // hasRun
+        str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
         str ~= compileBlock(cast(BareBlockNode)node.children[3], vars);
         str ~= "    jmp    " ~ foreachLoop
                              ~ "\n";
@@ -1694,6 +1703,15 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
     }
     vars.breakLabels.length--;
     vars.continueLabels.length--;
+    // If we have an EndBlocks chain, then move hasRun into r8 and compile the
+    // chain
+    if (cast(EndBlocksNode)node.children[$-1])
+    {
+        str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+        str ~= compileEndBlocks(
+            cast(EndBlocksNode)node.children[$-1], vars
+        );
+    }
     return str;
 }
 
