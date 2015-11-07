@@ -700,97 +700,97 @@ class TemplateInstantiator : Visitor
     void visit(EndBlocksNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("EndBlocksNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ThenElseCodaNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenElseCodaNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ThenCodaElseNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenCodaElseNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ElseThenCodaNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseThenCodaNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ElseCodaThenNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseCodaThenNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(CodaElseThenNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaElseThenNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(CodaThenElseNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaThenElseNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ThenElseNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenElseNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ThenCodaNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenCodaNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ElseThenNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseThenNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ElseCodaNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseCodaNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(CodaThenNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaThenNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(CodaElseNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaElseNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ThenBlockNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenBlockNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(ElseBlockNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseBlockNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(CodaBlockNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaBlockNode"));
-        assert(false, "Unimplemented");
+        node.children[0].accept(this);
     }
 
     void visit(LambdaNode node)
