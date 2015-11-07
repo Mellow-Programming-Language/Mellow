@@ -606,7 +606,7 @@ class TemplateInstantiator : Visitor
     void visit(ForeachStmtNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForeachStmtNode"));
-        foreach (child; node.children[1..$])
+        foreach (child; node.children)
         {
             child.accept(this);
         }
