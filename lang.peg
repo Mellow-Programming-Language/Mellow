@@ -162,7 +162,7 @@ LorRTrailer :: (#"." Identifier LorRTrailer?)
              ;
 Assignment :: DeclAssignment | DeclTypeInfer | AssignExisting;
 CondAssignments :: CondAssign*;
-CondAssign :: Assignment #";";
+CondAssign :: (Assignment | VariableTypePair) #";";
 
 
 

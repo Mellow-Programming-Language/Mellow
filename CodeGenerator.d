@@ -2997,7 +2997,17 @@ string compileCondAssignments(CondAssignmentsNode node, Context* vars)
 string compileCondAssign(CondAssignNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return compileAssignment(cast(AssignmentNode)node.children[0], vars);
+    auto str = "";
+    if (cast(AssignmentNode)node.children[0])
+    {
+        str ~= compileAssignment(cast(AssignmentNode)node.children[0], vars);
+    }
+    else if (cast(VariableTypePairNode)node.children[0]) {
+        str ~= compileVariableTypePair(
+            cast(VariableTypePairNode)node.children[0], vars
+        );
+    }
+    return str;
 }
 
 string compileAssignment(AssignmentNode node, Context* vars)
