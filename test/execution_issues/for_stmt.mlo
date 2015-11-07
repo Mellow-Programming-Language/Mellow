@@ -52,6 +52,14 @@ func main() {
         write("E");
     }
     write(" ");
+    // Continue
+    for (x := 1; x <= 4; x += 1) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    write(" ");
     // Continue into end blocks
     for (x := 1; x <= 4; x += 1) {
         if (x == 2 || x == 3) {
