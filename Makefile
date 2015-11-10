@@ -7,6 +7,7 @@ all: compiler runtime stdlib
 
 .PHONY: test
 test:
+	make realclean
 	make test_singlethread
 	make test_multithread
 	make realclean
