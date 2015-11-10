@@ -570,15 +570,6 @@ class TemplateInstantiator : Visitor
         }
     }
 
-    void visit(ElseStmtNode node)
-    {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseStmtNode"));
-        if (node.children.length > 0)
-        {
-            node.children[0].accept(this);
-        }
-    }
-
     void visit(WhileStmtNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("WhileStmtNode"));

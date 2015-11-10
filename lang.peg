@@ -77,11 +77,10 @@ ReturnStmt :: #'return' ((#Sp BoolExpr)
                         )?;
 
 IfStmt :: #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
-          BareBlock ElseIfs ElseStmt;
+          BareBlock ElseIfs EndBlocks?;
 ElseIfs :: ElseIfStmt*;
 ElseIfStmt :: #'else' #Sp #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
               BareBlock;
-ElseStmt :: (#"else" BareBlock)?;
 
 WhileStmt :: #"while" #"(" CondAssignments (IsExpr | BoolExpr) #")" BareBlock
              EndBlocks?;

@@ -273,6 +273,7 @@ struct Context
     FloatEntry*[] floatEntries;
     string[] blockEndLabels;
     string[] blockNextLabels;
+    string[] endBlockHasRunLabels;
     bool[string] runtimeExterns;
     bool[string] bssQWordAllocs;
     FuncSig*[string] externFuncs;
@@ -1029,6 +1030,14 @@ string compileIfStmt(IfStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
+    // Allocate space for and set the hasRun value, which tracks whether the
+    // if-else-if chain executed any blocks or not
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
+    vars.endBlockHasRunLabels ~= hasRun;
+    scope (exit) vars.endBlockHasRunLabels.length--;
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
     );
@@ -1046,13 +1055,21 @@ string compileIfStmt(IfStmtNode node, Context* vars)
     str ~= "    cmp    r8, 0\n";
     // If it's zero, then it's false, meaning go to the next label
     str ~= "    je     " ~ blockNextLabel ~ "\n";
+    // We're officially about to execute the if-stmt block, so set hasRun
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
     str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     str ~= "    jmp    " ~ blockEndLabel ~ "\n";
     str ~= blockNextLabel ~ ":\n";
     str ~= compileElseIfs(cast(ElseIfsNode)node.children[3], vars);
-    str ~= compileElseStmt(cast(ElseStmtNode)node.children[4], vars);
     str ~= blockEndLabel ~ ":\n";
     vars.blockEndLabels.length--;
+    if (node.children.length > 4)
+    {
+        // hasRun may have been set either when executing the if-stmt block,
+        // or when executing an else-if-stmt block, or not at all
+        str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+        str ~= compileEndBlocks(cast(EndBlocksNode)node.children[4], vars);
+    }
     return str;
 }
 
@@ -1086,20 +1103,11 @@ string compileElseIfStmt(ElseIfStmtNode node, Context* vars)
     str ~= "    cmp    r8, 0\n";
     // If it's zero, then it's false, meaning go to the next label
     str ~= "    je     " ~ blockNextLabel ~ "\n";
+    // We're officially about to execute the else-if-stmt block, so set hasRun
+    str ~= "    mov    qword [rbp-" ~ vars.endBlockHasRunLabels[$-1] ~ "], 1\n";
     str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     str ~= "    jmp    " ~ vars.blockEndLabels[$-1] ~ "\n";
     str ~= blockNextLabel ~ ":\n";
-    return str;
-}
-
-string compileElseStmt(ElseStmtNode node, Context* vars)
-{
-    debug (COMPILE_TRACE) mixin(tracer);
-    auto str = "";
-    if (node.children.length > 0)
-    {
-        str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
-    }
     return str;
 }
 

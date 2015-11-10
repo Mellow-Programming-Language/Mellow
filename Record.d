@@ -269,7 +269,6 @@ class RecordBuilder : Visitor
     void visit(IfStmtNode node) {}
     void visit(ElseIfsNode node) {}
     void visit(ElseIfStmtNode node) {}
-    void visit(ElseStmtNode node) {}
     void visit(BreakStmtNode node) {}
     void visit(ContinueStmtNode node) {}
     void visit(WhileStmtNode node) {}

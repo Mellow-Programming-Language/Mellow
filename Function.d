@@ -166,6 +166,7 @@ class FunctionBuilder : Visitor
     private VarTypePair*[] funcArgs;
     // The higher the index, the deeper the scope
     private FunctionScope[] funcScopes;
+    private SymbolScope[][] elseIfScopes;
     private VarTypePair*[] decls;
     private Type* lvalue;
     private Type* matchType;
@@ -2033,12 +2034,23 @@ class FunctionBuilder : Visitor
         node.children[2].accept(this);
         // ElseIfsNode
         node.children[3].accept(this);
-        // ElseStmtNode
-        node.children[4].accept(this);
-        // Remove all of the scopes opened by any "else if" children
-        funcScopes[$-1].syms.length -= (cast(ElseIfsNode)(
-            node.children[3]
-        )).children.length;
+        // Do we have an optional EndBlocksNode?
+        if (node.children.length > 4)
+        {
+            // Store all of the scopes opened by any "else if" children. We
+            // can't guarantee that any but the initial actual if-stmt cond-
+            // assignments were executed for `coda` or `then`, but of course we
+            // can guarantee that they're all in scope for `else`, so store the
+            // stack of variables for EndBlocks processing
+            auto numScopes = (cast(ElseIfsNode)(
+                node.children[3]
+            )).children.length;
+            elseIfScopes ~= [funcScopes[$-1].syms[$-numScopes..$]];
+            funcScopes[$-1].syms.length -= numScopes;
+            // EndBlocksNode
+            node.children[4].accept(this);
+            elseIfScopes.length--;
+        }
         funcScopes[$-1].syms.length--;
     }
 
@@ -2070,15 +2082,6 @@ class FunctionBuilder : Visitor
         }
         // BareBlockNode
         node.children[2].accept(this);
-    }
-
-    void visit(ElseStmtNode node)
-    {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseStmtNode"));
-        if (node.children.length > 0)
-        {
-            node.children[0].accept(this);
-        }
     }
 
     void visit(BreakStmtNode node)
@@ -3104,7 +3107,17 @@ class FunctionBuilder : Visitor
     void visit(ElseBlockNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseBlockNode"));
+        // If the immediate parent of this end blocks node was an if-stmt,
+        // restore all of the else-if cond-assign variables into the scope
+        if (cast(IfStmtNode)(node.parent.parent))
+        {
+            funcScopes[$-1].syms ~= elseIfScopes[$-1];
+        }
         node.children[0].accept(this);
+        if (cast(IfStmtNode)(node.parent.parent))
+        {
+            funcScopes[$-1].syms.length -= elseIfScopes[$-1].length;
+        }
     }
 
     void visit(CodaBlockNode node)
