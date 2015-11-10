@@ -7,5 +7,4 @@ language: d
 d:
   - dmd
 script:
-  - make
   - travis_retry make test
