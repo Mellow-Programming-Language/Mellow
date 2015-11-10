@@ -9,6 +9,8 @@ all: compiler runtime stdlib
 test:
 	make test_singlethread
 	make test_multithread
+	make realclean
+	make
 
 .PHONY: test_singlethread
 test_singlethread:
