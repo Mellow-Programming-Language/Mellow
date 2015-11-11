@@ -53,8 +53,14 @@ sub testsub {
         my $continue = 1;
         my $want_fail = 0;
         my $input = "";
+        my $args = "";
         if (exists $directives->{'INPUT'}) {
             $input = " printf '$directives->{'INPUT'}' | ";
+        }
+        if (exists $directives->{'ARGUMENTS'}) {
+            $args = " " . (join " ", map {
+                '"' . $_ . '"'
+            } @{$directives->{'ARGUMENTS'}}) . " ";
         }
         if ($continue) {
             my $options = "";
@@ -111,7 +117,7 @@ sub testsub {
         }
         if ($continue) {
             my $res = system(
-                "$input $binDir$dummyFile >/dev/null 2>&1"
+                "$input $binDir$dummyFile $args >/dev/null 2>&1"
             );
             my $tester = sub {
                 my ($ret_code, $signal) = @_;
@@ -142,7 +148,7 @@ sub testsub {
                 || $directives->{'NO_OUTPUT'} !~ /true|yes/i
             )
         ) {
-            my $output = `$input $binDir$dummyFile`;
+            my $output = `$input $binDir$dummyFile $args`;
             if (exists $directives->{'EXPECTS'}) {
                 chomp $output;
                 $continue = is(
@@ -185,6 +191,14 @@ sub processDirectives {
                 push @$unordered_lines, $_;
             }
             $directives->{'EXPECTS_UNORDERED'} = $unordered_lines;
+        }
+        elsif ($line =~ m|//\s*ARGUMENTS:|) {
+            $line =~ s|//\s*ARGUMENTS:\s*||;
+            my $args = [];
+            foreach ($line =~ m|"(.*?)"|g) {
+                push @$args, $_;
+            }
+            $directives->{'ARGUMENTS'} = $args;
         }
         if ($line =~ m|//\s*INPUT:\s*"(.*)"\s*$|) {
             $directives->{'INPUT'} = $1;
