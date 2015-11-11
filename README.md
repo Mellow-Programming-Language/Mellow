@@ -37,9 +37,10 @@ List of working features:
   * functions
   * function arguments
   * function return values (including multiple-return)
-  * `if`, `else if`, `else` statements with optional variable declarations
-  * `while` loops with optional variable declarations
-  * `foreach` loops with optional index variable
+  * `if`, `else if`, `else` statements
+  * `while` loops
+  * `foreach` loops
+  * `for` loops
   * strings
   * bools
   * integers
@@ -55,13 +56,14 @@ List of working features:
   * logical operators (&&, ||, !)
   * array `.length` property
   * templated structs
-  * templated, recursively-defined variants
+  * templated, recursively-defined variants (ADTs)
   * `is` expressions
   * string comparison operators
   * function templating
   * `match` statements
   * full M:N multithreading scheduler
   * module system
+  * `then`, `else`, `coda` "end block" control-flow blocks
 
 
 List of unimplemented or broken features:
@@ -73,7 +75,6 @@ List of unimplemented or broken features:
   * `in` blocks
   * `out` blocks
   * `const` semantics
-  * `for` statement
   * sets
   * hashes
   * function pointers

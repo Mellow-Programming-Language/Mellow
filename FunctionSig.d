@@ -315,12 +315,25 @@ class FunctionSigBuilder : Visitor
     void visit(IfStmtNode node) {}
     void visit(ElseIfsNode node) {}
     void visit(ElseIfStmtNode node) {}
-    void visit(ElseStmtNode node) {}
     void visit(WhileStmtNode node) {}
     void visit(ForStmtNode node) {}
-    void visit(ForInitNode node) {}
-    void visit(ForConditionalNode node) {}
-    void visit(ForPostExpressionNode node) {}
+    void visit(ForUpdateStmtNode node) {}
+    void visit(EndBlocksNode node) {}
+    void visit(ThenElseCodaNode node) {}
+    void visit(ThenCodaElseNode node) {}
+    void visit(ElseThenCodaNode node) {}
+    void visit(ElseCodaThenNode node) {}
+    void visit(CodaElseThenNode node) {}
+    void visit(CodaThenElseNode node) {}
+    void visit(ThenElseNode node) {}
+    void visit(ThenCodaNode node) {}
+    void visit(ElseThenNode node) {}
+    void visit(ElseCodaNode node) {}
+    void visit(CodaThenNode node) {}
+    void visit(CodaElseNode node) {}
+    void visit(ThenBlockNode node) {}
+    void visit(ElseBlockNode node) {}
+    void visit(CodaBlockNode node) {}
     void visit(ForeachStmtNode node) {}
     void visit(ForeachArgsNode node) {}
     void visit(SpawnStmtNode node) {}

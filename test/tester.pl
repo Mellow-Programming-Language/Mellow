@@ -52,6 +52,10 @@ sub testsub {
     return sub {
         my $continue = 1;
         my $want_fail = 0;
+        my $input = "";
+        if (exists $directives->{'INPUT'}) {
+            $input = " printf '$directives->{'INPUT'}' | ";
+        }
         if ($continue) {
             my $options = "";
             if (exists $directives->{'COMPILE_OPTIONS'}) {
@@ -107,7 +111,7 @@ sub testsub {
         }
         if ($continue) {
             my $res = system(
-                "$binDir$dummyFile >/dev/null 2>&1"
+                "$input $binDir$dummyFile >/dev/null 2>&1"
             );
             my $tester = sub {
                 my ($ret_code, $signal) = @_;
@@ -138,7 +142,7 @@ sub testsub {
                 || $directives->{'NO_OUTPUT'} !~ /true|yes/i
             )
         ) {
-            my $output = `$binDir$dummyFile`;
+            my $output = `$input $binDir$dummyFile`;
             if (exists $directives->{'EXPECTS'}) {
                 chomp $output;
                 $continue = is(
@@ -181,6 +185,9 @@ sub processDirectives {
                 push @$unordered_lines, $_;
             }
             $directives->{'EXPECTS_UNORDERED'} = $unordered_lines;
+        }
+        if ($line =~ m|//\s*INPUT:\s*"(.*)"\s*$|) {
+            $directives->{'INPUT'} = $1;
         }
         elsif ($line =~ m|//\s*ISSUE:\s*(.*)\s*$|) {
             $directives->{'ISSUE'} = $1;

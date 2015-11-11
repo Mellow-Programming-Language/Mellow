@@ -1,0 +1,98 @@
+// ISSUE: General tests of foreach stmt
+// EXPECTS: "123 0A1B2C AABABC 12 12T12C12 14 14T14C14"
+
+import std.io;
+import std.conv;
+
+func main() {
+    // Sanity case
+    foreach (x; [1, 2, 3]) {
+        write(intToString(x));
+    }
+    write(" ");
+    // Testing index variable
+    foreach (i, x; ["A", "B", "C"]) {
+        write(intToString(i) ~ x);
+    }
+    write(" ");
+    // Testing condassignments
+    foreach (str := ""; x; ["A", "B", "C"]) {
+        str = str ~ x;
+        write(str);
+    }
+    write(" ");
+    // Testing break
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    write(" ");
+    // Break into end blocks
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    then {
+        write("T");
+    }
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    coda {
+        write("C");
+    }
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    else {
+        write("E");
+    }
+    write(" ");
+    // Testing continue
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    write(" ");
+    // Continue into end blocks
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    then {
+        write("T");
+    }
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    coda {
+        write("C");
+    }
+    foreach (x; [1, 2, 3, 4]) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    else {
+        write("E");
+    }
+    writeln("");
+}

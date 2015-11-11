@@ -24,18 +24,37 @@ void* readln()
     size_t len = 0;
 
     size_t bytesRead = getline(&buffer, &len, stdin);
-    // The 1 is for space for the null byte
-    void* mellowStr = __GC_malloc(
-        HEAD_SIZE + bytesRead + 1,
+
+    struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
+        sizeof(struct MaybeStr),
         gc_env
     );
-    // Set the ref count
-    ((uint32_t*)mellowStr)[0] = 1;
-    // Set the string length
-    ((uint32_t*)mellowStr)[1] = bytesRead;
-    memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
-    free(buffer);
-    return mellowStr;
+    str->refCount = 0;
+    // Check if we outright failed to read a line, ie, EOF
+    if (bytesRead == -1)
+    {
+        // Set tag to None
+        str->variantTag = 1;
+    }
+    else
+    {
+        // Set tag to Some
+        str->variantTag = 0;
+        // The 1 is for space for the null byte
+        void* mellowStr = __GC_malloc(
+            HEAD_SIZE + bytesRead + 1,
+            gc_env
+        );
+        // Set the ref count
+        ((uint32_t*)mellowStr)[0] = 1;
+        // Set the string length
+        ((uint32_t*)mellowStr)[1] = bytesRead;
+        memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
+        free(buffer);
+        str->str = mellowStr;
+    }
+
+    return str;
 }
 
 struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)

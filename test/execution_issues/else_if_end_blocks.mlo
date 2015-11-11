@@ -1,0 +1,703 @@
+// ISSUE: Tests for end block (then/else/coda) functionality on else-if-stmt
+// EXPECTS: "A3 B35 C35 D3 E356 F35 G36 H36 I356 J35 K357 L356 M367 N367 O357 P356 -- A B5 C D5 E5 F56 G56 H5 I6 J6 K56 L57 M56 N57 O67 P67 "
+
+// Specifically, we're just testing to ensure that each of those blocks are
+// executed when their semantics claim they should be executed, and in the
+// correct order, since order is respected
+
+import std.io;
+import std.conv;
+
+func main() {
+    //
+    // When the else-if-stmt _does_ execute the block
+    //
+
+    // Sanity case
+    write("A");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    write(" ");
+
+    write("B");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("C");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("D");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    write("E");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    write(" ");
+
+    write("F");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    write(" ");
+
+    write("G");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    write(" ");
+
+    write("H");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    write(" ");
+
+    write("I");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    write(" ");
+
+    write("J");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    write(" ");
+
+    write("K");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    coda {
+        write("7");
+    }
+    write(" ");
+
+    write("L");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    else {
+        write("7");
+    }
+    write(" ");
+
+    write("M");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    coda {
+        write("7");
+    }
+    write(" ");
+
+    write("N");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    then {
+        write("7");
+    }
+    write(" ");
+
+    write("O");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    then {
+        write("7");
+    }
+    write(" ");
+
+    write("P");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (true) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    else {
+        write("7");
+    }
+    write(" ");
+
+    // Separator for the two test case classes
+    write("-- ");
+
+    //
+    // When the else-if-stmt _does not_ execute the block
+    //
+
+    // Sanity case
+    write("A");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    write(" ");
+
+    write("B");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("C");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("D");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    write("E");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    write(" ");
+
+    write("F");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    write(" ");
+
+    write("G");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    write(" ");
+
+    write("H");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    write(" ");
+
+    write("I");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    write(" ");
+
+    write("J");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    write(" ");
+
+    write("K");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    coda {
+        write("7");
+    }
+    write(" ");
+
+    write("L");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    else {
+        write("7");
+    }
+    write(" ");
+
+    write("M");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    coda {
+        write("7");
+    }
+    write(" ");
+
+    write("N");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    coda {
+        write("6");
+    }
+    then {
+        write("7");
+    }
+    write(" ");
+
+    write("O");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    else {
+        write("6");
+    }
+    then {
+        write("7");
+    }
+    write(" ");
+
+    write("P");
+    if (false) {
+        write("1");
+    }
+    else if (false) {
+        write("2");
+    }
+    else if (false) {
+        write("3");
+    }
+    else if (false) {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    then {
+        write("6");
+    }
+    else {
+        write("7");
+    }
+    write(" ");
+    writeln("");
+}

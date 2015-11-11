@@ -85,3 +85,84 @@ Mellow Programming Language organization
 * Many bug fixes
   * Fixes in type resolution (including seemingly fully fixing recursive types)
   * Many others
+
+0.8.11
+------
+
+* Implemented short-circuiting for `&&` and `||`
+
+0.8.10
+------
+
+* Implemented `break` and `continue` for `while` and `foreach` loops
+
+* Implemented `+=`, `-=`, `*=`, `/=`, `%=` for integer types
+
+0.8.9
+-----
+
+* Fixed being unable to call attributes on expressions that resolve to types
+that have those attributes
+
+* Fixed a bug where structs and variants with more than one template argument
+can fail to be instantiated during typechecking
+
+0.8.8
+-----
+
+* Added line and column information for type errors involving numeric
+type-promotion
+
+0.8.7
+-----
+
+* Added line and column information for many typechecking errors
+
+0.8.6
+-----
+
+* Fixed being able to pre-allocate arrays of structs and variants
+
+0.8.5
+-----
+
+* Implemented being able to assign an empty array, `[]`, to an array-type
+variable to clear it
+
+* Implemented code generation for declaration-assignment, i.e., `a: int = 0;`
+
+* Added `chr(c: int): char` conversion function to `std.conv`
+
+* Improved code generation for `.length` attribute access on arrays
+
+* Improvements and additions to the testing infrastructure
+
+0.8.4
+-----
+
+* Documentation improvements
+
+0.8.3
+-----
+
+* (Project Management) Added support for Travis CI regression testing on commit
+
+0.8.2
+-----
+
+* Fixed taking the `.length` of a slice expression segfaulting
+
+0.8.1
+-----
+
+* Added rudimentary testing infrastructure for the compiler itself
+
+* Fixed backslashes in one string in a chain of string appends appearing to
+cause the remaining appends in the chain to no-op
+
+* Implemented the semantics of "best effort" array slicing, where nonsensical
+and partially out-of-bounds array slices will yield empty arrays and arrays up
+to those bounds, respectively
+
+* Fixed being unable to pass empty array literals, `[]`, as arguments to
+functions, struct constructors, and variant constructors

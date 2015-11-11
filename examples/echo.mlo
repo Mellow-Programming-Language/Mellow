@@ -9,5 +9,7 @@ func chomp(str: string): string {
 }
 
 func main() {
-    writeln(chomp(readln()));
+    if (readln() is Some (in)) {
+        writeln(chomp(in));
+    }
 }

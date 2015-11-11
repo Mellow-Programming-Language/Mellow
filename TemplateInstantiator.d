@@ -570,15 +570,6 @@ class TemplateInstantiator : Visitor
         }
     }
 
-    void visit(ElseStmtNode node)
-    {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseStmtNode"));
-        if (node.children.length > 0)
-        {
-            node.children[0].accept(this);
-        }
-    }
-
     void visit(WhileStmtNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("WhileStmtNode"));
@@ -606,7 +597,7 @@ class TemplateInstantiator : Visitor
     void visit(ForeachStmtNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForeachStmtNode"));
-        foreach (child; node.children[1..$])
+        foreach (child; node.children)
         {
             child.accept(this);
         }
@@ -691,22 +682,106 @@ class TemplateInstantiator : Visitor
         assert(false, "Unimplemented");
     }
 
-    void visit(ForInitNode node)
+    void visit(ForUpdateStmtNode node)
     {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForInitNode"));
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForUpdateStmtNode"));
         assert(false, "Unimplemented");
     }
 
-    void visit(ForConditionalNode node)
+    void visit(EndBlocksNode node)
     {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForConditionalNode"));
-        assert(false, "Unimplemented");
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("EndBlocksNode"));
+        node.children[0].accept(this);
     }
 
-    void visit(ForPostExpressionNode node)
+    void visit(ThenElseCodaNode node)
     {
-        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForPostExpressionNode"));
-        assert(false, "Unimplemented");
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenElseCodaNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ThenCodaElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenCodaElseNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ElseThenCodaNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseThenCodaNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ElseCodaThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseCodaThenNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(CodaElseThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaElseThenNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(CodaThenElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaThenElseNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ThenElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenElseNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ThenCodaNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenCodaNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ElseThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseThenNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ElseCodaNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseCodaNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(CodaThenNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaThenNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(CodaElseNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaElseNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ThenBlockNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ThenBlockNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ElseBlockNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ElseBlockNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(CodaBlockNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("CodaBlockNode"));
+        node.children[0].accept(this);
     }
 
     void visit(LambdaNode node)

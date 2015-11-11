@@ -105,14 +105,15 @@ func execute(tree: Tree): int {
 }
 
 func main() {
-    in := readln();
-    while (in != "quit\n") {
+    while (readln() is Some (in)) {
+        if (in == "quit\n") {
+            break;
+        }
         if (parse(tokenize(in)) is Some (t)) {
             writeln(intToString(execute(t)));
         }
         else {
             writeln("Malformed expression!");
         }
-        in = readln();
     }
 }

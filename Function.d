@@ -166,6 +166,7 @@ class FunctionBuilder : Visitor
     private VarTypePair*[] funcArgs;
     // The higher the index, the deeper the scope
     private FunctionScope[] funcScopes;
+    private SymbolScope[][] elseIfScopes;
     private VarTypePair*[] decls;
     private Type* lvalue;
     private Type* matchType;
@@ -1860,6 +1861,10 @@ class FunctionBuilder : Visitor
             builderStack[$-1] = builderStack[$-1][0..$-1];
             builderStack[$-1] ~= variant;
         }
+        else
+        {
+            assert(false, "Unreachable");
+        }
     }
 
     void visit(FuncCallNode node)
@@ -2029,12 +2034,23 @@ class FunctionBuilder : Visitor
         node.children[2].accept(this);
         // ElseIfsNode
         node.children[3].accept(this);
-        // ElseStmtNode
-        node.children[4].accept(this);
-        // Remove all of the scopes opened by any "else if" children
-        funcScopes[$-1].syms.length -= (cast(ElseIfsNode)(
-            node.children[3]
-        )).children.length;
+        // Do we have an optional EndBlocksNode?
+        if (node.children.length > 4)
+        {
+            // Store all of the scopes opened by any "else if" children. We
+            // can't guarantee that any but the initial actual if-stmt cond-
+            // assignments were executed for `coda` or `then`, but of course we
+            // can guarantee that they're all in scope for `else`, so store the
+            // stack of variables for EndBlocks processing
+            auto numScopes = (cast(ElseIfsNode)(
+                node.children[3]
+            )).children.length;
+            elseIfScopes ~= [funcScopes[$-1].syms[$-numScopes..$]];
+            funcScopes[$-1].syms.length -= numScopes;
+            // EndBlocksNode
+            node.children[4].accept(this);
+            elseIfScopes.length--;
+        }
         funcScopes[$-1].syms.length--;
     }
 
@@ -2068,15 +2084,6 @@ class FunctionBuilder : Visitor
         node.children[2].accept(this);
     }
 
-    void visit(ElseStmtNode node)
-    {
-        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseStmtNode"));
-        if (node.children.length > 0)
-        {
-            node.children[0].accept(this);
-        }
-    }
-
     void visit(BreakStmtNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("BreakStmtNode"));
@@ -2106,10 +2113,13 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("WhileStmtNode"));
         insideLoop++;
         funcScopes[$-1].syms.length++;
+        auto nodeIndex = 0;
         // CondAssignmentsNode
-        node.children[0].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         // BoolExprNode
-        node.children[1].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         auto boolType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (boolType.tag != TypeEnum.BOOL)
@@ -2120,9 +2130,16 @@ class FunctionBuilder : Visitor
             );
         }
         // BareBlockNode
-        node.children[2].accept(this);
-        funcScopes[$-1].syms.length--;
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         insideLoop--;
+        // EndBlocksNode
+        if (node.children.length > nodeIndex)
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
+        funcScopes[$-1].syms.length--;
     }
 
     void visit(CondAssignmentsNode node)
@@ -2144,10 +2161,19 @@ class FunctionBuilder : Visitor
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForeachStmtNode"));
         insideLoop++;
+        // Open scope for condassignments, which will be closed after
+        // any `then`/`else`/`coda` blocks
+        funcScopes[$-1].syms.length++;
+        auto nodeIndex = 0;
+        // CondAssignmentsNode
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         // ForeachArgsNode
-        node.children[0].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         // BoolExprNode
-        node.children[1].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
         auto loopType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
         Type*[] loopTypes;
@@ -2228,12 +2254,22 @@ class FunctionBuilder : Visitor
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
         }
         // BareBlockNode
-        node.children[2].accept(this);
+        node.children[nodeIndex].accept(this);
+        nodeIndex++;
+        // Remove loop variables from scope
+        funcScopes[$-1].syms.length--;
+        insideLoop--;
+        // EndBlocksNode
+        if (node.children.length > nodeIndex)
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
+        // Remove condassignment variables from scope
         funcScopes[$-1].syms.length--;
         node.data["type"] = loopType;
         node.data["argnames"] = foreachArgs;
         node.data["hasindex"] = hasIndex;
-        insideLoop--;
     }
 
     void visit(ForeachArgsNode node)
@@ -2257,12 +2293,22 @@ class FunctionBuilder : Visitor
         node.children[1].accept(this);
         auto matchTypeSave = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
+        auto matchArmEndIndex = (cast(EndBlocksNode)(node.children[$-1]))
+                              ? node.children.length - 1
+                              : node.children.length;
         // MatchWhenNode+
-        foreach (child; node.children[2..$])
+        foreach (child; node.children[2..matchArmEndIndex])
         {
             funcScopes[$-1].syms.length++;
             matchType = matchTypeSave;
             child.accept(this);
+            funcScopes[$-1].syms.length--;
+        }
+        // EndBlocksNode
+        if (matchArmEndIndex < node.children.length)
+        {
+            funcScopes[$-1].syms.length++;
+            node.children[$-1].accept(this);
             funcScopes[$-1].syms.length--;
         }
         funcScopes[$-1].syms.length--;
@@ -2917,13 +2963,179 @@ class FunctionBuilder : Visitor
 
     void visit(ForStmtNode node)
     {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForStmtNode"));
         insideLoop++;
+        funcScopes[$-1].syms.length++;
+        // CondAssignmentsNode
+        node.children[0].accept(this);
+        auto nodeIndex = 1;
+        // Try BoolExprNode
+        if (cast(BoolExprNode)node.children[nodeIndex])
+        {
+            // BoolExprNode
+            node.children[nodeIndex].accept(this);
+            auto boolType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            if (boolType.tag != TypeEnum.BOOL)
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Non-bool expr in for bool expr."
+                );
+            }
+            nodeIndex++;
+        }
+        if (cast(ForUpdateStmtNode)node.children[nodeIndex])
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
+        // BareBlockNode
+        node.children[nodeIndex].accept(this);
         insideLoop--;
+        nodeIndex++;
+        // EndBlocksNode
+        if (node.children.length > nodeIndex)
+        {
+            node.children[nodeIndex].accept(this);
+            nodeIndex++;
+        }
+        funcScopes[$-1].syms.length--;
     }
 
-    void visit(ForInitNode node) {}
-    void visit(ForConditionalNode node) {}
-    void visit(ForPostExpressionNode node) {}
+    void visit(ForUpdateStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ForUpdateStmtNode"));
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
+
+    void visit(EndBlocksNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("EndBlocksNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ThenElseCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenElseCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ThenCodaElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenCodaElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ElseThenCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseThenCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ElseCodaThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseCodaThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(CodaElseThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaElseThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(CodaThenElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaThenElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+        node.children[2].accept(this);
+    }
+
+    void visit(ThenElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ThenCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ElseThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ElseCodaNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseCodaNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(CodaThenNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaThenNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(CodaElseNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaElseNode"));
+        node.children[0].accept(this);
+        node.children[1].accept(this);
+    }
+
+    void visit(ThenBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ThenBlockNode"));
+        node.children[0].accept(this);
+    }
+
+    void visit(ElseBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("ElseBlockNode"));
+        // If the immediate parent of this end blocks node was an if-stmt,
+        // restore all of the else-if cond-assign variables into the scope
+        if (cast(IfStmtNode)(node.parent.parent))
+        {
+            funcScopes[$-1].syms ~= elseIfScopes[$-1];
+        }
+        node.children[0].accept(this);
+        if (cast(IfStmtNode)(node.parent.parent))
+        {
+            funcScopes[$-1].syms.length -= elseIfScopes[$-1].length;
+        }
+    }
+
+    void visit(CodaBlockNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("CodaBlockNode"));
+        node.children[0].accept(this);
+    }
+
     void visit(LambdaNode node) {}
     void visit(LambdaArgsNode node) {}
     void visit(StructFunctionNode node) {}

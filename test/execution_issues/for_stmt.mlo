@@ -1,0 +1,112 @@
+// ISSUE: General tests of for stmt
+// EXPECTS: "123 246 12 12T12C12 14 14T14C14 123 1234 123"
+
+import std.io;
+import std.conv;
+
+func main() {
+    // Sanity case
+    for (x := 1; x <= 3; x += 1) {
+        write(intToString(x));
+    }
+    write(" ");
+    // More than one init var and update
+    for (x := 1; y := 1; x <= 3 && y <= 3; x += 1, y += 1) {
+        write(intToString(x + y));
+    }
+    write(" ");
+    // Break
+    for (x := 1; x <= 4; x += 1) {
+        if (x >= 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    write(" ");
+    // Break into end blocks
+    for (x := 1; x <= 4; x += 1) {
+        if (x >= 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    then {
+        write("T");
+    }
+    for (x := 1; x <= 4; x += 1) {
+        if (x >= 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    coda {
+        write("C");
+    }
+    for (x := 1; x <= 4; x += 1) {
+        if (x >= 3) {
+            break;
+        }
+        write(intToString(x));
+    }
+    else {
+        write("E");
+    }
+    write(" ");
+    // Continue
+    for (x := 1; x <= 4; x += 1) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    write(" ");
+    // Continue into end blocks
+    for (x := 1; x <= 4; x += 1) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    then {
+        write("T");
+    }
+    for (x := 1; x <= 4; x += 1) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    coda {
+        write("C");
+    }
+    for (x := 1; x <= 4; x += 1) {
+        if (x == 2 || x == 3) {
+            continue;
+        }
+        write(intToString(x));
+    }
+    else {
+        write("E");
+    }
+    write(" ");
+    // No init variables
+    z := 1;
+    for (z <= 3; z += 1) {
+        write(intToString(z));
+    }
+    write(" ");
+    // No conditional
+    for (x := 1; ; x += 1) {
+        write(intToString(x));
+        if (x == 4) {
+            break;
+        }
+    }
+    write(" ");
+    // No update section
+    for (x := 1; x <= 3;) {
+        write(intToString(x));
+        x = x + 1;
+    }
+    writeln("");
+}
