@@ -273,7 +273,9 @@ DotAccess :: #"." Identifier Trailer?;
 
 
 
-MatchStmt :: #"match" #"(" CondAssignments BoolExpr #")" #"{" MatchWhen+ #"}";
+MatchStmt :: #"match" #"(" CondAssignments BoolExpr #")" #"{" MatchWhen+ #"}"
+             EndBlocks?
+             ;
 MatchWhen :: Pattern (#"if" #"(" CondAssignments BoolExpr #")")?
              #"::" Statement;
 Pattern :: DestructVariantPattern

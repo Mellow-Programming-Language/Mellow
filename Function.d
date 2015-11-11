@@ -2293,12 +2293,22 @@ class FunctionBuilder : Visitor
         node.children[1].accept(this);
         auto matchTypeSave = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
+        auto matchArmEndIndex = (cast(EndBlocksNode)(node.children[$-1]))
+                              ? node.children.length - 1
+                              : node.children.length;
         // MatchWhenNode+
-        foreach (child; node.children[2..$])
+        foreach (child; node.children[2..matchArmEndIndex])
         {
             funcScopes[$-1].syms.length++;
             matchType = matchTypeSave;
             child.accept(this);
+            funcScopes[$-1].syms.length--;
+        }
+        // EndBlocksNode
+        if (matchArmEndIndex < node.children.length)
+        {
+            funcScopes[$-1].syms.length++;
+            node.children[$-1].accept(this);
             funcScopes[$-1].syms.length--;
         }
         funcScopes[$-1].syms.length--;

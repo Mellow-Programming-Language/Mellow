@@ -1,0 +1,447 @@
+// ISSUE: Tests for end block (then/else/coda) functionality on match-stmt
+// EXPECTS: "A1 B13 C13 D1 E134 F13 G14 H14 I134 J13 K135 L134 M145 N145 O135 P134 -- A B3 C D3 E3 F34 G34 H3 I4 J4 K34 L35 M34 N35 O45 P45 "
+
+// Specifically, we're just testing to ensure that each of those blocks are
+// executed when their semantics claim they should be executed, and in the
+// correct order, since order is respected
+
+import std.io;
+import std.conv;
+
+func main() {
+    //
+    // When the match-stmt _does_ execute the block at least once
+    //
+
+    // Sanity case
+    write("A");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    write(" ");
+
+    write("B");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    write("C");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    write("D");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+
+    write("E");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("F");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("G");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("H");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("I");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("J");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("K");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("L");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    write("M");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("N");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("O");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("P");
+    match (1) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    // Separator for the two test case classes
+    write("-- ");
+
+    //
+    // When the match-stmt _does not_ execute the block
+    //
+
+    // Sanity case
+    write("A");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    write(" ");
+
+    write("B");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    write("C");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    write("D");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+
+    write("E");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("F");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("G");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("H");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("I");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("J");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("K");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("L");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    write("M");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("N");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("O");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("P");
+    match (3) {
+        1 :: write("1");
+        2 :: write("2");
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+    writeln("");
+}

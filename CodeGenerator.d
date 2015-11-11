@@ -273,7 +273,8 @@ struct Context
     FloatEntry*[] floatEntries;
     string[] blockEndLabels;
     string[] blockNextLabels;
-    string[] endBlockHasRunLabels;
+    string[] ifEndBlockHasRunLabels;
+    string[] matchEndBlockHasRunLabels;
     bool[string] runtimeExterns;
     bool[string] bssQWordAllocs;
     FuncSig*[string] externFuncs;
@@ -1036,8 +1037,8 @@ string compileIfStmt(IfStmtNode node, Context* vars)
     scope (exit) vars.deallocateStackSpace(8);
     auto hasRun = vars.getTop.to!string;
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
-    vars.endBlockHasRunLabels ~= hasRun;
-    scope (exit) vars.endBlockHasRunLabels.length--;
+    vars.ifEndBlockHasRunLabels ~= hasRun;
+    scope (exit) vars.ifEndBlockHasRunLabels.length--;
     str ~= compileCondAssignments(
         cast(CondAssignmentsNode)node.children[0], vars
     );
@@ -1104,7 +1105,8 @@ string compileElseIfStmt(ElseIfStmtNode node, Context* vars)
     // If it's zero, then it's false, meaning go to the next label
     str ~= "    je     " ~ blockNextLabel ~ "\n";
     // We're officially about to execute the else-if-stmt block, so set hasRun
-    str ~= "    mov    qword [rbp-" ~ vars.endBlockHasRunLabels[$-1] ~ "], 1\n";
+    str ~= "    mov    qword [rbp-" ~ vars.ifEndBlockHasRunLabels[$-1]
+                                    ~ "], 1\n";
     str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
     str ~= "    jmp    " ~ vars.blockEndLabels[$-1] ~ "\n";
     str ~= blockNextLabel ~ ":\n";
@@ -1727,6 +1729,14 @@ string compileMatchStmt(MatchStmtNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
+    // Allocate space for and set the hasRun value, which tracks whether the
+    // if-else-if chain executed any blocks or not
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto hasRun = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 0\n";
+    vars.matchEndBlockHasRunLabels ~= hasRun;
+    scope (exit) vars.matchEndBlockHasRunLabels.length--;
     // If a match succeeds, then we have a label to jump to once the match
     // statement is executed
     vars.matchEndLabel ~= vars.getUniqLabel;
@@ -1744,11 +1754,21 @@ string compileMatchStmt(MatchStmtNode node, Context* vars)
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[1], vars);
     str ~= "    mov    qword [rbp-" ~ vars.matchTypeLoc[$-1].to!string
                                     ~ "], r8\n";
-    foreach (child; node.children[2..$])
+    auto matchArmEndIndex = (cast(EndBlocksNode)(node.children[$-1]))
+                          ? node.children.length - 1
+                          : node.children.length;
+    foreach (child; node.children[2..matchArmEndIndex])
     {
         str ~= compileMatchWhen(cast(MatchWhenNode)child, vars);
     }
     str ~= vars.matchEndLabel[$-1] ~ ":\n";
+    if (matchArmEndIndex < node.children.length)
+    {
+        // hasRun may have been set when executing the match-arm block, so set
+        // r8 in preparation for the end blocks
+        str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
+        str ~= compileEndBlocks(cast(EndBlocksNode)node.children[$-1], vars);
+    }
     return str;
 }
 
@@ -1773,10 +1793,16 @@ string compileMatchWhen(MatchWhenNode node, Context* vars)
         str ~= "    cmp    r8, 0\n";
         str ~= "    je     " ~ vars.matchNextWhenLabel[$-1]
                              ~ "\n";
+        // We're officially about to execute the match arm block, so set hasRun
+        str ~= "    mov    qword [rbp-" ~ vars.matchEndBlockHasRunLabels[$-1]
+                                        ~ "], 1\n";
         str ~= compileStatement(cast(StatementNode)node.children[3], vars);
     }
     else
     {
+        // We're officially about to execute the match arm block, so set hasRun
+        str ~= "    mov    qword [rbp-" ~ vars.matchEndBlockHasRunLabels[$-1]
+                                        ~ "], 1\n";
         str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     }
     // If we got here, then the match was successful and the inner statement was
