@@ -17,7 +17,7 @@ void write(void* mellowStr)
     printf("%s", (char*)(mellowStr + HEAD_SIZE));
 }
 
-void* readln()
+struct MaybeStr* readln()
 {
     GC_Env* gc_env = __get_GC_Env();
     char* buffer = NULL;
@@ -29,7 +29,7 @@ void* readln()
         sizeof(struct MaybeStr),
         gc_env
     );
-    str->refCount = 0;
+    str->runtimeHeader = 0;
     // Check if we outright failed to read a line, ie, EOF
     if (bytesRead == -1)
     {
@@ -45,10 +45,10 @@ void* readln()
             HEAD_SIZE + bytesRead + 1,
             gc_env
         );
-        // Set the ref count
-        ((uint32_t*)mellowStr)[0] = 1;
+        // Clear the "runtime" header
+        ((uint64_t*)mellowStr)[0] = 0;
         // Set the string length
-        ((uint32_t*)mellowStr)[1] = bytesRead;
+        ((uint64_t*)mellowStr)[1] = bytesRead;
         memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
         free(buffer);
         str->str = mellowStr;
@@ -60,8 +60,7 @@ void* readln()
 struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
 {
     GC_Env* gc_env = __get_GC_Env();
-    // Allocate space for a Maybe!File, which needs space for the ref-count, the
-    // variant tag and space for the File ref in Some (File)
+
     struct MaybeFile* maybeFile =
         (struct MaybeFile*)__GC_malloc(sizeof(struct MaybeFile), gc_env);
     FILE* file;
@@ -84,7 +83,7 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
             sizeof(struct MellowFile),
             gc_env
         );
-        fileRef->refCount = 1;
+        fileRef->runtimeHeader = 0;
         fileRef->openMode = mode->mode;
         fileRef->ptr = file;
         fileRef->isOpen = 1;
@@ -98,8 +97,7 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
         // Set tag to None
         maybeFile->variantTag = 1;
     }
-    // Set ref-count to 0
-    maybeFile->refCount = 0;
+    maybeFile->runtimeHeader = 0;
     return maybeFile;
 }
 
@@ -119,7 +117,7 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
         sizeof(struct MaybeStr),
         gc_env
     );
-    str->refCount = 0;
+    str->runtimeHeader = 0;
     if (file->isOpen)
     {
         char* buffer = NULL;
@@ -140,10 +138,10 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
                 HEAD_SIZE + bytesRead + 1,
                 gc_env
             );
-            // Set the ref count
-            ((uint32_t*)mellowStr)[0] = 1;
+            // Clear the "runtime" header
+            ((uint64_t*)mellowStr)[0] = 1;
             // Set the string length
-            ((uint32_t*)mellowStr)[1] = bytesRead;
+            ((uint64_t*)mellowStr)[1] = bytesRead;
             memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
             free(buffer);
             str->str = mellowStr;

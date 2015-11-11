@@ -13,31 +13,31 @@
 // 5: append/update
 struct FopenMode
 {
-    uint32_t refCount;
-    uint32_t mode;
+    uint64_t runtimeHeader;
+    uint64_t mode;
 };
 
 // mellow-struct representing a file reference. This struct is declared as
 // "extern struct File;" in stdio.mlo
 struct MellowFile
 {
-    uint32_t refCount;
-    uint32_t openMode;
+    uint64_t runtimeHeader;
+    uint64_t openMode;
     FILE* ptr;
     unsigned char isOpen;
 };
 
 struct MaybeFile
 {
-    uint32_t refCount;
-    uint32_t variantTag;
+    uint64_t runtimeHeader;
+    uint64_t variantTag;
     struct MellowFile* ptr;
 };
 
 struct MaybeStr
 {
-    uint32_t refCount;
-    uint32_t variantTag;
+    uint64_t runtimeHeader;
+    uint64_t variantTag;
     void* str;
 };
 
@@ -45,7 +45,7 @@ struct MaybeStr
 void writeln(void* str);
 void write(void* str);
 // Read a mellow-string from STDIN
-void* readln();
+struct MaybeStr* readln();
 
 // Return a Maybe!File for use with file operations
 struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode);
