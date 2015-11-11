@@ -1,0 +1,16 @@
+// ISSUE: Test to ensure main can receive cmdline args
+// ARGUMENTS: "This" "is a" "test!"
+// EXPECTS: "4: This is a test! "
+
+// Note that the program name itself is passed as argv[0]
+
+import std.io;
+import std.conv;
+
+func main(argv: []string) {
+    write(intToString(argv.length) ~ ": ");
+    foreach (str; argv[1..]) {
+        write(str ~ " ");
+    }
+    writeln("");
+}
