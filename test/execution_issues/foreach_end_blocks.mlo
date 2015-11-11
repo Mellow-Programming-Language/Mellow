@@ -1,0 +1,417 @@
+// ISSUE: Tests for end block (then/else/coda) functionality on foreach-loop
+// EXPECTS: "A1 B13 C13 D1 E134 F13 G14 H14 I134 J13 K135 L134 M145 N145 O135 P134 -- A B3 C D3 E3 F34 G34 H3 I4 J4 K34 L35 M34 N35 O45 P45 "
+
+// Specifically, we're just testing to ensure that each of those blocks are
+// executed when their semantics claim they should be executed, and in the
+// correct order, since order is respected
+
+import std.io;
+import std.conv;
+
+func main() {
+    //
+    // When the foreach-loop _does_ execute the block at least once
+    //
+
+    // Sanity case
+    write("A");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    write(" ");
+
+    write("B");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    write("C");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    write("D");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+
+    write("E");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("F");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("G");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("H");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("I");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("J");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("K");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("L");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    write("M");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("N");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("O");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("P");
+    foreach (x; ["1"]) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    // Separator for the two test case classes
+    write("-- ");
+
+    //
+    // When the foreach-loop _does not_ execute the block
+    //
+
+    emptyList: []string = [];
+
+    // Sanity case
+    write("A");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    write(" ");
+
+    write("B");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    write(" ");
+
+    write("C");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    write(" ");
+
+    write("D");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    write(" ");
+
+    write("E");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("F");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("G");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("H");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    write(" ");
+
+    write("I");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    write(" ");
+
+    write("J");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    write(" ");
+
+    write("K");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("L");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    then {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+
+    write("M");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    coda {
+        write("5");
+    }
+    write(" ");
+
+    write("N");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    else {
+        write("3");
+    }
+    coda {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("O");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    else {
+        write("4");
+    }
+    then {
+        write("5");
+    }
+    write(" ");
+
+    write("P");
+    foreach (x; emptyList) {
+        write(x);
+    }
+    coda {
+        write("3");
+    }
+    then {
+        write("4");
+    }
+    else {
+        write("5");
+    }
+    write(" ");
+    writeln("");
+}
