@@ -10,11 +10,11 @@ void* mellow_allocString(const char* str, const uint64_t strLength)
 {
     GC_Env* gc_env = __get_GC_Env();
     // The length of the array of characters plus the bytes allocated to hold
-    // the ref-count plus the bytes allocated to hold the string length plus
-    // a byte to hold the null byte
+    // the runtime header plus the bytes allocated to hold the string length
+    // plus a byte to hold the null byte
     const uint64_t totalSize = HEAD_SIZE + strLength + 1;
     void* mellowString = __GC_malloc(totalSize, gc_env);
-    // Set the ref-count to 1
+    // Clear the runtime header
     ((uint64_t*)mellowString)[0] = 1;
     // set the str-len to the length of the array of characters
     ((uint64_t*)mellowString)[1] = strLength;

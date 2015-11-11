@@ -37,7 +37,7 @@ void* charToString(char c)
         HEAD_SIZE + sizeof(char) + 1,
         gc_env
     );
-    // Set the ref count
+    // Clear the "runtime" header
     ((uint64_t*)mellowStr)[0] = 1;
     // Set the string length
     ((uint64_t*)mellowStr)[1] = 1;

@@ -748,7 +748,7 @@ string compileArgvStringArray(Context* vars)
     ; Multiply alloc'd space by the size of string ptrs
     imul   rdi, 8
     ; Add space for ref count and array length
-    add    rdi, 8
+    add    rdi, 16
     call   malloc
     ; Store []string in r13
     mov    r13, rax
@@ -775,10 +775,10 @@ string compileArgvStringArray(Context* vars)
     ; Allocate space for string. Alloc space plus ref count plus string size
     ; plus space for the null byte
     mov    rdi, r9
-    add    rdi, 9
+    add    rdi, 17
     call   malloc
-    ; Set ref count to 1 for new string
-    mov    dword [rax], 1
+    ; Clear runtime header
+    mov    qword [rax], 0
     ; Set string length for new string
     mov    qword [rax+8], rbx
     ; Place pointer for string into []string, which is still in r13.

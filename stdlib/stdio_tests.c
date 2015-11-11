@@ -7,8 +7,8 @@
 
 void printMellowStringInfo(void* mellowStr)
 {
-    printf("Ref-count: %d\n", ((uint64_t*)mellowStr)[0]);
-    printf("Length   : %d\n", ((uint64_t*)mellowStr)[1]);
+    printf("Runtime header: %d\n", ((uint64_t*)mellowStr)[0]);
+    printf("Length        : %d\n", ((uint64_t*)mellowStr)[1]);
 }
 
 int main(int argc, char** argv)

@@ -45,7 +45,7 @@ struct MaybeStr* readln()
             HEAD_SIZE + bytesRead + 1,
             gc_env
         );
-        // Clear the "runtime" header
+        // Clear the runtime header
         ((uint64_t*)mellowStr)[0] = 0;
         // Set the string length
         ((uint64_t*)mellowStr)[1] = bytesRead;
@@ -138,7 +138,7 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
                 HEAD_SIZE + bytesRead + 1,
                 gc_env
             );
-            // Clear the "runtime" header
+            // Clear the runtime header
             ((uint64_t*)mellowStr)[0] = 1;
             // Set the string length
             ((uint64_t*)mellowStr)[1] = bytesRead;
