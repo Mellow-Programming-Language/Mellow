@@ -33,6 +33,40 @@ void* mellow_copyString(void* str)
     );
 }
 
+void* __get_mellow_argv(int argc, char** argv)
+{
+    // GC_Env* gc_env = __get_GC_Env();
+    size_t num_entries = argc * sizeof(void*);
+    // void* new_argv = __GC_malloc(HEAD_SIZE + num_entries, gc_env);
+    void* new_argv = malloc(HEAD_SIZE + num_entries);
+    // Clear runtime header
+    ((uint64_t*)new_argv)[0] = 0;
+    // Set array length
+    ((uint64_t*)new_argv)[1] = argc;
+    uint64_t i;
+    for (i = 0; i < argc; i++)
+    {
+        size_t char_count = strlen(argv[i]);
+        size_t str_len = char_count + 1;
+        // void* mellow_str = __GC_malloc(HEAD_SIZE + str_len, gc_env);
+        void* mellow_str = malloc(HEAD_SIZE + str_len);
+        // Clear runtime header
+        ((uint64_t*)mellow_str)[0] = 0;
+        // Set string length
+        ((uint64_t*)mellow_str)[1] = char_count;
+        // Copy the string, including the null terminator
+        memcpy(
+            (uint8_t*)mellow_str + HEAD_SIZE,
+            (uint8_t*)argv[i],
+            str_len
+        );
+        // Populate the mellow argv with the new string. Indices 0 and 1 are
+        // header indices, so start at index 2
+        ((void**)new_argv)[i+2] = mellow_str;
+    }
+    return new_argv;
+}
+
 void* __arr_arr_append(void* left, void* right,
                        size_t elem_size, uint64_t is_str)
 {

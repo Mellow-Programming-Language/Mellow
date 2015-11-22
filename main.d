@@ -617,6 +617,7 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     auto str = "";
     vars.runtimeExterns["newProc"] = true;
     vars.runtimeExterns["yield"] = true;
+    vars.runtimeExterns["__get_mellow_argv"] = true;
     foreach (name; vars.unittestNames)
     {
         str ~= "    extern " ~ name ~ "\n";
@@ -741,73 +742,10 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
 string compileArgvStringArray(Context* vars)
 {
     auto str = q"EOF
-    ; argc is in rdi, and in r14
-    mov    r14, rdi
-    ; argv is in rsi, and in r15
-    mov    r15, rsi
-    ; Multiply alloc'd space by the size of string ptrs
-    imul   rdi, 8
-    ; Add space for ref count and array length
-    add    rdi, 16
-    call   malloc
-    ; Store []string in r13
-    mov    r13, rax
-    ; Set refcount to 1
-    mov    dword [r13], 1
-    ; Set []string length
-    mov    qword [r13+8], r14
-    ; r12 is the counter for looping through argc
-    mov    r12, 0
-.loop:
-    cmp    r12, r14
-    je     .endloop
-    ; Get offset into argv for next string
-    mov    r9, r15
-    mov    r10, r12
-    imul   r10, 8
-    add    r9, r10
-    mov    rdi, qword [r9]
-    call   strlen
-    ; string length in rax, r8, r9, save rax in rbx
+    ; argc is in rdi, argv is in rsi
+    call   __get_mellow_argv
+    ; rax now contains []string argv, place in r8
     mov    r8, rax
-    mov    r9, rax
-    mov    rbx, rax
-    ; Allocate space for string. Alloc space plus ref count plus string size
-    ; plus space for the null byte
-    mov    rdi, r9
-    add    rdi, 17
-    call   malloc
-    ; Clear runtime header
-    mov    qword [rax], 0
-    ; Set string length for new string
-    mov    qword [rax+8], rbx
-    ; Place pointer for string into []string, which is still in r13.
-    ; Need to calculate offset into r13 using the r12 counter
-    mov    r8, r13
-    add    r8, 8
-    mov    r9, r12
-    imul   r9, 8
-    add    r8, r9
-    mov    qword [r8], rax
-    ; Get offset into new string in rdi for memcpy
-    mov    rdi, rax
-    add    rdi, 8
-    ; Get offset into argv again for the same string, for memcpy
-    mov    r9, r15
-    mov    r10, r12
-    imul   r10, 8
-    add    r9, r10
-    mov    rsi, qword [r9]
-    ; Set number of bytes to copy, including the null byte
-    mov    rdx, rbx
-    add    rdx, 1
-    call   memcpy
-    ; Increment counter and loop
-    add    r12, 1
-    jmp    .loop
-.endloop:
-    ; r8 now contains []string argv
-    mov    r8, r13
 EOF";
     return str;
 }

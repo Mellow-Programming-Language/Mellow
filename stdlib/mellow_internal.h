@@ -30,6 +30,9 @@ void* mellow_allocString(const char* str, const uint64_t length);
 // Make a copy of the string
 void* mellow_copyString(void* str);
 
+// Convert C-style argc/argv pair into mellow []string
+void* __get_mellow_argv(int argc, char** argv);
+
 void* __arr_arr_append(void* left, void* right,
                        size_t elem_size, uint64_t is_str);
 
