@@ -3324,22 +3324,40 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     auto funcName = getIdentifier(cast(IdentifierNode)node.children[0]);
+    // We're dealing with a function pointer, not a straight function call
+    if ("funcptrsig" in node.data)
+    {
+        str ~= vars.compileVarGet(funcName);
+        // Get the function ptr itself
+        // TODO: Implement passing environment pointer to compileArgList
+        str ~= "    mov    r10, qword [r8+16]\n";
+    }
+    // This is a simple function call
+    else
+    {
+        str ~= "    mov    r10, " ~ funcName ~ "\n";
+    }
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto funcLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ funcLoc ~ "], r10\n";
     ulong numArgs = 0;
     if (cast(TemplateInstantiationNode)node.children[1])
     {
-        str = compileArgList(
+        str ~= compileArgList(
             cast(FuncCallArgListNode)node.children[2], vars
         );
         numArgs = (cast(ASTNonTerminal)node.children[2]).children.length;
     }
     else
     {
-        str = compileArgList(
+        str ~= compileArgList(
             cast(FuncCallArgListNode)node.children[1], vars
         );
         numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
     }
-    str ~= "    call   " ~ funcName ~ "\n";
+    str ~= "    mov    r10, qword [rbp-" ~ funcLoc ~ "]\n";
+    str ~= "    call   r10\n";
     if (numArgs > 6)
     {
 

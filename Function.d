@@ -1928,57 +1928,103 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncCallNode"));
         node.children[0].accept(this);
         auto name = id;
+        auto varLookup = funcScopes.scopeLookup(name);
         auto funcLookup = funcSigLookup(
             toplevelFuncs ~ importedFuncSigs, name
         );
-        if (!funcLookup.success)
+        if (!funcLookup.success && !varLookup.success)
         {
             throw new Exception(
                 errorHeader(node) ~ "\n"
-                ~ "No function[" ~ name ~ "]."
+                ~ "No function or function ptr [" ~ name ~ "]."
             );
         }
-        curFuncCallSig = funcLookup.sig;
-        if (curFuncCallSig.templateParams.length > 0
-            && !cast(TemplateInstantiationNode)node.children[1])
+        else if (varLookup.success)
         {
-            throw new Exception(
-                errorHeader(node) ~ "\n"
-                ~ "Template [" ~ name ~ "] must be instantiated to spawn"
-            );
-        }
-        if (cast(TemplateInstantiationNode)node.children[1])
-        {
-            builderStack.length++;
-            node.children[1].accept(this);
-            auto templateInstantiations = builderStack[$-1];
-            builderStack.length--;
-            auto instantiator = new TemplateInstantiator(records);
-            curFuncCallSig = instantiator.instantiateFunction(
-                curFuncCallSig, templateInstantiations
-            );
-            auto existsLookup = funcSigLookup(
-                toplevelFuncs ~ importedFuncSigs, curFuncCallSig.funcName
-            );
-            if (!existsLookup.success)
+            auto varType = funcScopes[varLookup.funcIndex]
+                                .syms[varLookup.symIndex]
+                                .decls[name]
+                                .type;
+            // Check if the var is a function ptr, and if it is, set
+            // curFuncCallSig appropriately, as well as recording the func
+            // ptr sig for the code generator
+            if (varType.tag != TypeEnum.FUNCPTR)
             {
-                toplevelFuncs ~= curFuncCallSig;
-                // Add this instantiated, templated function to the end of the
-                // abstract syntax tree, effectively bringing it into existence,
-                // and allowing it to get typechecked later
-                topNode.children ~= curFuncCallSig.funcDefNode;
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Variable [" ~ name ~ "] expected to be function ptr, "
+                    ~ "but is type: "
+                    ~ "  " ~ varType.format
+                );
             }
-            auto newIdNode = new IdentifierNode();
-            auto terminal = new ASTTerminal(
-                curFuncCallSig.funcName, 0
-            );
-            newIdNode.children ~= terminal;
-            node.children[0] = newIdNode;
-            node.children[2].accept(this);
-        }
-        else
-        {
+            if (!cast(FuncCallArgListNode)node.children[1])
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Function ptrs cannot be instantiated as templates"
+                );
+            }
+            auto funcSigFromPtr = new FuncSig();
+            VarTypePair*[] dummyPairs;
+            foreach (var; varType.funcPtr.funcArgs)
+            {
+                auto pair = new VarTypePair();
+                pair.type = var;
+                pair.varName = "__NULL_NAME__";
+                dummyPairs ~= pair;
+            }
+            funcSigFromPtr.funcArgs = dummyPairs;
+            funcSigFromPtr.returnType = varType.funcPtr.returnType;
+            funcSigFromPtr.funcName = "";
+            curFuncCallSig = funcSigFromPtr;
+            node.data["funcptrsig"] = varType;
             node.children[1].accept(this);
+        }
+        else if (funcLookup.success)
+        {
+            curFuncCallSig = funcLookup.sig;
+            if (curFuncCallSig.templateParams.length > 0
+                && !cast(TemplateInstantiationNode)node.children[1])
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Template [" ~ name ~ "] must be instantiated with type "
+                    ~ "arguments"
+                );
+            }
+            if (cast(TemplateInstantiationNode)node.children[1])
+            {
+                builderStack.length++;
+                node.children[1].accept(this);
+                auto templateInstantiations = builderStack[$-1];
+                builderStack.length--;
+                auto instantiator = new TemplateInstantiator(records);
+                curFuncCallSig = instantiator.instantiateFunction(
+                    curFuncCallSig, templateInstantiations
+                );
+                auto existsLookup = funcSigLookup(
+                    toplevelFuncs ~ importedFuncSigs, curFuncCallSig.funcName
+                );
+                if (!existsLookup.success)
+                {
+                    toplevelFuncs ~= curFuncCallSig;
+                    // Add this instantiated, templated function to the end of the
+                    // abstract syntax tree, effectively bringing it into existence,
+                    // and allowing it to get typechecked later
+                    topNode.children ~= curFuncCallSig.funcDefNode;
+                }
+                auto newIdNode = new IdentifierNode();
+                auto terminal = new ASTTerminal(
+                    curFuncCallSig.funcName, 0
+                );
+                newIdNode.children ~= terminal;
+                node.children[0] = newIdNode;
+                node.children[2].accept(this);
+            }
+            else
+            {
+                node.children[1].accept(this);
+            }
         }
     }
 
