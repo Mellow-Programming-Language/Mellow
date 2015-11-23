@@ -1,0 +1,38 @@
+// ISSUE: Ensure that function pointers work
+// EXPECTS: "15 5 50 15 5 50 15 5 50 "
+// STATUS: todo
+
+import std.io;
+import std.conv;
+
+func add(a: int, b: int): int {
+    return a + b;
+}
+
+func sub(a: int, b: int): int {
+    return a - b;
+}
+
+func mul(a: int, b: int): int {
+    return a * b;
+}
+
+func main() {
+    valOne := 10;
+    valTwo := 5;
+    ptrOne: func(int, int): int = add;
+    ptrTwo := sub;
+    ptrThr := mul;
+    ptrArr := [ptrOne, ptrTwo, ptrThr];
+    ptrArr_2: []func(int, int): int = [ptrOne, ptrTwo, ptrThr];
+    write(intToString(ptrOne(valOne, valTwo)) ~ " ");
+    write(intToString(ptrTwo(valOne, valTwo)) ~ " ");
+    write(intToString(ptrThr(valOne, valTwo)) ~ " ");
+    foreach (f; ptrArr) {
+        write(intToString(f(valOne, valTwo)) ~ " ");
+    }
+    foreach (f; ptrArr_2) {
+        write(intToString(f(valOne, valTwo)) ~ " ");
+    }
+    writeln("");
+}

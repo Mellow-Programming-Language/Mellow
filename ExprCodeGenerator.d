@@ -587,11 +587,39 @@ string compileValue(ValueNode node, Context* vars)
             vars.valueTag = "var";
             str ~= "    ; getting " ~ name ~ "\n";
             str ~= vars.compileVarGet(name);
+            if ("funcptrsig" in node.data)
+            {
+                vars.valueTag = "funcptr";
+            }
         }
         else if (vars.isFuncName(name))
         {
             vars.valueTag = "func";
             str ~= "    mov    r8, " ~ name ~ "\n";
+            // If we are not then immediately invoking this function, then we
+            // must be creating a function pointer
+            if (node.children.length == 1)
+            {
+                vars.allocateStackSpace(8);
+                auto funcPtrLoc = vars.getTop.to!string;
+                scope (exit) vars.deallocateStackSpace(8);
+                str ~= "    mov    qword [rbp-" ~ funcPtrLoc ~ "], r8\n";
+                str ~= "    mov    rdi, " ~ (REF_COUNT_SIZE
+                                           + STRUCT_BUFFER_SIZE
+                                           + MELLOW_STR_SIZE
+                                           + ENVIRON_PTR_SIZE).to!string
+                                          ~ "\n";
+                str ~= "    call   malloc\n";
+                // Set up memory layout of fat ptr:
+                // [8-bytes runtime header,
+                //  8 bytes null environ ptr, 8 bytes func ptr]
+                str ~= "    mov    dword [rax], 0\n";
+                str ~= "    mov    dword [rax+4], 0\n";
+                str ~= "    mov    qword [rax+8], 0\n";
+                str ~= "    mov    r8, qword [rbp-" ~ funcPtrLoc ~ "]\n";
+                str ~= "    mov    qword [rax+16], r8\n";
+                str ~= "    mov    r8, rax\n";
+            }
         }
         else if (type.tag == TypeEnum.VARIANT)
         {
@@ -1109,6 +1137,43 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
         str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
         str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
         str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
+        vars.deallocateStackSpace(8);
+        if (funcSig.returnType.tag == TypeEnum.TUPLE)
+        {
+            // Allocate stack space for every return value beyond the first,
+            // which will be returned in rax, to be returned on the stack
+            auto alignedSize = funcSig.returnType
+                                      .tuple
+                                      .types[1..$]
+                                      .map!(a => a.size)
+                                      .array
+                                      .getAlignedSize;
+            str ~= "    sub    rsp, " ~ (alignedSize
+                                       + getPadding(alignedSize, 16))
+                                        .to!string
+                                      ~ "\n";
+            // In the assignment statement that actually deals with assigning
+            // the value, we'll check if the value was from a function call,
+            // and if it was, we'll check if it returned a tuple, and if it
+            // was, we'll grab the values off the stack and fix the stack
+        }
+        str ~= "    call   r10\n";
+        str ~= "    mov    r8, rax\n";
+        break;
+    case "funcptr":
+        auto funcSig = node.data["funcsig"].get!(FuncSig*);
+        vars.allocateStackSpace(8);
+        auto funcPtrLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ funcPtrLoc ~ "], r8\n";
+        // Set r8 to the value of the environment pointer for the func ptr.
+        // If the ptr is valid and not null, it will be passed as the first arg
+        // to the function, otherwise it isn't passed, in compileArgList
+        // TODO; We don't actually correctly pass the environ ptr yet.
+        str ~= "    mov    r8, qword [r8+8]\n";
+        str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
+        str ~= "    mov    r10, qword [rbp-" ~ funcPtrLoc ~ "]\n";
+        // Grab the actual function pointer out of the fat ptr
+        str ~= "    mov    r10, qword [r10+16]\n";
         vars.deallocateStackSpace(8);
         if (funcSig.returnType.tag == TypeEnum.TUPLE)
         {

@@ -29,12 +29,20 @@ debug (FUNCTION_TYPECHECK_TRACE)
     {
         return `
             string mixin_funcName = "` ~ funcName ~ `";
-            writeln(traceIndent, "Entered: ", mixin_funcName);
+            writeln(
+                traceIndent, "Entered: ", mixin_funcName,
+                ", L: ", node.data["LINE"].get!uint,
+                ", C: ", node.data["COLUMN"].get!uint
+            );
             traceIndent ~= "  ";
             scope(success)
             {
                 traceIndent = traceIndent[0..$-2];
-                writeln(traceIndent, "Exiting: ", mixin_funcName);
+                writeln(
+                traceIndent, "Exiting: ", mixin_funcName,
+                    ", L: ", node.data["LINE"].get!uint,
+                    ", C: ", node.data["COLUMN"].get!uint
+                );
             }
         `;
     }
@@ -894,6 +902,26 @@ class FunctionBuilder : Visitor
                                     .syms[varLookup.symIndex]
                                     .decls[name]
                                     .type;
+                // Check if the var is a function ptr, and if it is, set
+                // curFuncCallSig appropriately, as well as recording the func
+                // ptr sig for the code generator
+                if (varType.tag == TypeEnum.FUNCPTR)
+                {
+                    auto funcSigFromPtr = new FuncSig();
+                    VarTypePair*[] dummyPairs;
+                    foreach (var; varType.funcPtr.funcArgs)
+                    {
+                        auto pair = new VarTypePair();
+                        pair.type = var;
+                        pair.varName = "__NULL_NAME__";
+                        dummyPairs ~= pair;
+                    }
+                    funcSigFromPtr.funcArgs = dummyPairs;
+                    funcSigFromPtr.returnType = varType.funcPtr.returnType;
+                    funcSigFromPtr.funcName = "";
+                    curFuncCallSig = funcSigFromPtr;
+                    node.data["funcptrsig"] = varType;
+                }
                 builderStack[$-1] ~= varType;
             }
             else if (funcLookup.success)
@@ -1774,11 +1802,23 @@ class FunctionBuilder : Visitor
             auto funcArgs = funcSig.funcArgs;
             if (funcArgs.length != node.children.length)
             {
-                throw new Exception(
-                    errorHeader(node) ~ "\n"
-                    ~ "Incorrect number of arguments passed for call of "
-                    ~ "function [" ~ funcSig.funcName ~ "]"
-                );
+                if (funcSig.funcName != "")
+                {
+                    throw new Exception(
+                        errorHeader(node) ~ "\n"
+                        ~ "Incorrect number of arguments passed for call of "
+                        ~ "function [" ~ funcSig.funcName ~ "]"
+                    );
+                }
+                else
+                {
+                    throw new Exception(
+                        errorHeader(node) ~ "\n"
+                        ~ "Incorrect number of arguments passed for call of "
+                        ~ "function ptr with signature:\n"
+                        ~ "  " ~ funcSig.format
+                    );
+                }
             }
             foreach (i, child, argExpected; lockstep(node.children, funcArgs))
             {
@@ -1796,14 +1836,30 @@ class FunctionBuilder : Visitor
                 }
                 if (!argPassed.cmp(argExpected.type))
                 {
-                    throw new Exception(
-                        errorHeader(node) ~ "\n"
-                        ~ "Mismatch between expected and passed arg type for "
-                        ~ "call of function [" ~ funcSig.funcName ~ "]\n"
-                        ~ "  Expects: " ~ argExpected.type.format ~ "\n"
-                        ~ "  But got: " ~ argPassed.format ~ "\n"
-                        ~ "in arg position [" ~ i.to!string ~ "]"
-                    );
+                    if (funcSig.funcName != "")
+                    {
+                        throw new Exception(
+                            errorHeader(node) ~ "\n"
+                            ~ "Mismatch between expected and passed arg type "
+                            ~ "for call of function [" ~ funcSig.funcName ~ "]"
+                            ~ "\n"
+                            ~ "  Expects: " ~ argExpected.type.format ~ "\n"
+                            ~ "  But got: " ~ argPassed.format ~ "\n"
+                            ~ "in arg position [" ~ i.to!string ~ "]"
+                        );
+                    }
+                    else
+                    {
+                        throw new Exception(
+                            errorHeader(node) ~ "\n"
+                            ~ "Mismatch between expected and passed arg type "
+                            ~ "for call of function\nptr with signature:\n"
+                            ~ "  " ~ funcSig.format ~ "\n"
+                            ~ "  Expects: " ~ argExpected.type.format ~ "\n"
+                            ~ "  But got: " ~ argPassed.format ~ "\n"
+                            ~ "in arg position [" ~ i.to!string ~ "]"
+                        );
+                    }
                 }
             }
             builderStack[$-1] ~= funcSig.returnType;

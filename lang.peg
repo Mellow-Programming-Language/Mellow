@@ -27,7 +27,7 @@ FuncDef :: FuncSignature FuncBodyBlocks;
 FuncSignature :: #'func' #Sp Identifier TemplateTypeParams FuncDefArgList FuncReturnType;
 FuncDefArgList :: #"(" (FuncSigArg (#"," FuncSigArg)*)? #")";
 FuncSigArg :: Identifier #":" ^StorageClass* TypeId;
-FuncReturnType :: (#":" (FuncRefType | TypeId | TypeTuple))?;
+FuncReturnType :: (#":" (TypeId | TypeTuple))?;
 FuncBodyBlocks :: ( BareBlock
                   | (InBlock? OutBlock? ReturnModBlock? BodyBlock)
                   );
@@ -315,13 +315,12 @@ VariableTypePairTuple :: #"(" VariableTypePair (#"," VariableTypePair)* #")";
 Identifier :: /([a-zA-Z]|_[a-zA-Z0-9])[a-zA-Z0-9_]*/;
 IdTuple :: #"(" Identifier (#"," Identifier)* #")";
 
-FuncRefType :: #"fn" #"(" (TypeId (#"," TypeId)*)? #")" FuncRefRetType;
-FuncRefRetType :: (#"=>" TypeId)?;
 TypeId :: ChanType
         | BasicType
         | ArrayType
         | SetType
         | HashType
+        | FuncPtrType
         | UserType
         ;
 ChanType :: #"chan" #"!" ((#"(" TypeId #")") | (TypeId));
@@ -330,6 +329,7 @@ SetType :: #"<" #">" BasicType;
 HashType :: #"[" BasicType #"]" TypeId;
 TypeTuple :: #"(" TypeId (#"," TypeId)+ #")";
 UserType :: Identifier TemplateInstantiation?;
+FuncPtrType :: #"func" #"(" (TypeId (#"," TypeId)*)? #")" (":" TypeId)?;
 BasicType :: "void"
            | "long"
            | "int"
