@@ -1,6 +1,5 @@
 // ISSUE: Ensure that function pointers work
-// EXPECTS: "15 5 50 15 5 50 15 5 50 "
-// STATUS: todo
+// EXPECTS: "15 5 50 15 5 50 15 5 50 Success! "
 
 import std.io;
 import std.conv;
@@ -15,6 +14,10 @@ func sub(a: int, b: int): int {
 
 func mul(a: int, b: int): int {
     return a * b;
+}
+
+func printer() {
+    write("Success! ");
 }
 
 func main() {
@@ -34,5 +37,7 @@ func main() {
     foreach (f; ptrArr_2) {
         write(intToString(f(valOne, valTwo)) ~ " ");
     }
+    printerPtr := printer;
+    printerPtr();
     writeln("");
 }
