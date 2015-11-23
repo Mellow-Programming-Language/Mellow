@@ -1,6 +1,5 @@
 // ISSUE: Ensure that function pointers work
 // EXPECTS: "15 5 50 15 5 50 15 5 50 "
-// STATUS: todo
 
 import std.io;
 import std.conv;
