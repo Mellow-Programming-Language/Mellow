@@ -893,6 +893,8 @@ class TemplateInstantiator : Visitor
 
     void visit(UserTypeNode node) {}
 
+    void visit(FuncPtrTypeNode node) {}
+
     void visit(TemplateInstantiationNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("TemplateInstantiationNode"));
@@ -932,8 +934,6 @@ class TemplateInstantiator : Visitor
     void visit(BreakStmtNode node) {}
     void visit(ContinueStmtNode node) {}
     void visit(IdTupleNode node) {}
-    void visit(FuncRefTypeNode node) {}
-    void visit(FuncRefRetTypeNode node) {}
     void visit(InterfaceDefNode node) {}
     void visit(InterfaceBodyNode node) {}
     void visit(InterfaceEntryNode node) {}

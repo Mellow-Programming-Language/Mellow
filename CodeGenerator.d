@@ -3387,15 +3387,6 @@ string compileFuncCallArgList(FuncCallArgListNode node, Context* vars)
         types ~= type;
         switch (type)
         {
-        case TypeEnum.FUNCPTR:
-            assert(false, "unimplemented");
-            vars.allocateStackSpace(8);
-            str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], "
-                                            ~ "r8\n";
-            vars.allocateStackSpace(8);
-            str ~= "    mov    qword [rbp-" ~ vars.getTop.to!string ~ "], "
-                                            ~ "r9\n";
-            break;
         case TypeEnum.DOUBLE:
             vars.allocateStackSpace(8);
             str ~= "    movsd  qword [rbp-" ~ vars.getTop.to!string ~ "], "
@@ -3430,9 +3421,6 @@ string compileFuncCallArgList(FuncCallArgListNode node, Context* vars)
     {
         switch (types[$ - 1 - i])
         {
-        case TypeEnum.FUNCPTR:
-            assert(false, "unimplemented");
-            break;
         case TypeEnum.FLOAT:
         case TypeEnum.DOUBLE:
             if (floatRegIndex < FLOAT_REG.length)

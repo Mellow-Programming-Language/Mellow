@@ -5,7 +5,6 @@ import std.conv;
 import parser;
 
 const PTR_SIZE = 8;
-const FAT_PTR_SIZE = 16;
 
 enum TypeEnum
 {
@@ -191,7 +190,7 @@ struct FuncPtrType
     string format() const
     {
         string str = "";
-        str ~= "fn (";
+        str ~= "func (";
         if (funcArgs.length > 0)
         {
             str ~= funcArgs.map!(a => a.format()).join(", ");
@@ -199,7 +198,7 @@ struct FuncPtrType
         str ~= ")";
         if (returnType.tag != TypeEnum.VOID)
         {
-            str ~= " => " ~ returnType.format();
+            str ~= ": " ~ returnType.format();
         }
         return str;
     }
@@ -776,7 +775,7 @@ struct Type
         case TypeEnum.SET       : return PTR_SIZE;
         case TypeEnum.HASH      : return PTR_SIZE;
         case TypeEnum.ARRAY     : return PTR_SIZE;
-        case TypeEnum.FUNCPTR   : return FAT_PTR_SIZE;
+        case TypeEnum.FUNCPTR   : return PTR_SIZE;
         case TypeEnum.STRUCT    : return PTR_SIZE;
         case TypeEnum.VARIANT   : return PTR_SIZE;
         case TypeEnum.CHAN      : return PTR_SIZE;
@@ -1322,37 +1321,35 @@ mixin template TypeVisitors()
         builderStack[$-1] ~= wrap;
     }
 
-    void visit(FuncRefTypeNode node)
+    void visit(FuncPtrTypeNode node)
     {
-        auto funcRefType = new FuncPtrType();
+        auto funcPtrType = new FuncPtrType();
+        if (node.children.length >= 2 && cast(ASTTerminal)(node.children[$-2]))
+        {
+            node.children[$-1].accept(this);
+            funcPtrType.returnType = builderStack[$-1][$-1];
+            builderStack[$-1] = builderStack[$-1][0..$-1];
+            node.children.length -= 2;
+        }
+        else
+        {
+            auto voidType = new Type();
+            voidType.tag = TypeEnum.VOID;
+            funcPtrType.returnType = voidType;
+        }
         Type*[] funcArgs;
-        foreach (child; node.children[0..$-1])
+        foreach (child; node.children)
         {
             child.accept(this);
             funcArgs ~= builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
         }
-        funcRefType.funcArgs = funcArgs;
-        auto retTypeNode = cast(FuncRefRetTypeNode)node.children[$-1];
-        if (retTypeNode.children.length == 0)
-        {
-            auto voidRetType = new Type();
-            voidRetType.tag = TypeEnum.VOID;
-            funcRefType.returnType = voidRetType;
-        }
-        else
-        {
-            retTypeNode.children[0].accept(this);
-            funcRefType.returnType = builderStack[$-1][$-1];
-            builderStack[$-1] = builderStack[$-1][0..$-1];
-        }
+        funcPtrType.funcArgs = funcArgs;
         auto wrap = new Type();
         wrap.tag = TypeEnum.FUNCPTR;
-        wrap.funcPtr = funcRefType;
+        wrap.funcPtr = funcPtrType;
         builderStack[$-1] ~= wrap;
     }
-
-    void visit(FuncRefRetTypeNode node) {}
 
     void visit(TemplateTypeParamsNode node)
     {
