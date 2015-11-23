@@ -604,8 +604,8 @@ string compileValue(ValueNode node, Context* vars)
                 str ~= "    mov    qword [rbp-" ~ funcPtrLoc ~ "], r8\n";
                 str ~= "    mov    rdi, " ~ (REF_COUNT_SIZE
                                            + STRUCT_BUFFER_SIZE
-                                           + MELLOW_STR_SIZE
-                                           + ENVIRON_PTR_SIZE).to!string
+                                           + ENVIRON_PTR_SIZE
+                                           + MELLOW_STR_SIZE).to!string
                                           ~ "\n";
                 str ~= "    call   malloc\n";
                 // Set up memory layout of fat ptr:
