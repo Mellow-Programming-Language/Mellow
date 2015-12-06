@@ -1,0 +1,20 @@
+// ISSUE: Testing multiple-return of values from functions
+// EXPECTS: "10 true [data] "
+
+import std.io;
+import std.conv;
+
+func mult(a: int, b: string): (int, bool, string) {
+    return (a + 5, true, "[" ~ b ~ "]");
+}
+
+func main() {
+    (i, b, s) := mult(5, "data");
+    write(intToString(i) ~ " ");
+    match (b) {
+        true  :: write("true ");
+        false :: write("false ");
+    }
+    write(s ~ " ");
+    writeln("");
+}
