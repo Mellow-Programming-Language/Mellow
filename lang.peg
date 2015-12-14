@@ -27,7 +27,7 @@ FuncDef :: FuncSignature FuncBodyBlocks;
 FuncSignature :: #'func' #Sp Identifier TemplateTypeParams FuncDefArgList FuncReturnType;
 FuncDefArgList :: #"(" (FuncSigArg (#"," FuncSigArg)*)? #")";
 FuncSigArg :: Identifier #":" ^StorageClass* TypeId;
-FuncReturnType :: (#":" (TypeId | TypeTuple))?;
+FuncReturnType :: (#":" TypeId)?;
 FuncBodyBlocks :: ( BareBlock
                   | (InBlock? OutBlock? ReturnModBlock? BodyBlock)
                   );
@@ -319,6 +319,7 @@ TypeId :: ChanType
         | ArrayType
         | SetType
         | HashType
+        | TypeTuple
         | FuncPtrType
         | UserType
         ;
