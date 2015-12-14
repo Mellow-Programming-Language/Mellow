@@ -72,9 +72,7 @@ Statement :: BareBlock
 
 AssertStmt :: #"assert" #"(" BoolExpr (#"," BoolExpr)? #")";
 
-ReturnStmt :: #'return' ((#Sp BoolExpr)
-                        | (#Sp ValueTuple)
-                        )?;
+ReturnStmt :: #'return' #Sp BoolExpr;
 
 IfStmt :: #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
           BareBlock ElseIfs EndBlocks?;
@@ -205,6 +203,7 @@ Value :: (BooleanLiteral DotAccess?)
        | StructConstructor
        | (CharLit DotAccess?)
        | (StringLit DotAccess?)
+       | ValueTuple
        | (ParenExpr DotAccess?)
        | (ArrayLiteral DotAccess?)
        | (Number DotAccess?)

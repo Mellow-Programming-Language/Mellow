@@ -568,7 +568,7 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(StringLitNode)child) {
         str ~= compileStringLit(cast(StringLitNode)child, vars);
     } else if (cast(ValueTupleNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileValueTuple(cast(ValueTupleNode)child, vars);
     } else if (cast(ParenExprNode)child) {
         str ~= compileParenExpr(cast(ParenExprNode)child, vars);
     } else if (cast(ArrayLiteralNode)child) {
@@ -753,7 +753,34 @@ string compileStructConstructor(StructConstructorNode node, Context* vars)
 string compileValueTuple(ValueTupleNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto tupleType = node.data["type"].get!(Type*).tuple;
+    str ~= "    mov    rdi, " ~ getTupleAllocSize(tupleType).to!string ~ "\n";
+    str ~= "    call   malloc\n";
+    // Set refcount
+    str ~= "    mov    dword [rax], 1\n";
+    str ~= "    mov    r8, rax\n";
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto tupleLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ tupleLoc ~ "], r8\n";
+    foreach (i, child; node.children)
+    {
+        auto valueOffset = tupleType.getOffsetOfValue(i);
+        auto valueType = tupleType.types[i];
+        str ~= compileBoolExpr(cast(BoolExprNode)child, vars);
+        str ~= "    mov    r10, qword [rbp-" ~ tupleLoc ~ "]\n";
+        str ~= "    add    r10, " ~ (REF_COUNT_SIZE
+                                   + STRUCT_BUFFER_SIZE
+                                   + valueOffset).to!string
+                                  ~ "\n";
+        str ~= "    mov    " ~ getWordSize(valueType.size)
+                             ~ " [r10], r8"
+                             ~ getRRegSuffix(valueType.size)
+                             ~ "\n";
+    }
+    str ~= "    mov    r8, qword [rbp-" ~ tupleLoc ~ "]\n";
+    return str;
 }
 
 string compileParenExpr(ParenExprNode node, Context* vars)

@@ -1435,6 +1435,7 @@ class FunctionBuilder : Visitor
         auto type = new Type;
         type.tag = TypeEnum.TUPLE;
         type.tuple = tuple;
+        node.data["type"] = type;
         builderStack[$-1] ~= type;
     }
 

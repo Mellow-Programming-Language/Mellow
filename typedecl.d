@@ -163,6 +163,29 @@ struct TupleType
         }
         return str;
     }
+
+    auto getOffsetOfValue(ulong index)
+    {
+        int[] valueSizes;
+        foreach (i, type; types)
+        {
+            valueSizes ~= type.size;
+            if (i == index)
+            {
+                return getAlignedIndexOffset(valueSizes, i);
+            }
+        }
+        assert(false, "Unreachable");
+    }
+
+    // The size of the struct on the heap is the total aligned size of all the
+    // values
+    auto size()
+    {
+        return types.map!(a => a.size)
+                    .array
+                    .getAlignedSize;
+    }
 }
 
 // Type representing the value that is a callable function pointer. Note that
@@ -779,11 +802,7 @@ struct Type
         case TypeEnum.STRUCT    : return PTR_SIZE;
         case TypeEnum.VARIANT   : return PTR_SIZE;
         case TypeEnum.CHAN      : return PTR_SIZE;
-        // Tuples are allocated on the stack, to make tuple-return cheap
-        case TypeEnum.TUPLE     : return tuple.types
-                                              .map!(a => a.size)
-                                              .array
-                                              .getAlignedSize;
+        case TypeEnum.TUPLE     : return PTR_SIZE;
         // Any remaining aggregate placeholders in a type, after the
         // typechecker approved the code (which should be the only time
         // we care about the size of the types), must be placeholders for

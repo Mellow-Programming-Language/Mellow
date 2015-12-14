@@ -211,6 +211,13 @@ string compileRegRestore(string[] regs, Context* vars)
     return str;
 }
 
+auto getTupleAllocSize(TupleType* type)
+{
+    return REF_COUNT_SIZE
+        + STRUCT_BUFFER_SIZE
+        + type.size;
+}
+
 auto getStructAllocSize(StructType* type)
 {
     return REF_COUNT_SIZE
@@ -961,65 +968,8 @@ string compileReturn(ReturnStmtNode node, Context* vars)
                         ? ENVIRON_PTR_SIZE
                         : 0;
     auto str = "";
-    // Handle the non-tuple case
-    if (cast(BoolExprNode)node.children[0])
-    {
-        str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
-        if (vars.retType.size <= 8)
-        {
-            str ~= "    mov    rax, r8\n";
-        }
-        // Handle the fat ptr case
-        else if (vars.retType.size == 16)
-        {
-
-        }
-    }
-    else if (cast(ValueTupleNode)node.children[0])
-    {
-        // If we're returning a tuple, then we're guaranteed by the calling
-        // function that stack space has been allocated for us, which is
-        // sitting just behind our stack frame to be populated
-        auto children = (cast(ValueTupleNode)node.children[0]).children;
-        auto sizes = vars.retType
-                         .tuple
-                         .types[1..$]
-                         .map!(a => a.size)
-                         .array;
-        foreach (i, child; children[1..$])
-        {
-            auto alignedIndex = sizes.getAlignedIndexOffset(i);
-            auto size = sizes[i];
-            str ~= compileExpression(cast(BoolExprNode)child, vars);
-            switch (size)
-            {
-            case 16:
-                // Fat ptr case
-                break;
-            case 1:
-            case 2:
-            case 4:
-            case 8:
-            default:
-                str ~= "    mov    " ~ getWordSize(size)
-                                     ~ " [rbp+16+"
-                                     ~ alignedIndex.to!string
-                                     ~ "], r8"
-                                     ~ getRRegSuffix(size)
-                                     ~ "\n";
-                break;
-            }
-        }
-        str ~= compileExpression(cast(BoolExprNode)children[0], vars);
-        if (children[0].data["type"].get!(Type*).size <= 8)
-        {
-            str ~= "    mov    rax, r8\n";
-        }
-        else
-        {
-            // Handle fat ptr case
-        }
-    }
+    str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
+    str ~= "    mov    rax, r8\n";
     str ~= STACK_RESTORE_PLACEHOLDER;
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
@@ -2449,52 +2399,34 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
                           .get!(Type*)
                           .tuple
                           .types;
+        auto sizes = types.map!(a => a.size)
+                          .array;
         string[] identifiers;
         foreach (child; idNodes)
         {
             identifiers ~= getIdentifier(cast(IdentifierNode)child);
         }
         str ~= compileExpression(cast(BoolExprNode)right, vars);
-        auto var = new VarTypePair;
-        var.varName = identifiers[0];
-        var.type = types[0];
-        vars.addStackVar(var);
-        str ~= vars.compileVarSet(identifiers[0]);
-        auto sizes = types[1..$].map!(a => a.size)
-                                .array;
-        foreach (i, ident, type; lockstep(identifiers[1..$], types[1..$]))
+        str ~= "    mov    r10, r8\n";
+        foreach (i, ident, type; lockstep(identifiers, types))
         {
             auto alignedIndex = sizes.getAlignedIndexOffset(i);
             auto size = sizes[i];
-            switch (size)
-            {
-            case 16:
-                // Fat ptr case
-                break;
-            case 1:
-            case 2:
-            case 4:
-            case 8:
-            default:
-                str ~= "    mov    r8" ~ getRRegSuffix(size)
-                                       ~ ", "
-                                       ~ getWordSize(size)
-                                       ~ " [rsp+"
-                                       ~ alignedIndex.to!string
-                                       ~ "]"
-                                       ~ "\n";
-                var = new VarTypePair;
-                var.varName = ident;
-                var.type = type;
-                vars.addStackVar(var);
-                str ~= vars.compileVarSet(ident);
-                break;
-            }
+            str ~= "    mov    r8" ~ getRRegSuffix(size)
+                                   ~ ", "
+                                   ~ getWordSize(size)
+                                   ~ " [r10+"
+                                   ~ (REF_COUNT_SIZE
+                                    + STRUCT_BUFFER_SIZE
+                                    + alignedIndex).to!string
+                                   ~ "]"
+                                   ~ "\n";
+            auto var = new VarTypePair;
+            var.varName = ident;
+            var.type = type;
+            vars.addStackVar(var);
+            str ~= vars.compileVarSet(ident);
         }
-        str ~= "    add    rsp, " ~ (sizes.getAlignedSize
-                                   + getPadding(sizes.getAlignedSize, 16)
-                                    ).to!string
-                                  ~ "\n";
     }
     return str;
 }
