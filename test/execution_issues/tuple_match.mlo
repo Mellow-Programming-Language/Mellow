@@ -1,0 +1,16 @@
+// ISSUE: Test match deconstruction of tuples
+// EXPECTS: "Y "
+
+import std.io;
+import std.conv;
+
+func main() {
+    match ((1, "2", 3)) {
+        (1, _, 5)   :: write("N");
+        (1, "2", 3) :: write("Y");
+        (1, "2", 4) :: write("N");
+    }
+    write(" ");
+
+    writeln("");
+}

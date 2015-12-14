@@ -2080,8 +2080,49 @@ string compileIntPattern(IntPatternNode node, Context* vars)
 string compileTuplePattern(TuplePatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto tupleType = node.data["type"].get!(Type*).tuple;
+    auto str = "";
+    vars.allocateStackSpace(8);
+    vars.matchTypeLoc ~= vars.getTop;
+    scope (exit)
+    {
+        vars.deallocateStackSpace(8);
+        vars.matchTypeLoc.length--;
+    }
+    foreach (i, child; node.children)
+    {
+        auto valueOffset = tupleType.getOffsetOfValue(i);
+        auto valueSize = tupleType.types[i].size;
+        // Note that it's $-2, because of the above allocation
+        str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2].to!string
+                                            ~ "]\n";
+        // r8 is being set to a pointer to the i'th value in the tuple
+        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+                                  + STRUCT_BUFFER_SIZE
+                                  + valueOffset).to!string
+                                 ~ "\n";
+        switch (valueSize)
+        {
+        case 1:
+        case 2:
+            // If it's not an 8-byte or 4-byte mov, we need to zero the target
+            // register
+            str ~= "    mov    r9, 0\n";
+        case 4:
+        case 8:
+        default:
+            str ~= "    mov    r9" ~ getRRegSuffix(valueSize)
+                                   ~ ", "
+                                   ~ getWordSize(valueSize)
+                                   ~ "[r8]\n";
+            str ~= "    mov    qword [rbp-"
+                ~ vars.matchTypeLoc[$-1].to!string
+                ~ "], r9\n";
+            str ~= compilePattern(cast(PatternNode)child, vars);
+            break;
+        }
+    }
+    return str;
 }
 
 string compileArrayEmptyPattern(ArrayEmptyPatternNode node, Context* vars)
