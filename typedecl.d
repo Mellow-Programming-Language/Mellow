@@ -463,7 +463,16 @@ struct VariantMember
 
     auto size()
     {
-        return constructorElems.size();
+        if (constructorElems.tag == TypeEnum.VOID)
+        {
+            return 0;
+        }
+        // Must be tuple
+        return constructorElems.tuple
+                               .types
+                               .map!(a => a.size)
+                               .array
+                               .getAlignedSize;
     }
 }
 
