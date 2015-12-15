@@ -1,5 +1,5 @@
 // ISSUE: Test simple value tuple behavior
-// EXPECTS: "123 123 123 123 123 "
+// EXPECTS: "123 123 123 123 123 123 "
 
 import std.io;
 import std.conv;

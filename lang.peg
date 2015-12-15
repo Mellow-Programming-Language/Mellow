@@ -72,7 +72,7 @@ Statement :: BareBlock
 
 AssertStmt :: #"assert" #"(" BoolExpr (#"," BoolExpr)? #")";
 
-ReturnStmt :: #'return' #Sp BoolExpr;
+ReturnStmt :: #'return' (#Sp BoolExpr)?;
 
 IfStmt :: #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
           BareBlock ElseIfs EndBlocks?;
