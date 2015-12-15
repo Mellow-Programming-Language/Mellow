@@ -9,11 +9,8 @@ import std.array;
 import std.range;
 import ExprCodeGenerator;
 
-// Since functions can return tuples, the function ABI is to place the return
-// value into an assumed-allocated location just before where the arguments are
-// placed. Note that arguments 0-5 are in registers rdi, rsi, rdx, rcx, r8, and
-// r9. So, on the stack for a function call, we have:
-// return value allocation
+// Note that arguments 0-5 are in registers rdi, rsi, rdx, rcx, r8, and r9. So,
+// on the stack for a function call, we have:
 // arg8
 // arg7
 // arg6
