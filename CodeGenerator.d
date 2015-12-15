@@ -3076,47 +3076,29 @@ string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
                           .get!(Type*)
                           .tuple
                           .types;
+        auto sizes = types.map!(a => a.size)
+                          .array;
         str ~= compileExpression(cast(BoolExprNode)right, vars);
-        auto var = new VarTypePair;
-        var.varName = identifiers[0];
-        var.type = types[0];
-        vars.addStackVar(var);
-        str ~= vars.compileVarSet(identifiers[0]);
-        auto sizes = types[1..$].map!(a => a.size)
-                                .array;
-        foreach (i, ident, type; lockstep(identifiers[1..$], types[1..$]))
+        str ~= "    mov    r10, r8\n";
+        foreach (i, ident, type; lockstep(identifiers, types))
         {
             auto alignedIndex = sizes.getAlignedIndexOffset(i);
             auto size = sizes[i];
-            switch (size)
-            {
-            case 16:
-                // Fat ptr case
-                break;
-            case 1:
-            case 2:
-            case 4:
-            case 8:
-            default:
-                str ~= "    mov    r8" ~ getRRegSuffix(size)
-                                       ~ ", "
-                                       ~ getWordSize(size)
-                                       ~ " [rsp+"
-                                       ~ alignedIndex.to!string
-                                       ~ "]"
-                                       ~ "\n";
-                var = new VarTypePair;
-                var.varName = ident;
-                var.type = type;
-                vars.addStackVar(var);
-                str ~= vars.compileVarSet(ident);
-                break;
-            }
+            str ~= "    mov    r8" ~ getRRegSuffix(size)
+                                   ~ ", "
+                                   ~ getWordSize(size)
+                                   ~ " [r10+"
+                                   ~ (REF_COUNT_SIZE
+                                    + STRUCT_BUFFER_SIZE
+                                    + alignedIndex).to!string
+                                   ~ "]"
+                                   ~ "\n";
+            auto var = new VarTypePair;
+            var.varName = ident;
+            var.type = type;
+            vars.addStackVar(var);
+            str ~= vars.compileVarSet(ident);
         }
-        str ~= "    add    rsp, " ~ (sizes.getAlignedSize
-                                   + getPadding(sizes.getAlignedSize, 16)
-                                    ).to!string
-                                  ~ "\n";
     }
     return str;
 }
