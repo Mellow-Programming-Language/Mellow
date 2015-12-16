@@ -1,0 +1,91 @@
+// ISSUE: Test of templates, variants, tuple return, recursion, match stmts
+// EXPECTS: "9 1 8 2 7 3 6 4 5 -- 1 2 3 4 5 6 7 8 9"
+
+// This test implements the mergesort algorithm for linked lists
+
+import std.io;
+import std.conv;
+
+variant List(T) {
+    Node (T, List!T),
+    End
+}
+
+func populateList(T)(vars: []T): List!T {
+    foreach (list := End!T; v; vars) {
+        list = Node!T(v, list);
+    }
+    then {
+        return list;
+    }
+}
+
+func listToString(list: List!int): string {
+    match (list) {
+        End :: return "";
+        Node (v, End) :: return intToString(v);
+        Node (v, tail) :: return intToString(v) ~ " " ~ listToString(tail);
+    }
+}
+
+func mergeLists(T)(left: List!T, right: List!T): List!T {
+    while (true) {
+        match ((left, right)) {
+            (End, End) :: return End!T;
+            (End, sorted) :: {
+                return sorted;
+            }
+            (sorted, End) :: {
+                return sorted;
+            }
+            (Node (v1, t1), Node (v2, t2)) :: {
+                if (v1 <= v2) {
+                    return Node!T(
+                        v1,
+                        mergeLists!T(t1, Node!T(v2, t2))
+                    );
+                }
+                else {
+                    return Node!T(
+                        v2,
+                        mergeLists!T(Node!T(v1, t1), t2)
+                    );
+                }
+            }
+        }
+    }
+}
+
+func split(T)(list: List!T): (List!T, List!T) {
+    left := End!T;
+    right := End!T;
+    while (isLeft := true; list is Node (v, tail)) {
+        list = tail;
+        match (isLeft) {
+            true :: left = Node!T(v, left);
+            _    :: right = Node!T(v, right);
+        }
+        isLeft = !isLeft;
+    }
+    return (left, right);
+}
+
+func mergesort(T)(list: List!T): List!T {
+    match (list) {
+        End :: return list;
+        Node (_, End) :: return list;
+        _ :: {
+            (left, right) := split!T(list);
+            left = mergesort!T(left);
+            right = mergesort!T(right);
+            return mergeLists!T(left, right);
+        }
+    }
+}
+
+func main() {
+    jumbled := populateList!int([5, 4, 6, 3, 7, 2, 8, 1, 9]);
+    write(listToString(jumbled) ~ " -- ");
+    sorted := mergesort!int(jumbled);
+    writeln(listToString(sorted));
+}
