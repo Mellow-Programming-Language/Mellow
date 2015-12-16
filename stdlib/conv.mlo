@@ -17,3 +17,29 @@ func intToString(val: int): string {
     }
     return intToString(val / 10) ~ intToString(val % 10);
 }
+
+func stringToInt(str: string): Maybe!int {
+    if (str.length == 0) {
+        return None!int;
+    }
+    if (i := 0; negate := false; str[0] == '-' && str.length > 1) {
+        negate = true;
+        i = 1;
+    }
+    then {
+        foreach (num := 0; c; str[i..]) {
+            if (ord(c) >= ord('0') && ord(c) <= ord('9')) {
+                num = num * 10 + (ord(c) - ord('0'));
+            }
+            else {
+                return None!int;
+            }
+        }
+        then {
+            if (negate) {
+                num *= -1;
+            }
+            return Some!int(num);
+        }
+    }
+}
