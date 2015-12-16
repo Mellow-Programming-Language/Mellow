@@ -1,4 +1,4 @@
-// ISSUE: Test of templates, variants, tuple return, recursion, match stmts
+// ISSUE: General feature test -- mergesort for linked lists
 // EXPECTS: "9 1 8 2 7 3 6 4 5 -- 1 2 3 4 5 6 7 8 9"
 
 // This test implements the mergesort algorithm for linked lists
