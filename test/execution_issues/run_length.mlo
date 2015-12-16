@@ -1,0 +1,63 @@
+// ISSUE: General feature test -- run-length encoding
+// EXPECTS: "AAABCCDDDDEEEEEEEEEEEF -- 3A1B2C4D11E1F -- AAABCCDDDDEEEEEEEEEEEF"
+
+import std.io;
+import std.conv;
+
+func encode(str: string): string {
+    if (str.length == 0) {
+        return "";
+    }
+    for (ret := ""; cur := str[0]; cnt := 1; i := 1; i < str.length; i += 1) {
+        if (str[i] != cur) {
+            ret = ret ~ intToString(cnt) ~ charToString(cur);
+            cnt = 1;
+            cur = str[i];
+        }
+        else {
+            cnt += 1;
+        }
+    }
+    then {
+        ret = ret ~ intToString(cnt) ~ charToString(cur);
+        return ret;
+    }
+}
+
+func isDigit(c: char): bool {
+    return ord(c) >= ord('0') && ord(c) <= ord('9');
+}
+
+func decode(str: string): string {
+    if (str.length == 0) {
+        return "";
+    }
+    for (ret := ""; num := ""; i := 0; i < str.length; i += 1) {
+        if (cur := str[i]; isDigit(cur)) {
+            num = num ~ charToString(cur);
+        }
+        else {
+            if (stringToInt(num) is Some (cnt)) {
+                for (cnt > 0; cnt -= 1) {
+                    ret = ret ~ charToString(cur);
+                }
+            }
+            else {
+                ret = ret ~ charToString(cur);
+            }
+            num = "";
+        }
+    }
+    then {
+        return ret;
+    }
+}
+
+func main() {
+    str := "AAABCCDDDDEEEEEEEEEEEF";
+    write(str ~ " -- ");
+    enc := encode(str);
+    write(enc ~ " -- ");
+    dec := decode(enc);
+    writeln(dec);
+}
