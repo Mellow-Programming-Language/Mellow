@@ -625,6 +625,8 @@ struct ChanType
 
 struct Type
 {
+    static string[string] hashFunctions;
+
     TypeEnum tag;
     bool constType;
     union {
@@ -818,6 +820,52 @@ struct Type
         // struct or variant pointers, meaning any remaining aggregate
         // placeholder must be of size PTR_SIZE
         case TypeEnum.AGGREGATE : return PTR_SIZE;
+        }
+    }
+
+    string getHashFunction()
+    {
+        string func = "";
+        func ~= this.formatMangle ~ ":\n";
+        auto key = "__mellow_hash_" ~ this.formatMangle();
+        final switch (tag)
+        {
+        case TypeEnum.LONG     :
+        case TypeEnum.INT      :
+        case TypeEnum.SHORT    :
+        case TypeEnum.BYTE     :
+        case TypeEnum.FLOAT    :
+        case TypeEnum.DOUBLE   :
+        case TypeEnum.CHAR     :
+        case TypeEnum.BOOL     :
+            if (key !in Type.hashFunctions)
+            {
+                Type.hashFunctions[key] =
+                    key ~ ":\n" ~
+                    "    call __mellow_hash_integer\n" ~
+                    "    ret\n";
+            }
+            return Type.hashFunctions[key];
+        case TypeEnum.STRING   :
+            if (key !in Type.hashFunctions)
+            {
+                Type.hashFunctions[key] =
+                    key ~ ":\n" ~
+                    "    call __mellow_hash_string\n" ~
+                    "    ret\n";
+            }
+            return Type.hashFunctions[key];
+        case TypeEnum.SET      :
+        case TypeEnum.HASH     :
+        case TypeEnum.ARRAY    :
+        case TypeEnum.AGGREGATE:
+        case TypeEnum.TUPLE    :
+        case TypeEnum.FUNCPTR  :
+        case TypeEnum.STRUCT   :
+        case TypeEnum.VARIANT  :
+        case TypeEnum.CHAN     :
+        case TypeEnum.VOID     :
+            assert(false, "Unimplemented");
         }
     }
 }
