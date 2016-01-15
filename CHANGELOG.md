@@ -1,6 +1,43 @@
 Changelog
 =========
 
+0.10.0
+------
+
+* Implemented full support for tuples
+  * Tuples are now considered a single statically-typed entity
+  * Tuples can now be created, assigned to variables, and unpacked:
+    * `tup := (1, "Hello!", bool); (i, s, b) := tup;`
+  * Tuples can still be returned from functions
+  * Tuples can be matched on in `match` stmts:
+    * `match ((1, "Hello!", b)) { (1, x, _) :: {} }`
+  * Structs may now have tuple members
+
+* Implemented support for taking a pointer to a function:
+  * `fun := myFunc; val := fun();`
+
+* Cond-assignments may now include simple declarations:
+  * `while (vars: []int; test()) { ... }`
+
+* Implemented the `for` statement
+
+* Each `else if` in an `if`-chain now shares the cond-assign scope of the
+previous block in the chain, including the original `if`
+
+* Implemented `then`, `coda`, and `else` blocks
+  * All three may be added in any combination or order to an `if`-chain or loop
+  * All three share the cond-assignment scope of its parent block
+  * `then` blocks always execute after the parent block executes
+  * `coda` blocks execute only if the parent block executed
+  * `else` blocks execute only if the parent block did not execute
+    * The same semantics as the `else` block has been for `if`-chains
+
+* `std.io.readln()` now returns a `Maybe!string`
+
+* Added `std.conv.stringToInt(string): Maybe!int`
+
+* Many improvements and additions to testing infrastructure
+
 0.9.2
 -----
 
