@@ -1,0 +1,28 @@
+// ISSUE: Testing matching on heterogenous tuples
+// EXPECTS: "5 Hello! true 1 2 3 "
+
+import std.io;
+import std.conv;
+
+func main() {
+    num := 5;
+    str := "Hello!";
+    arr := [1, 2, 3];
+    boo := true;
+    match ((num, str, boo, arr)) {
+        (5, "Goodbye", _, _) :: writeln("WRONG");
+        (5, "Hello!", false, [x, 2, z]) :: {
+            write("5 Hello! false ");
+            foreach (s; [x, 2, z]) {
+                write(intToString(s) ~ " ");
+            }
+        }
+        (5, "Hello!", true, [x, 2, z]) :: {
+            write("5 Hello! true ");
+            foreach (s; [x, 2, z]) {
+                write(intToString(s) ~ " ");
+            }
+        }
+    }
+    writeln("");
+}
