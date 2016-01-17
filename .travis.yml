@@ -1,10 +1,23 @@
 sudo: false
 addons:
   apt:
+    sources:
+    - ubuntu-toolchain-r-test
     packages:
     - nasm
+    - gcc-4.8
+    - g++-4.8
 language: d
 d:
   - dmd
+compiler:
+  - gcc
+install:
+- if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 script:
+  - git --version
+  - dmd --version
+  - gcc --version
+  - g++ --version
+  - nasm -v
   - travis_retry make test
