@@ -842,7 +842,7 @@ struct Type
             {
                 Type.hashFunctions[key] =
                     key ~ ":\n" ~
-                    "    call __mellow_hash_integer\n" ~
+                    "    call __mellow_hash_uint64\n" ~
                     "    ret\n";
             }
             return Type.hashFunctions[key];
