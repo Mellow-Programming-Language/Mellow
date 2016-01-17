@@ -2,10 +2,10 @@ MELLOW_INTERNAL = mellow_internal.h mellow_internal.c
 STDLIB = stdlib.o core.o conv.o io.o string.o trie.o path.o
 COMPILER = ../compiler
 
-CC = gcc
+CC ?= gcc
 CC_FLAGS = -Wall
-CPP = g++
-CPP_FLAGS = -std=c++11 -Wall
+CXX ?= g++
+CXX_FLAGS = -std=c++11 -Wall
 
 all: $(STDLIB)
 
@@ -39,7 +39,7 @@ trie_unittest: trie_unittest.mlo trie.mlo
 		-o trie_unittest
 
 hash.o: hash.h hash.cpp
-	$(CPP) $(CPP_FLAGS) -c hash.cpp -o hash.o
+	$(CXX) $(CXX_FLAGS) -c hash.cpp -o hash.o
 
 mellow_internal.o: $(MELLOW_INTERNAL)
 	$(CC) $(CC_FLAGS) -c mellow_internal.c -o mellow_internal.o

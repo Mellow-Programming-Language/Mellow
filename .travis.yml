@@ -5,21 +5,17 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
     - nasm
-    - gcc-4.8
-    - g++-4.8
+    - gcc-5
+    - g++-5
 language: d
 d:
   - dmd
-compiler:
-  - gcc
+install:
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-5" CC="gcc-5"; fi
 script:
   - git --version
   - dmd --version
   - gcc --version
-  - alias gcc="gcc-4.8"
-  - gcc --version
-  - g++ --version
-  - alias g++="g++-4.8"
   - g++ --version
   - nasm -v
   - travis_retry make test

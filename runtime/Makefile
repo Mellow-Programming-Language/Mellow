@@ -1,6 +1,6 @@
 all: runtime.o runtime_multithread.o
 
-CC = gcc
+CC ?= gcc
 CC_FLAGS = -Wall
 ASM = nasm
 ASM_FLAGS = -f elf64
