@@ -11,11 +11,12 @@ language: d
 d:
   - dmd
 install:
-  - if [ "$CXX" = "g++" ]; then export CXX="g++-5" CC="gcc-5"; fi
+  - if [ "$CXX" != "g++-5" ]; then export CXX="g++-5" CC="gcc-5"; fi
+  - echo $CXX
 script:
   - git --version
   - dmd --version
-  - gcc --version
-  - g++ --version
+  - $CC --version
+  - $CXX --version
   - nasm -v
   - travis_retry make test
