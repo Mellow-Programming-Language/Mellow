@@ -9,6 +9,7 @@ all: compiler runtime stdlib
 test:
 	make realclean
 	make test_singlethread
+	make realclean
 	make test_multithread
 	make realclean
 	make
