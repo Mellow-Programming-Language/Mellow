@@ -35,7 +35,7 @@ compiler: $(FILES)
 compiler_debug: $(FILES)
 	dmd -ofcompiler_debug $(FILES) -debug=COMPILE_TRACE -debug=TRACE
 
-compiler_multithread: $(FILES)
+compiler_multithread: $(FILES) runtime
 	dmd -ofcompiler_multithread $(FILES) -version=MULTITHREAD
 	make -C stdlib realclean
 	make -C stdlib COMPILER="../compiler_multithread"
