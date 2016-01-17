@@ -9,8 +9,8 @@ languages, among others. This implementation exclusively targets x86-64 Linux.
 Building
 --------
 
-The build process assumes that the D Language compiler `dmd`, `gcc`, `git`, and
-the Netwide Assembler `nasm` are installed.
+The build process assumes that recent versions of the D Language compiler `dmd`,
+`gcc`, `g++`, `git`, and the Netwide Assembler `nasm` are installed.
 
 To build the compiler, run `make` in the toplevel project directory. With the
 proper dependencies installed, and an internet connection, a simple `make`
