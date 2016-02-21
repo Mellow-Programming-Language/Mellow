@@ -13,7 +13,7 @@ contexts:
       scope: comment.line.double-slash
 
   main:
-    - match: \b(import|func|struct|variant|if|else|for|foreach|while|match|is|in|fn|return)\b
+    - match: \b(import|func|struct|variant|if|else|then|coda|for|foreach|while|match|is|in|fn|return)\b
       scope: keyword.control.mellow
     - match: \b(func|struct|variant)\b
       scope: storage.type.mellow
