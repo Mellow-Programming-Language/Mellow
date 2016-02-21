@@ -1,0 +1,34 @@
+// ISSUE: Test for correct parse order in the dangling else problem
+// EXPECTS: "4 5 "
+
+// We expect the else to be bound to the innermost if
+
+import std.io;
+
+func main() {
+    if (false)
+        if (false)
+            write("1 ");
+        else
+            write("2 ");
+
+    if (true)
+        if (false)
+            write("3 ");
+        else
+            write("4 ");
+
+    if (true)
+        if (true)
+            write("5 ");
+        else
+            write("6 ");
+
+    if (false)
+        if (true)
+            write("7 ");
+        else
+            write("8 ");
+
+    writeln("");
+}
