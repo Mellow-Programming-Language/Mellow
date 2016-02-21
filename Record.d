@@ -219,6 +219,7 @@ class RecordBuilder : Visitor
     void visit(FuncSignatureNode node) {}
     void visit(FuncBodyBlocksNode node) {}
     void visit(BareBlockNode node) {}
+    void visit(FuncDefOrStmtNode node) {}
     void visit(StatementNode node) {}
     void visit(AssertStmtNode node) {}
     void visit(ReturnStmtNode node) {}

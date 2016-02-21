@@ -259,6 +259,7 @@ class FunctionSigBuilder : Visitor
     void visit(IdOrWildcardNode node) {}
     void visit(FuncBodyBlocksNode node) {}
     void visit(BareBlockNode node) {}
+    void visit(FuncDefOrStmtNode node) {}
     void visit(StatementNode node) {}
     void visit(ReturnStmtNode node) {}
     void visit(BoolExprNode node) {}

@@ -368,6 +368,12 @@ class FunctionBuilder : Visitor
         funcScopes[$-1].syms.length--;
     }
 
+    void visit(FuncDefOrStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefOrStmtNode"));
+        node.children[0].accept(this);
+    }
+
     void visit(StatementNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StatementNode"));

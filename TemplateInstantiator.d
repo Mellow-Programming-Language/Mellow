@@ -196,6 +196,12 @@ class TemplateInstantiator : Visitor
         }
     }
 
+    void visit(FuncDefOrStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefOrStmtNode"));
+        node.children[0].accept(this);
+    }
+
     void visit(StatementNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("StatementNode"));

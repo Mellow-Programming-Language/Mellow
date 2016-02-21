@@ -36,7 +36,7 @@ OutBlock :: #"out" BareBlock;
 ReturnModBlock :: #'return' ((#Sp Identifier) | (#"" IdTuple))? BareBlock;
 BodyBlock :: #"body" BareBlock;
 
-BareBlock :: #"{" Statement* #"}";
+BareBlock :: #"{" FuncDefOrStmt* #"}";
 
 UnittestBlock :: #"unittest" BareBlock;
 
@@ -51,8 +51,11 @@ InterfaceDef :: #'interface' #Sp Identifier TemplateTypeParams InterfaceBody;
 InterfaceBody :: #"{" InterfaceEntry+ #"}";
 InterfaceEntry :: FuncSignature #";";
 
+FuncDefOrStmt :: FuncDef
+               | Statement
+               ;
+
 Statement :: BareBlock
-           | FuncDef
            | (ReturnStmt #";")
            | IfStmt
            | WhileStmt
@@ -75,21 +78,21 @@ AssertStmt :: #"assert" #"(" BoolExpr (#"," BoolExpr)? #")";
 ReturnStmt :: #'return' (#Sp BoolExpr)?;
 
 IfStmt :: #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
-          BareBlock ElseIfs EndBlocks?;
+          Statement ElseIfs EndBlocks?;
 ElseIfs :: ElseIfStmt*;
 ElseIfStmt :: #'else' #Sp #"if" #"(" CondAssignments (IsExpr | BoolExpr) #")"
-              BareBlock;
+              Statement;
 
-WhileStmt :: #"while" #"(" CondAssignments (IsExpr | BoolExpr) #")" BareBlock
+WhileStmt :: #"while" #"(" CondAssignments (IsExpr | BoolExpr) #")" Statement
              EndBlocks?;
 
 ForStmt :: #"for" #"(" CondAssignments BoolExpr? #";" ForUpdateStmt? #")"
-           BareBlock EndBlocks?
+           Statement EndBlocks?
            ;
 ForUpdateStmt :: AssignExisting (#"," AssignExisting)*;
 
 ForeachStmt :: #"foreach" #"(" CondAssignments ForeachArgs #";" BoolExpr #")"
-               BareBlock EndBlocks?
+               Statement EndBlocks?
                ;
 ForeachArgs :: Identifier (#"," Identifier)*;
 
@@ -121,9 +124,9 @@ ElseThen :: ^ElseBlock ^ThenBlock;
 ElseCoda :: ^ElseBlock ^CodaBlock;
 CodaThen :: ^CodaBlock ^ThenBlock;
 CodaElse :: ^CodaBlock ^ElseBlock;
-ThenBlock :: #"then" BareBlock;
-ElseBlock :: #"else" BareBlock;
-CodaBlock :: #"coda" BareBlock;
+ThenBlock :: #"then" Statement;
+ElseBlock :: #"else" Statement;
+CodaBlock :: #"coda" Statement;
 
 Declaration :: DeclAssignment | DeclTypeInfer | VariableTypePair;
 
