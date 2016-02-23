@@ -63,33 +63,26 @@ struct ImportPath
 
 ImportPath* translateImportToPath(string imp, TopLevelContext* context)
 {
-    auto reg = ctRegex!(`^(?:([a-zA-Z_][a-zA-Z0-9_]*)(?:\.([a-zA-Z_][a-zA-Z0-9_]*))*)`);
-    auto mat = matchAll(imp, reg);
+    auto pathParts = imp.split(".");
     auto importPath = new ImportPath();
-    if (!mat)
+    if (pathParts[0] == "std")
     {
-        throw new Exception("Mismatch between `import` regexes!");
-    }
-    if (mat.captures[1] == "std")
-    {
-        if (mat.captures.length <= 2)
+        if (pathParts.length < 2)
         {
             throw new Exception("Error: `import std;` is invalid");
         }
-        importPath.path = mat.captures
-                             .array[2..$]
-                             .join("/")
-                             .absolutePath(context.stdlibPath.absolutePath)
-                             .stripTrailingSlash;
+        importPath.path = pathParts.array[1..$]
+                                   .join("/")
+                                   .absolutePath(context.stdlibPath.absolutePath)
+                                   .stripTrailingSlash;
         importPath.isStd = true;
     }
     else
     {
-        importPath.path = mat.captures
-                             .array[1..$]
-                             .join("/")
-                             .absolutePath
-                             .stripTrailingSlash;
+        importPath.path = pathParts.array
+                                   .join("/")
+                                   .absolutePath
+                                   .stripTrailingSlash;
         importPath.isStd = false;
     }
     return importPath;

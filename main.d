@@ -115,6 +115,7 @@ EOF".write;
     }
     catch (Exception e)
     {
+        e.msg.writeln;
         return 1;
     }
     foreach (infileName; context.namespaces.byKey)
