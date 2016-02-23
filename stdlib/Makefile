@@ -1,5 +1,5 @@
 MELLOW_INTERNAL = mellow_internal.h mellow_internal.c
-STDLIB = stdlib.o core.o conv.o io.o string.o trie.o path.o
+STDLIB = stdc stdlib.o core.o conv.o io.o string.o trie.o path.o
 COMPILER = ../compiler
 
 CC ?= gcc
@@ -46,6 +46,10 @@ mellow_internal.o: $(MELLOW_INTERNAL)
 
 stdlib.o: stdio.o stdconv.o hash.o mellow_internal.o
 	ld -r hash.o mellow_internal.o -o stdlib.o
+
+.PHONY: stdc
+stdc:
+	make -C c
 
 .PHONY: clean
 clean:
