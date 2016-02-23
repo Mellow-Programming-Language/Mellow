@@ -53,7 +53,9 @@ int main(string[] argv)
             "dump", &context.dump,
             "stacktrace", &context.stacktrace,
             "release", &context.release,
-            "help", &context.help);
+            "help", &context.help,
+            "verbose", &context.verbose,
+        );
     }
     catch (Exception ex)
     {
@@ -96,6 +98,7 @@ All arguments must be prefaced by double dashes, as in --help or --o.
 --unittest      Enable compilation of unittest blocks.
 --release       Disables assert statements and disallows --unittest.
 --stacktrace    (Debugging) Show the stacktrace for thrown typecheck exceptions
+--verbose       Print information about the files compiled, linked, and output
 EOF".write;
         return 0;
     }
@@ -105,6 +108,10 @@ EOF".write;
     try
     {
         stdObjs = extractNamespacesIntoContext(argv, context);
+        if (context.verbose)
+        {
+            writeln("std.* imports:\n  " ~ stdObjs.join("\n  "));
+        }
     }
     catch (Exception e)
     {
@@ -124,6 +131,10 @@ EOF".write;
             string objFileName;
             try
             {
+                if (context.verbose)
+                {
+                    writeln("Compiling:\n  " ~ infileName);
+                }
                 objFileName = compileFile(infileName, context, subContext);
             }
             catch (Exception e)
@@ -149,12 +160,21 @@ EOF".write;
         );
         if (objFileName != "")
         {
+            if (context.verbose)
+            {
+                writeln("Compiled entry point:\n  " ~ objFileName);
+            }
             objFileNames ~= objFileName;
         }
     }
 
     if (objFileNames.length == 0)
     {
+        if (context.verbose)
+        {
+            writeln("No output file.");
+        }
+
         return 0;
     }
 
@@ -167,12 +187,20 @@ EOF".write;
             {
                 cmd ~= ["-pthread"];
             }
+            if (context.verbose)
+            {
+                writeln("Linking output file:\n  " ~ context.outfileName);
+            }
             cmd ~= ["-o"]
                 ~ [context.outfileName]
                 ~ objFileNames
                 ~ stdObjs
                 ~ [context.runtimePath]
                 ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)];
+            if (context.verbose)
+            {
+                writeln("Executing:\n  [" ~ cmd.join(" ") ~ "]");
+            }
             auto gccPid = spawnProcess(cmd);
             auto retCode = wait(gccPid);
             if (retCode != 0)

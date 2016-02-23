@@ -22,6 +22,7 @@ struct TopLevelContext
     bool mainTakesArgv;
     bool stacktrace;
     bool release;
+    bool verbose;
 }
 
 struct ModuleNamespace
