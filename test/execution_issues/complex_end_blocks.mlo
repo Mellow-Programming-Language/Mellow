@@ -1,5 +1,5 @@
 // ISSUE: Sanity test for parsing complex end blocks
-// EXPECTS: "1 2 3 4 5 6 7 8 9 "
+// EXPECTS: "1 2 3 A 4 5 6 B 7 8 9 "
 // STATUS: todo
 
 // The EXPECTS for this test demonstrates what we actually expect to see.
@@ -12,17 +12,17 @@ import std.io;
 import std.conv;
 
 func main() {
-    foreach (a; [1, 2, 3]) {
+    foreach (str_1 := "A "; a; [1, 2, 3]) {
         write(intToString(a) ~ " ");
     }
-    then foreach (b; [4, 5, 6]) {
-        write(intToString(b) ~ " ");
+    then foreach (str_2 := "B "; b; [4, 5, 6]) {
+        write(str_1 ~ intToString(b) ~ " ");
     }
-    coda foreach (c; [7, 8, 9]) {
-        write(intToString(c) ~ " ");
+    coda foreach (str_3 := "C"; c; [7, 8, 9]) {
+        write(str_2 ~ intToString(c) ~ " ");
     }
     else foreach (d; [10, 11, 12]) {
-        write(intToString(d) ~ " ");
+        write(str_3 ~ intToString(d) ~ " ");
     }
 
     writeln("");
