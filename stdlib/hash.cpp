@@ -27,19 +27,19 @@ uint64_t __mellow_hash_string(char* string)
     {
         if (string[i] == 0)
             break;
-        if (string[i] & 7 == 0)
+        if ((string[i] & 7) == 0)
             hash *= 13 * pos;
-        else if (string[i] & 7 == 1)
+        else if ((string[i] & 7) == 1)
             hash *= 3 * pos * pos;
-        else if (string[i] & 7 == 2)
+        else if ((string[i] & 7) == 2)
             hash *= 27 * pos * pos * pos;
-        else if (string[i] & 7 == 3)
+        else if ((string[i] & 7) == 3)
             hash *= 7 * pos * pos * pos * pos;
-        else if (string[i] & 7 == 4)
+        else if ((string[i] & 7) == 4)
             hash *= 5 * pos * pos * pos * pos;
-        else if (string[i] & 7 == 5)
+        else if ((string[i] & 7) == 5)
             hash *= 11 * pos * pos * pos;
-        else if (string[i] & 7 == 6)
+        else if ((string[i] & 7) == 6)
             hash *= 37 * pos * pos;
         //else if (string[i] & 7 == 7)
         //    hash *= 91 * pos;
