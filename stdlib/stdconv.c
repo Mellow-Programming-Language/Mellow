@@ -9,9 +9,23 @@ int ord(char c)
     return (int)c;
 }
 
-char chr(int c)
+void* chr(int c)
 {
-    return (char)c;
+    struct MaybeChar* maybeChar =
+        (struct MaybeChar*)malloc(sizeof(struct MaybeChar));
+    maybeChar->refCount = 1;
+    if (c <= 0xFF)
+    {
+        // Set tag to Some
+        maybeChar->variantTag = 0;
+        maybeChar->c = (char)c;
+    }
+    else
+    {
+        // Set tag to None
+        maybeChar->variantTag = 1;
+    }
+    return maybeChar;
 }
 
 uint32_t byteToInt(uint8_t in)

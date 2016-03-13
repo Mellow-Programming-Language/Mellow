@@ -9,6 +9,8 @@ func main() {
     c := 'A';
     write(charToString(c) ~ " ");
     write(intToString(ord(c)) ~ " ");
-    write(charToString(chr(ord(c))) ~ " ");
+    if (chr(ord(c)) is Some (d)) {
+        write(charToString(d) ~ " ");
+    }
     writeln("");
 }
