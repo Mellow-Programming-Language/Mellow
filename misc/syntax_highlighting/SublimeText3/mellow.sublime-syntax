@@ -17,10 +17,15 @@ contexts:
       scope: keyword.control.mellow
     - match: \b(func|struct|variant)\b
       scope: storage.type.mellow
-    - match: (::|==|=|:=|<|>|<=|>=|=>|->|~|!)
+    - match: (::|==|\b=|:=|<|>|<=|>=|=>|->|~|!)
       scope: keyword.operator.mellow
-    - match: (true|false)
+    - match: \b(true|false)\b
       scope: constant.language.mellow
+    - match: \b(int|long|short|char|byte|string)\b
+      scope: support.function.mellow
+    - match: \b([0-9]+)\.\.
+      captures:
+        1: constant.numeric.mellow
     - match: \b([0-9]+\.[0-9]*)
       scope: constant.numeric.mellow
     - match: \b([0-9]*\.[0-9]+)
@@ -29,6 +34,8 @@ contexts:
       scope: constant.numeric.mellow
     - match: '"'
       push: string
+    - match: "'"
+      push: char
     - match: \(
       push: parens
     - match: \)
@@ -44,7 +51,7 @@ contexts:
     - match: \b\.([a-zA-Z_]+)((?=\()|(?!\.))\b
       captures:
         1: support.function.mellow
-    - match: \b(?<!!)([a-zA-Z_]+)(?=\()\b
+    - match: \b(?<!!)([a-zA-Z_]+)(?=\s*\()\b
       captures:
         1: support.function.mellow
 
@@ -69,4 +76,12 @@ contexts:
     - match: \\.
       scope: constant.character.escape.mellow
     - match: '"'
+      pop: true
+
+  char:
+    - meta_include_prototype: false
+    - meta_scope: string.quoted.single.mellow
+    - match: \\.
+      scope: constant.character.escape.mellow
+    - match: "'"
       pop: true
