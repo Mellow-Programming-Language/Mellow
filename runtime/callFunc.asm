@@ -7,10 +7,35 @@ currentthread:  resq 1 ; Pointer to current thread
 
     SECTION .text
 
+    ; extern void* __mellow_use_main_stack(void* funcptr)
+    global __mellow_use_main_stack
+__mellow_use_main_stack:
+
+    ; Get curThread pointer
+    mov     rcx, qword [currentthread]
+    ; Set curThread StackCur value with the current rsp of the green thread
+    ; stack
+    mov     qword [rcx+24], rsp   ; ThreadData->t_StackCur
+    ; Set stack pointer to the real OS-provided stack. Note that we don't save
+    ; this value back off later; there's no reason to. We're using it purely for
+    ; scratch space, and nothing of value is on it after we're done with it
+    mov     rsp, qword [mainstack]
+
+    ; TODO: We need to handle transfer of any stack-allocated arguments
+
+    ; Call the function we're wrapping
+    call    rdi
+    ; Get curThread pointer
+    mov     rcx, qword [currentthread]
+    ; Restore the green thread stack
+    mov     rsp, qword [rcx+24]   ; ThreadData->t_StackCur
+    ; Return, possibly with a populated rax
+    ret
+
     ; extern void yield();
     global yield
 yield:
-    ; Note that we have not set up the normal stack frame, so [rsp] is the the
+    ; Note that we have not set up the normal stack frame, so [rsp] is the
     ; return address on the stack, and rbp is whatever it is from the function
     ; that called yield()
 
