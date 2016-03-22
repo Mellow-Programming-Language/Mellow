@@ -1,0 +1,15 @@
+// ISSUE: Test using OS stack for C code
+// EXPECTS: "Output: 500500"
+// BUILD_MULTI: ../../compiler_multithread --stdlib ../../stdlib --runtime ../../runtime/runtime_multithread.o -c recurse_mlo.mlo; gcc -c recurse.c -o recurse.o; gcc ../../stdlib/stdlib.o ../../stdlib/io.o ../../stdlib/conv.o ../../runtime/runtime_multithread.o recurse.o recurse_mlo.o __mellow_main_entry.o -lpthread -o ../../TEST_RESULT_FILE
+// BUILD_SINGLE: ../../compiler --stdlib ../../stdlib --runtime ../../runtime/runtime.o -c recurse_mlo.mlo; gcc -c recurse.c -o recurse.o; gcc ../../stdlib/stdlib.o ../../stdlib/io.o ../../stdlib/conv.o ../../runtime/runtime.o recurse.o recurse_mlo.o __mellow_main_entry.o -o ../../TEST_RESULT_FILE
+
+
+extern func recurse(i: int): int;
+
+import std.io;
+import std.conv;
+
+func main() {
+    i := recurse(1000);
+    writeln("Output: " ~ intToString(i));
+}
