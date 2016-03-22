@@ -2009,6 +2009,7 @@ class FunctionBuilder : Visitor
                 curFuncCallSig = instantiator.instantiateFunction(
                     curFuncCallSig, templateInstantiations
                 );
+                node.data["funcsig"] = curFuncCallSig;
                 auto existsLookup = funcSigLookup(
                     toplevelFuncs ~ importedFuncSigs, curFuncCallSig.funcName
                 );
@@ -2030,6 +2031,7 @@ class FunctionBuilder : Visitor
             }
             else
             {
+                node.data["funcsig"] = curFuncCallSig;
                 node.children[1].accept(this);
             }
         }

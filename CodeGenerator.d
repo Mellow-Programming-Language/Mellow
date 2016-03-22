@@ -3290,6 +3290,7 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     auto funcName = getIdentifier(cast(IdentifierNode)node.children[0]);
+    auto isExtern = false;
     // We're dealing with a function pointer, not a straight function call
     if ("funcptrsig" in node.data)
     {
@@ -3301,6 +3302,8 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     // This is a simple function call
     else
     {
+        auto funcSig = node.data["funcsig"].get!(FuncSig*);
+        isExtern = funcSig.isExtern;
         str ~= "    mov    r10, " ~ funcName ~ "\n";
     }
     vars.allocateStackSpace(8);

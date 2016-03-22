@@ -1117,6 +1117,8 @@ struct FuncSig
     uint stackVarAllocSize;
     // Whether the "function" is actually a unittest block
     bool isUnittest;
+    // True if the function was defined as extern
+    bool isExtern;
 
     auto format()
     {

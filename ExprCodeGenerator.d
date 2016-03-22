@@ -1150,6 +1150,7 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
     {
     case "func":
         auto funcSig = node.data["funcsig"].get!(FuncSig*);
+        auto isExtern = funcSig.isExtern;
         vars.allocateStackSpace(8);
         auto valLoc = vars.getTop.to!string;
         str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
