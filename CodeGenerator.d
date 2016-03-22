@@ -716,8 +716,8 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     // which grows for us, so we don't need to worry about stack-growing or
     // running off the end of the stack
     str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
-    str ~= "    ; minus a 128 byte buffer, then exec the realloc routine.\n";
-    str ~= "    cmp    r11, 128\n";
+    str ~= "    ; minus a 512 byte buffer, then exec the realloc routine.\n";
+    str ~= "    cmp    r11, 512\n";
     auto skipReallocLabel = vars.getUniqLabel;
     str ~= "    jg     " ~ skipReallocLabel ~ "\n";
     str ~= allocsTooBigLabel ~ ":\n";
