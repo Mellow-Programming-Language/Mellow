@@ -62,57 +62,66 @@ sub testsub {
                 '"' . $_ . '"'
             } @{$directives->{'ARGUMENTS'}}) . " ";
         }
-        if ($continue) {
-            my $options = "";
-            if (exists $directives->{'COMPILE_OPTIONS'}) {
-                $options = join " ", (
-                    map {
-                        "--$_"
-                    } (split /\s/, $directives->{'COMPILE_OPTIONS'})
-                );
-            }
-            my $res = system(
-                "$compiler $options $execRegressDir$file "
-                . "--o $dummyFile >/dev/null 2>&1"
+        my $options = "";
+        if (exists $directives->{'COMPILE_OPTIONS'}) {
+            $options = join " ", (
+                map {
+                    "--$_"
+                } (split /\s/, $directives->{'COMPILE_OPTIONS'})
             );
-            my $tester = sub {
+        }
+        my $build = "$compiler $options $execRegressDir$file --o $dummyFile ";
+
+        if (exists $directives->{'BUILD_MULTI'} && $compiler_exe =~ /multi/i) {
+            chdir($execRegressDir);
+            $build = $directives->{'BUILD_MULTI'};
+        }
+        elsif (exists $directives->{'BUILD_SINGLE'}
+            && $compiler_exe !~ /multi/i
+        ) {
+            chdir($execRegressDir);
+            $build = $directives->{'BUILD_SINGLE'};
+        }
+        print "    [$build]\n";
+        my $res = system($build . " >/dev/null 2>&1");
+        chdir($binDir);
+        my $tester = sub {
+            my ($res) = @_;
+            return $res == 0;
+        };
+        if (exists $directives->{'COMPILES'}
+            && $directives->{'COMPILES'} =~ /no|fails|failure|false/i) {
+            $want_fail = 1;
+            # We need this so perl doesn't think we want to recurse on the
+            # anonymous code-ref
+            my $oldtester = $tester;
+            $tester = sub {
                 my ($res) = @_;
-                return $res == 0;
+                return !$oldtester->($res);
             };
-            if (exists $directives->{'COMPILES'}
-                && $directives->{'COMPILES'} =~ /no|fails|failure|false/i) {
-                $want_fail = 1;
-                # We need this so perl doesn't think we want to recurse on the
-                # anonymous code-ref
-                my $oldtester = $tester;
-                $tester = sub {
-                    my ($res) = @_;
-                    return !$oldtester->($res);
-                };
-            }
-            $continue = ok(
-                $tester->($res),
-                "Compiling: $issueDir/$file: [$res]"
-            );
-            if ($want_fail
-                || (
-                    exists $directives->{'NO_EXEC'}
-                    && $directives->{'NO_EXEC'} =~ /true|yes/i
-                )
-            ) {
+        }
+        $continue = ok(
+            $tester->($res),
+            "Compiling: $issueDir/$file: [$res]"
+        );
+        if ($want_fail
+            || (
+                exists $directives->{'NO_EXEC'}
+                && $directives->{'NO_EXEC'} =~ /true|yes/i
+            )
+        ) {
+            $continue = 0;
+        }
+        elsif (exists $directives->{'DONT_RUN_FOR'}) {
+            if ($directives->{'DONT_RUN_FOR'} =~ /multi/i
+                && $compiler_exe =~ /multi/i) {
                 $continue = 0;
+                push @{$testnotes->{'MULTI_NORUN'}}, $file;
             }
-            elsif (exists $directives->{'DONT_RUN_FOR'}) {
-                if ($directives->{'DONT_RUN_FOR'} =~ /multi/i
-                    && $compiler_exe =~ /multi/i) {
-                    $continue = 0;
-                    push @{$testnotes->{'MULTI_NORUN'}}, $file;
-                }
-                elsif ($directives->{'DONT_RUN_FOR'} !~ /multi/i
-                    && $compiler_exe !~ /multi/i) {
-                    $continue = 0;
-                    push @{$testnotes->{'SINGLE_NORUN'}}, $file;
-                }
+            elsif ($directives->{'DONT_RUN_FOR'} !~ /multi/i
+                && $compiler_exe !~ /multi/i) {
+                $continue = 0;
+                push @{$testnotes->{'SINGLE_NORUN'}}, $file;
             }
         }
         if ($continue) {
@@ -227,6 +236,15 @@ sub processDirectives {
         elsif ($line =~ m|//\s*DONT_RUN_FOR:\s*(.*)\s*$|) {
             $directives->{'DONT_RUN_FOR'} = $1;
         }
+        elsif ($line =~ m|//\s*SKIP_FOR:\s*(.*)\s*$|) {
+            $directives->{'SKIP_FOR'} = $1;
+        }
+        elsif ($line =~ m|//\s*BUILD_MULTI:\s*(.*)\s*$|) {
+            $directives->{'BUILD_MULTI'} = $1;
+        }
+        elsif ($line =~ m|//\s*BUILD_SINGLE:\s*(.*)\s*$|) {
+            $directives->{'BUILD_SINGLE'} = $1;
+        }
     }
     # No directives were passed, so we assume the default case of:
     # "We expect this to compile, but don't continue beyond that"
@@ -260,6 +278,26 @@ foreach my $file (@files) {
     close $fh;
     my $directives = processDirectives(@data);
     my $issueString;
+    if (exists $directives->{'SKIP_FOR'}) {
+        if ($directives->{'SKIP_FOR'} eq 'multi' && $compiler =~ /multi/i) {
+            next;
+        }
+        if ($directives->{'SKIP_FOR'} eq 'single' && $compiler =~ /single/i) {
+            next;
+        }
+    }
+    if (exists $directives->{'BUILD_MULTI'}
+        && !exists $directives->{'BUILD_SINGLE'}
+        && $compiler =~ /single/i
+    ) {
+        next;
+    }
+    if (exists $directives->{'BUILD_SINGLE'}
+        && !exists $directives->{'BUILD_MULTI'}
+        && $compiler =~ /multi/i
+    ) {
+        next;
+    }
     if (exists $directives->{'ISSUE'}) {
         $issueString = $directives->{"ISSUE"};
     }
