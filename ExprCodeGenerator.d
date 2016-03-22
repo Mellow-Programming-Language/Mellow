@@ -1176,7 +1176,27 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
             // and if it was, we'll check if it returned a tuple, and if it
             // was, we'll grab the values off the stack and fix the stack
         }
-        str ~= "    call   r10\n";
+        // TODO: We need to update this to include passing any stack arguments
+        //
+        // If the function was declared extern, we have to assume it is a C
+        // function which will not yield, or do any other stack switching, but
+        // may have an arbitrarily deep call stack without doing any of the
+        // stack maintenance that normal mellow functions do. So switch out the
+        // underlying stack for the main OS stack, which grows for us
+        if (isExtern)
+        {
+            vars.runtimeExterns["__mellow_use_main_stack"] = true;
+            // Call the wrapper function with the function to wrap as the only
+            // argument.
+            //
+            // NOTE: We are "passing" in the wrapped function in r10
+            str ~= "    call   __mellow_use_main_stack\n";
+        }
+        // Otherwise, it is a normal mellow function, so call directly
+        else
+        {
+            str ~= "    call   r10\n";
+        }
         str ~= "    mov    r8, rax\n";
         break;
     case "funcptr":

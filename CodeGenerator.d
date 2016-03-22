@@ -711,20 +711,13 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    jle    " ~ allocsTooBigLabel ~ "\n";
     str ~= "    ; Get amount of space left after this function makes stack allocs\n";
     str ~= "    sub    r11, " ~ stackAlignedAlloc.to!string ~ "\n" ;
-    // NOTE: The aggressive buffer here so that we have sufficient stack for C
-    // library calls like malloc. It is very likely that this stack, and other
-    // runtime structures, are allocated contiguously in memory. If the buffer
-    // isn't large enough, then while executing those C library functions (like
-    // malloc), execution will happily run off the end of our allocated stack
-    // and start using our other allocated memory (such as the ThreadData for
-    // this thread!) as a stack, causing mindblowingly-difficult-to-debug memory
-    // errors. In order to avoid ever dealing with that again, we're not only
-    // providing a large buffer, but we're also keeping a PROT_NONE page at the
-    // end of every stack, so that the program will actually _segfault_ when we
-    // run off the stack, instead of destroying all the memory beyond it.
+    // NOTE: C function calls are possible only after having 'extern' declared
+    // the function. Any 'extern' declared function is executed on the OS stack,
+    // which grows for us, so we don't need to worry about stack-growing or
+    // running off the end of the stack
     str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
-    str ~= "    ; minus a 1024 byte buffer, then exec the realloc routine.\n";
-    str ~= "    cmp    r11, 1024\n";
+    str ~= "    ; minus a 128 byte buffer, then exec the realloc routine.\n";
+    str ~= "    cmp    r11, 128\n";
     auto skipReallocLabel = vars.getUniqLabel;
     str ~= "    jg     " ~ skipReallocLabel ~ "\n";
     str ~= allocsTooBigLabel ~ ":\n";
@@ -3326,7 +3319,27 @@ string compileFuncCall(FuncCallNode node, Context* vars)
         numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
     }
     str ~= "    mov    r10, qword [rbp-" ~ funcLoc ~ "]\n";
-    str ~= "    call   r10\n";
+    // TODO: We need to update this to include passing any stack arguments
+    //
+    // If the function was declared extern, we have to assume it is a C function
+    // which will not yield, or do any other stack switching, but may have an
+    // arbitrarily deep call stack without doing any of the stack maintenance
+    // that normal mellow functions do. So switch out the underlying stack for
+    // the main OS stack, which grows for us
+    if (isExtern)
+    {
+        vars.runtimeExterns["__mellow_use_main_stack"] = true;
+        // Call the wrapper function with the function to wrap as the only
+        // argument.
+        //
+        // NOTE: We are "passing" in the wrapped function in r10
+        str ~= "    call   __mellow_use_main_stack\n";
+    }
+    // Otherwise, it is a normal mellow function, so call directly
+    else
+    {
+        str ~= "    call   r10\n";
+    }
     if (numArgs > 6)
     {
 
