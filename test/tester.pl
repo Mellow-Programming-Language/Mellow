@@ -82,7 +82,6 @@ sub testsub {
             chdir($execRegressDir);
             $build = $directives->{'BUILD_SINGLE'};
         }
-        print "    [$build]\n";
         my $res = system($build . " >/dev/null 2>&1");
         chdir($binDir);
         my $tester = sub {
