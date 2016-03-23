@@ -15,10 +15,11 @@ void* cStringToString(struct CString* cstring)
     // a byte to hold the null byte
     const uint32_t totalSize = HEAD_SIZE + strLength + 1;
     void* mellowString = malloc(totalSize);
-    // Set the ref-count to 1
-    ((uint32_t*)mellowString)[0] = 1;
+    // Clear the marking function
+    // TODO: Set this to the string marking algorithm
+    ((uint64_t*)mellowString)[0] = 1;
     // set the str-len to the length of the array of characters
-    ((uint32_t*)mellowString)[1] = strLength;
+    ((uint64_t*)mellowString)[1] = strLength;
     // Copy the array of chars over
     memcpy(mellowString + HEAD_SIZE, str, strLength);
     // Add the null byte
@@ -29,7 +30,7 @@ void* cStringToString(struct CString* cstring)
 
 struct CString* stringToCString(void* mellowString)
 {
-    uint32_t strLength = ((uint32_t*)mellowString)[1] + 1;
+    uint64_t strLength = ((uint64_t*)mellowString)[1] + 1;
     char* str = (char*)malloc(sizeof(char) * strLength);
 
     memcpy(str, mellowString + HEAD_SIZE, strLength);

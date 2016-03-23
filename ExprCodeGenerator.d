@@ -605,17 +605,20 @@ string compileValue(ValueNode node, Context* vars)
                 scope (exit) vars.deallocateStackSpace(8);
                 str ~= "    mov    qword [rbp-" ~ funcPtrLoc ~ "], r8\n";
                 str ~= "    mov    rdi, " ~ (RUNTIME_DATA_SIZE
+                                           + STRUCT_BUFFER_SIZE
                                            + ENVIRON_PTR_SIZE
                                            + MELLOW_PTR_SIZE).to!string
                                           ~ "\n";
                 str ~= "    call   malloc\n";
                 // Set up memory layout of fat ptr:
                 // [8-bytes runtime header,
+                //  8 bytes buffer,
                 //  8 bytes null environ ptr, 8 bytes func ptr]
                 str ~= "    mov    qword [rax], 0\n";
                 str ~= "    mov    qword [rax+8], 0\n";
+                str ~= "    mov    qword [rax+16], 0\n";
                 str ~= "    mov    r8, qword [rbp-" ~ funcPtrLoc ~ "]\n";
-                str ~= "    mov    qword [rax+16], r8\n";
+                str ~= "    mov    qword [rax+24], r8\n";
                 str ~= "    mov    r8, rax\n";
             }
         }
@@ -772,7 +775,7 @@ string compileValueTuple(ValueTupleNode node, Context* vars)
         auto valueType = tupleType.types[i];
         str ~= compileBoolExpr(cast(BoolExprNode)child, vars);
         str ~= "    mov    r10, qword [rbp-" ~ tupleLoc ~ "]\n";
-        str ~= "    add    r10, " ~ (REF_COUNT_SIZE
+        str ~= "    add    r10, " ~ (RUNTIME_DATA_SIZE
                                    + STRUCT_BUFFER_SIZE
                                    + valueOffset).to!string
                                   ~ "\n";
@@ -1196,11 +1199,11 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
         // If the ptr is valid and not null, it will be passed as the first arg
         // to the function, otherwise it isn't passed, in compileArgList
         // TODO; We don't actually correctly pass the environ ptr yet.
-        str ~= "    mov    r8, qword [r8+8]\n";
+        str ~= "    mov    r8, qword [r8+16]\n";
         str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
         str ~= "    mov    r10, qword [rbp-" ~ funcPtrLoc ~ "]\n";
         // Grab the actual function pointer out of the fat ptr
-        str ~= "    mov    r10, qword [r10+16]\n";
+        str ~= "    mov    r10, qword [r10+24]\n";
         vars.deallocateStackSpace(8);
         str ~= "    call   r10\n";
         str ~= "    mov    r8, rax\n";

@@ -210,7 +210,7 @@ string compileRegRestore(string[] regs, Context* vars)
 
 auto getTupleAllocSize(TupleType* type)
 {
-    return REF_COUNT_SIZE
+    return RUNTIME_DATA_SIZE
         + STRUCT_BUFFER_SIZE
         + type.size;
 }
@@ -435,11 +435,8 @@ struct Context
         return false;
     }
 
-    // Either the value of the variable is in r8, implying that the type is
-    // either 1, 2, 4, or 8 bytes, or it is split between r8 and r9, where
-    // r8 is the environment portion of a fat pointer, and r9 is the function
-    // pointer itself. Because we've passed the typecheck stage, we're
-    // guaranteed that lookup will succeed
+    // Because we've passed the typecheck stage, we're guaranteed that lookup
+    // will succeed
     string compileVarGet(string varName)
     {
         const environOffset = (closureVars.length > 0)
@@ -451,26 +448,14 @@ struct Context
         {
             if (varName == var.varName)
             {
-                if (var.type.size <= 8)
+                str ~= "    mov    r8, qword [rbp+"
+                    ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
+                       getOffset(funcArgs, i)).to!string ~ "]\n";
+                if (var.type.needsSignExtend)
                 {
-                    str ~= "    mov    r8, qword [rbp+"
-                        ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
-                           getOffset(funcArgs, i)).to!string ~ "]\n";
-                    if (var.type.needsSignExtend)
-                    {
-                        str ~= "    movsx  r8, r8"
-                            ~ getRRegSuffix(var.type.size)
-                            ~ "\n";
-                    }
-                }
-                else
-                {
-                    str ~= "    mov    r8, qword [rbp+"
-                        ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
-                           getOffset(funcArgs, i)).to!string ~ "]\n"
-                        ~ "    mov    r9, qword [rbp+"
-                        ~ (STACK_PROLOGUE_SIZE + environOffset + retValOffset +
-                           getOffset(funcArgs, i) + 8).to!string ~ "]\n";
+                    str ~= "    movsx  r8, r8"
+                        ~ getRRegSuffix(var.type.size)
+                        ~ "\n";
                 }
             }
         }
@@ -478,24 +463,14 @@ struct Context
         {
             if (varName == var.varName)
             {
-                str ~= "    mov    r10, [rbp+8]\n";
-                if (var.type.size <= 8)
+                str ~= "    mov    r10, [rbp+16]\n";
+                str ~= "    mov    r8, qword [r10+"
+                    ~ getOffset(closureVars, i).to!string ~ "]\n";
+                if (var.type.needsSignExtend)
                 {
-                    str ~= "    mov    r8, qword [r10+"
-                        ~ getOffset(closureVars, i).to!string ~ "]\n";
-                    if (var.type.needsSignExtend)
-                    {
-                        str ~= "    movsx  r8, r8"
-                            ~ getRRegSuffix(var.type.size)
-                            ~ "\n";
-                    }
-                }
-                else
-                {
-                    str ~= "    mov    r8, qword [r10+"
-                        ~ getOffset(funcArgs, i).to!string ~ "]\n"
-                        ~ "    mov    r9, qword [r10+"
-                        ~ getOffset(funcArgs, i).to!string ~ "]\n";
+                    str ~= "    movsx  r8, r8"
+                        ~ getRRegSuffix(var.type.size)
+                        ~ "\n";
                 }
             }
         }
@@ -503,23 +478,13 @@ struct Context
         {
             if (varName == var.varName)
             {
-                if (var.type.size <= 8)
+                str ~= "    mov    r8, qword [rbp-"
+                    ~ ((i + 1) * 8).to!string ~ "]\n";
+                if (var.type.needsSignExtend)
                 {
-                    str ~= "    mov    r8, qword [rbp-"
-                        ~ ((i + 1) * 8).to!string ~ "]\n";
-                    if (var.type.needsSignExtend)
-                    {
-                        str ~= "    movsx  r8, r8"
-                            ~ getRRegSuffix(var.type.size)
-                            ~ "\n";
-                    }
-                }
-                else
-                {
-                    str ~= "    mov    r8, qword [rbp-"
-                        ~ ((i + 1) * 8).to!string ~ "]\n"
-                        ~ "    mov    r9, qword [rbp-"
-                        ~ ((i + 1) * 8 + 8).to!string ~ "]\n";
+                    str ~= "    movsx  r8, r8"
+                        ~ getRRegSuffix(var.type.size)
+                        ~ "\n";
                 }
             }
         }
@@ -536,29 +501,12 @@ struct Context
         {
             if (varName == var.varName)
             {
-                if (var.type.size <= 8)
-                {
-                    return "    mov    r8, rbp\n"
-                         ~ "    add    r8, "
-                         ~ (STACK_PROLOGUE_SIZE
-                            + environOffset
-                            + retValOffset
-                            + getOffset(funcArgs, i)).to!string
-                         ~ "\n";
-                }
                 return "    mov    r8, rbp\n"
                      ~ "    add    r8, "
                      ~ (STACK_PROLOGUE_SIZE
                         + environOffset
                         + retValOffset
                         + getOffset(funcArgs, i)).to!string
-                     ~ "\n"
-                     ~ "    mov    r9, rbp\n"
-                     ~ "    add    r9, "
-                     ~ (STACK_PROLOGUE_SIZE
-                        + environOffset
-                        + retValOffset
-                        + getOffset(funcArgs, i) + 8).to!string
                      ~ "\n";
             }
         }
@@ -566,20 +514,10 @@ struct Context
         {
             if (varName == var.varName)
             {
-                auto str = "    mov    r10, [rbp+8]\n";
-                if (var.type.size <= 8)
-                {
-                    str ~= "    mov    r8, r10\n";
-                    str ~= "    add    r8, "
-                        ~ getOffset(closureVars, i).to!string ~ "\n";
-                    return str;
-                }
+                auto str = "    mov    r10, [rbp+16]\n";
                 str ~= "    mov    r8, r10\n";
-                str ~= "    add    r8, " ~ getOffset(funcArgs, i).to!string
-                                         ~ "\n";
-                str ~= "    mov    r9, r10\n";
-                str ~= "    add    r9, " ~ getOffset(funcArgs, i).to!string
-                                         ~ "\n";
+                str ~= "    add    r8, "
+                    ~ getOffset(closureVars, i).to!string ~ "\n";
                 return str;
             }
         }
@@ -587,15 +525,8 @@ struct Context
         {
             if (varName == var.varName)
             {
-                if (var.type.size <= 8)
-                {
-                    return "    mov    r8, rbp\n"
-                         ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n";
-                }
                 return "    mov    r8, rbp\n"
-                     ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n"
-                     ~ "    mov    r9, rbp\n"
-                     ~ "    sub    r9, " ~ ((i + 1) * 8 + 8).to!string ~ "]n";
+                     ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n";
             }
         }
         assert(false);
@@ -2117,7 +2048,7 @@ string compileTuplePattern(TuplePatternNode node, Context* vars)
         str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2].to!string
                                             ~ "]\n";
         // r8 is being set to a pointer to the i'th value in the tuple
-        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+        str ~= "    add    r8, " ~ (RUNTIME_DATA_SIZE
                                   + STRUCT_BUFFER_SIZE
                                   + valueOffset).to!string
                                  ~ "\n";
@@ -2469,7 +2400,7 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
                                    ~ ", "
                                    ~ getWordSize(size)
                                    ~ " [r10+"
-                                   ~ (REF_COUNT_SIZE
+                                   ~ (RUNTIME_DATA_SIZE
                                     + STRUCT_BUFFER_SIZE
                                     + alignedIndex).to!string
                                    ~ "]"
@@ -3094,7 +3025,7 @@ string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
                                    ~ ", "
                                    ~ getWordSize(size)
                                    ~ " [r10+"
-                                   ~ (REF_COUNT_SIZE
+                                   ~ (RUNTIME_DATA_SIZE
                                     + STRUCT_BUFFER_SIZE
                                     + alignedIndex).to!string
                                    ~ "]"
@@ -3295,7 +3226,7 @@ string compileFuncCall(FuncCallNode node, Context* vars)
         str ~= vars.compileVarGet(funcName);
         // Get the function ptr itself
         // TODO: Implement passing environment pointer to compileArgList
-        str ~= "    mov    r10, qword [r8+16]\n";
+        str ~= "    mov    r10, qword [r8+24]\n";
     }
     // This is a simple function call
     else
