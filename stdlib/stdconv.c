@@ -29,6 +29,16 @@ void* chr(int c)
     return maybeChar;
 }
 
+uint32_t byteToInt(uint8_t in)
+{
+    return (uint32_t)in;
+}
+
+uint8_t intToByte(uint32_t in)
+{
+    return (uint8_t)in;
+}
+
 void* charToString(char c)
 {
     GC_Env* gc_env = __get_GC_Env();

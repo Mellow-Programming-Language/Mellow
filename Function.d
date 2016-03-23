@@ -368,6 +368,12 @@ class FunctionBuilder : Visitor
         funcScopes[$-1].syms.length--;
     }
 
+    void visit(FuncDefOrStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefOrStmtNode"));
+        node.children[0].accept(this);
+    }
+
     void visit(StatementNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StatementNode"));
@@ -1435,6 +1441,7 @@ class FunctionBuilder : Visitor
         auto type = new Type;
         type.tag = TypeEnum.TUPLE;
         type.tuple = tuple;
+        node.data["type"] = type;
         builderStack[$-1] ~= type;
     }
 
@@ -2002,6 +2009,7 @@ class FunctionBuilder : Visitor
                 curFuncCallSig = instantiator.instantiateFunction(
                     curFuncCallSig, templateInstantiations
                 );
+                node.data["funcsig"] = curFuncCallSig;
                 auto existsLookup = funcSigLookup(
                     toplevelFuncs ~ importedFuncSigs, curFuncCallSig.funcName
                 );
@@ -2023,6 +2031,7 @@ class FunctionBuilder : Visitor
             }
             else
             {
+                node.data["funcsig"] = curFuncCallSig;
                 node.children[1].accept(this);
             }
         }

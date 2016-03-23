@@ -1,0 +1,4 @@
+
+extern struct CString;
+extern func cStringToString(cstr: CString): string;
+extern func stringToCString(str: string): CString;

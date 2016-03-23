@@ -163,6 +163,29 @@ struct TupleType
         }
         return str;
     }
+
+    auto getOffsetOfValue(ulong index)
+    {
+        int[] valueSizes;
+        foreach (i, type; types)
+        {
+            valueSizes ~= type.size;
+            if (i == index)
+            {
+                return getAlignedIndexOffset(valueSizes, i);
+            }
+        }
+        assert(false, "Unreachable");
+    }
+
+    // The size of the struct on the heap is the total aligned size of all the
+    // values
+    auto size()
+    {
+        return types.map!(a => a.size)
+                    .array
+                    .getAlignedSize;
+    }
 }
 
 // Type representing the value that is a callable function pointer. Note that
@@ -440,7 +463,16 @@ struct VariantMember
 
     auto size()
     {
-        return constructorElems.size();
+        if (constructorElems.tag == TypeEnum.VOID)
+        {
+            return 0;
+        }
+        // Must be tuple
+        return constructorElems.tuple
+                               .types
+                               .map!(a => a.size)
+                               .array
+                               .getAlignedSize;
     }
 }
 
@@ -593,6 +625,8 @@ struct ChanType
 
 struct Type
 {
+    static string[string] hashFunctions;
+
     TypeEnum tag;
     bool constType;
     union {
@@ -779,17 +813,59 @@ struct Type
         case TypeEnum.STRUCT    : return PTR_SIZE;
         case TypeEnum.VARIANT   : return PTR_SIZE;
         case TypeEnum.CHAN      : return PTR_SIZE;
-        // Tuples are allocated on the stack, to make tuple-return cheap
-        case TypeEnum.TUPLE     : return tuple.types
-                                              .map!(a => a.size)
-                                              .array
-                                              .getAlignedSize;
+        case TypeEnum.TUPLE     : return PTR_SIZE;
         // Any remaining aggregate placeholders in a type, after the
         // typechecker approved the code (which should be the only time
         // we care about the size of the types), must be placeholders for
         // struct or variant pointers, meaning any remaining aggregate
         // placeholder must be of size PTR_SIZE
         case TypeEnum.AGGREGATE : return PTR_SIZE;
+        }
+    }
+
+    string getHashFunction()
+    {
+        string func = "";
+        func ~= this.formatMangle ~ ":\n";
+        auto key = "__mellow_hash_" ~ this.formatMangle();
+        final switch (tag)
+        {
+        case TypeEnum.LONG     :
+        case TypeEnum.INT      :
+        case TypeEnum.SHORT    :
+        case TypeEnum.BYTE     :
+        case TypeEnum.FLOAT    :
+        case TypeEnum.DOUBLE   :
+        case TypeEnum.CHAR     :
+        case TypeEnum.BOOL     :
+            if (key !in Type.hashFunctions)
+            {
+                Type.hashFunctions[key] =
+                    key ~ ":\n" ~
+                    "    call __mellow_hash_uint64\n" ~
+                    "    ret\n";
+            }
+            return Type.hashFunctions[key];
+        case TypeEnum.STRING   :
+            if (key !in Type.hashFunctions)
+            {
+                Type.hashFunctions[key] =
+                    key ~ ":\n" ~
+                    "    call __mellow_hash_string\n" ~
+                    "    ret\n";
+            }
+            return Type.hashFunctions[key];
+        case TypeEnum.SET      :
+        case TypeEnum.HASH     :
+        case TypeEnum.ARRAY    :
+        case TypeEnum.AGGREGATE:
+        case TypeEnum.TUPLE    :
+        case TypeEnum.FUNCPTR  :
+        case TypeEnum.STRUCT   :
+        case TypeEnum.VARIANT  :
+        case TypeEnum.CHAN     :
+        case TypeEnum.VOID     :
+            assert(false, "Unimplemented");
         }
     }
 }
@@ -1041,6 +1117,8 @@ struct FuncSig
     uint stackVarAllocSize;
     // Whether the "function" is actually a unittest block
     bool isUnittest;
+    // True if the function was defined as extern
+    bool isExtern;
 
     auto format()
     {

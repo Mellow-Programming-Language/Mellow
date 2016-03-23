@@ -1,0 +1,55 @@
+// ISSUE: Test match deconstruction of tuples
+// EXPECTS: "Y Y Y Y "
+
+import std.io;
+import std.conv;
+
+struct TupleStruct {
+    tup: (int, string, int);
+}
+
+struct DummyStruct {
+    i: int;
+    s: string;
+}
+
+func main() {
+    match ((1, "2", 3)) {
+        (1, _, 5)   :: write("N");
+        (1, "2", 4) :: write("N");
+        (1, "2", 3) :: write("Y");
+        (_, _, 3)   :: write("N");
+    }
+    write(" ");
+
+    tup1 := (1, "2", 3);
+    match (tup1) {
+        (1, _, 5)   :: write("N");
+        (1, "2", 4) :: write("N");
+        (1, "2", 3) :: write("Y");
+        (_, _, 3)   :: write("N");
+    }
+    write(" ");
+
+    ts := TupleStruct {
+        tup = (1, "2", 3)
+    };
+    match (ts) {
+        TupleStruct { tup = (1, _, 5) }   :: write("N");
+        TupleStruct { tup = (1, "2", 4) } :: write("N");
+        TupleStruct { tup = (1, "2", 3) } :: write("Y");
+        TupleStruct { tup = (_, _, 3) }   :: write("N");
+    }
+    write(" ");
+
+    tup2 := (DummyStruct {i = 1, s = "2"}, 3);
+    match (tup2) {
+        (DummyStruct { i = 1, s = _ }, 5)   :: write("N");
+        (DummyStruct { i = 1, s = "2" }, 4) :: write("N");
+        (DummyStruct { i = 1, s = "2" }, 3) :: write("Y");
+        (DummyStruct { i = _, s = _ }, 3)   :: write("N");
+    }
+    write(" ");
+
+    writeln("");
+}

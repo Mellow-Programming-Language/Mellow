@@ -9,11 +9,8 @@ import std.array;
 import std.range;
 import ExprCodeGenerator;
 
-// Since functions can return tuples, the function ABI is to place the return
-// value into an assumed-allocated location just before where the arguments are
-// placed. Note that arguments 0-5 are in registers rdi, rsi, rdx, rcx, r8, and
-// r9. So, on the stack for a function call, we have:
-// return value allocation
+// Note that arguments 0-5 are in registers rdi, rsi, rdx, rcx, r8, and r9. So,
+// on the stack for a function call, we have:
 // arg8
 // arg7
 // arg6
@@ -209,6 +206,13 @@ string compileRegRestore(string[] regs, Context* vars)
         vars.deallocateStackSpace(8);
     }
     return str;
+}
+
+auto getTupleAllocSize(TupleType* type)
+{
+    return REF_COUNT_SIZE
+        + STRUCT_BUFFER_SIZE
+        + type.size;
 }
 
 auto getStructAllocSize(StructType* type)
@@ -727,20 +731,13 @@ string compilePrologue(uint stackAlignedAlloc, Context* vars)
     str ~= "    jle    " ~ allocsTooBigLabel ~ "\n";
     str ~= "    ; Get amount of space left after this function makes stack allocs\n";
     str ~= "    sub    r11, " ~ stackAlignedAlloc.to!string ~ "\n" ;
-    // NOTE: The aggressive buffer here so that we have sufficient stack for C
-    // library calls like malloc. It is very likely that this stack, and other
-    // runtime structures, are allocated contiguously in memory. If the buffer
-    // isn't large enough, then while executing those C library functions (like
-    // malloc), execution will happily run off the end of our allocated stack
-    // and start using our other allocated memory (such as the ThreadData for
-    // this thread!) as a stack, causing mindblowingly-difficult-to-debug memory
-    // errors. In order to avoid ever dealing with that again, we're not only
-    // providing a large buffer, but we're also keeping a PROT_NONE page at the
-    // end of every stack, so that the program will actually _segfault_ when we
-    // run off the stack, instead of destroying all the memory beyond it.
+    // NOTE: C function calls are possible only after having 'extern' declared
+    // the function. Any 'extern' declared function is executed on the OS stack,
+    // which grows for us, so we don't need to worry about stack-growing or
+    // running off the end of the stack
     str ~= "    ; If we're bumping up against the edge of our allocated stack,\n";
-    str ~= "    ; minus a 1024+512 byte buffer, then exec the realloc routine.\n";
-    str ~= "    cmp    r11, 1024+512\n";
+    str ~= "    ; minus a 512 byte buffer, then exec the realloc routine.\n";
+    str ~= "    cmp    r11, 512\n";
     auto skipReallocLabel = vars.getUniqLabel;
     str ~= "    jg     " ~ skipReallocLabel ~ "\n";
     str ~= allocsTooBigLabel ~ ":\n";
@@ -874,9 +871,23 @@ string compileBlock(BareBlockNode block, Context* vars)
     auto code = "";
     foreach (statement; block.children)
     {
-        code ~= compileStatement(cast(StatementNode)statement, vars);
+        code ~= compileFuncDefOrStmt(cast(FuncDefOrStmtNode)statement, vars);
     }
     return code;
+}
+
+string compileFuncDefOrStmt(FuncDefOrStmtNode node, Context* vars)
+{
+    debug (COMPILE_TRACE) mixin(tracer);
+
+    auto child = node.children[0];
+
+    if (cast(StatementNode)child)
+        return compileStatement(cast(StatementNode)child, vars);
+    else if (cast(FuncDefNode)child)
+        assert(false, "Unimplemented");
+    assert(false);
+    return "";
 }
 
 string compileStatement(StatementNode statement, Context* vars)
@@ -974,65 +985,8 @@ string compileReturn(ReturnStmtNode node, Context* vars)
                         ? ENVIRON_PTR_SIZE
                         : 0;
     auto str = "";
-    // Handle the non-tuple case
-    if (cast(BoolExprNode)node.children[0])
-    {
-        str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
-        if (vars.retType.size <= 8)
-        {
-            str ~= "    mov    rax, r8\n";
-        }
-        // Handle the fat ptr case
-        else if (vars.retType.size == 16)
-        {
-
-        }
-    }
-    else if (cast(ValueTupleNode)node.children[0])
-    {
-        // If we're returning a tuple, then we're guaranteed by the calling
-        // function that stack space has been allocated for us, which is
-        // sitting just behind our stack frame to be populated
-        auto children = (cast(ValueTupleNode)node.children[0]).children;
-        auto sizes = vars.retType
-                         .tuple
-                         .types[1..$]
-                         .map!(a => a.size)
-                         .array;
-        foreach (i, child; children[1..$])
-        {
-            auto alignedIndex = sizes.getAlignedIndexOffset(i);
-            auto size = sizes[i];
-            str ~= compileExpression(cast(BoolExprNode)child, vars);
-            switch (size)
-            {
-            case 16:
-                // Fat ptr case
-                break;
-            case 1:
-            case 2:
-            case 4:
-            case 8:
-            default:
-                str ~= "    mov    " ~ getWordSize(size)
-                                     ~ " [rbp+16+"
-                                     ~ alignedIndex.to!string
-                                     ~ "], r8"
-                                     ~ getRRegSuffix(size)
-                                     ~ "\n";
-                break;
-            }
-        }
-        str ~= compileExpression(cast(BoolExprNode)children[0], vars);
-        if (children[0].data["type"].get!(Type*).size <= 8)
-        {
-            str ~= "    mov    rax, r8\n";
-        }
-        else
-        {
-            // Handle fat ptr case
-        }
-    }
+    str ~= compileExpression(cast(BoolExprNode)node.children[0], vars);
+    str ~= "    mov    rax, r8\n";
     str ~= STACK_RESTORE_PLACEHOLDER;
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
@@ -1071,7 +1025,7 @@ string compileIfStmt(IfStmtNode node, Context* vars)
     str ~= "    je     " ~ blockNextLabel ~ "\n";
     // We're officially about to execute the if-stmt block, so set hasRun
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     str ~= "    jmp    " ~ blockEndLabel ~ "\n";
     str ~= blockNextLabel ~ ":\n";
     str ~= compileElseIfs(cast(ElseIfsNode)node.children[3], vars);
@@ -1120,7 +1074,7 @@ string compileElseIfStmt(ElseIfStmtNode node, Context* vars)
     // We're officially about to execute the else-if-stmt block, so set hasRun
     str ~= "    mov    qword [rbp-" ~ vars.ifEndBlockHasRunLabels[$-1]
                                     ~ "], 1\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     str ~= "    jmp    " ~ vars.blockEndLabels[$-1] ~ "\n";
     str ~= blockNextLabel ~ ":\n";
     return str;
@@ -1157,7 +1111,7 @@ string compileWhileStmt(WhileStmtNode node, Context* vars)
     str ~= "    je     " ~ blockEndLabel ~ "\n";
     // We're officially about to execute the block of the loop, so set hasRun
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     str ~= "    jmp    " ~ blockLoopLabel ~ "\n";
     str ~= blockEndLabel ~ ":\n";
     vars.breakLabels.length--;
@@ -1219,7 +1173,7 @@ string compileForStmt(ForStmtNode node, Context* vars)
     }
     // We're officially about to execute the block of the loop, so set hasRun
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[nodeIndex], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[nodeIndex], vars);
     str ~= blockLoopLabel ~ ":\n";
     str ~= updateStmt;
     str ~= "    jmp    " ~ blockRealLoopLabel ~ "\n";
@@ -1343,14 +1297,14 @@ string compileThenElseCoda(ThenElseCodaNode node, Context* vars)
     auto endLabel = vars.getUniqLabel;
     auto str = "";
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ codaLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= "    jmp    " ~ endLabel ~ "\n";
     str ~= codaLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1365,14 +1319,14 @@ string compileThenCodaElse(ThenCodaElseNode node, Context* vars)
     auto endLabel = vars.getUniqLabel;
     auto str = "";
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ elseLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= "    jmp    " ~ endLabel ~ "\n";
     str ~= elseLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1389,13 +1343,13 @@ string compileElseThenCoda(ElseThenCodaNode node, Context* vars)
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ thenLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= thenLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ endLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1408,12 +1362,12 @@ string compileElseCodaThen(ElseCodaThenNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ codaLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    jmp    " ~ thenLabel ~ "\n";
     str ~= codaLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= thenLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     return str;
 }
 
@@ -1425,12 +1379,12 @@ string compileCodaElseThen(CodaElseThenNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ elseLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    jmp    " ~ thenLabel ~ "\n";
     str ~= elseLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= thenLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     return str;
 }
 
@@ -1446,13 +1400,13 @@ string compileCodaThenElse(CodaThenElseNode node, Context* vars)
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ thenLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= thenLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ endLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[2], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[2], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1466,11 +1420,11 @@ string compileThenElse(ThenElseNode node, Context* vars)
     auto endLabel = vars.getUniqLabel;
     auto str = "";
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ endLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1484,11 +1438,11 @@ string compileThenCoda(ThenCodaNode node, Context* vars)
     auto endLabel = vars.getUniqLabel;
     auto str = "";
     str ~= "    mov    qword [rbp-" ~ hasRun ~ "], r8\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    mov    r8, qword [rbp-" ~ hasRun ~ "]\n";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ endLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1500,9 +1454,9 @@ string compileElseThen(ElseThenNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ thenLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= thenLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     return str;
 }
 
@@ -1514,10 +1468,10 @@ string compileElseCoda(ElseCodaNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ codaLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    jmp    " ~ endLabel ~ "\n";
     str ~= codaLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1529,9 +1483,9 @@ string compileCodaThen(CodaThenNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ thenLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= thenLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     return str;
 }
 
@@ -1543,10 +1497,10 @@ string compileCodaElse(CodaElseNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ elseLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= "    jmp    " ~ endLabel ~ "\n";
     str ~= elseLabel ~ ":\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[1], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[1], vars);
     str ~= endLabel ~ ":\n";
     return str;
 }
@@ -1555,7 +1509,7 @@ string compileThenBlock(ThenBlockNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     return str;
 }
 
@@ -1566,7 +1520,7 @@ string compileElseBlock(ElseBlockNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    jne    " ~ endElseLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= endElseLabel ~ ":\n";
     return str;
 }
@@ -1578,7 +1532,7 @@ string compileCodaBlock(CodaBlockNode node, Context* vars)
     auto str = "";
     str ~= "    cmp    r8, 0\n";
     str ~= "    je     " ~ endCodaLabel ~ "\n";
-    str ~= compileBlock(cast(BareBlockNode)node.children[0], vars);
+    str ~= compileStatement(cast(StatementNode)node.children[0], vars);
     str ~= endCodaLabel ~ ":\n";
     return str;
 }
@@ -1712,7 +1666,7 @@ string compileForeachStmt(ForeachStmtNode node, Context* vars)
         // We're officially about to execute the block of the loop, so set
         // hasRun
         str ~= "    mov    qword [rbp-" ~ hasRun ~ "], 1\n";
-        str ~= compileBlock(cast(BareBlockNode)node.children[3], vars);
+        str ~= compileStatement(cast(StatementNode)node.children[3], vars);
         str ~= "    jmp    " ~ foreachLoop
                              ~ "\n";
         str ~= endForeach ~ ":\n";
@@ -2146,8 +2100,49 @@ string compileIntPattern(IntPatternNode node, Context* vars)
 string compileTuplePattern(TuplePatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    assert(false, "Unimplemented");
-    return "";
+    auto tupleType = node.data["type"].get!(Type*).tuple;
+    auto str = "";
+    vars.allocateStackSpace(8);
+    vars.matchTypeLoc ~= vars.getTop;
+    scope (exit)
+    {
+        vars.deallocateStackSpace(8);
+        vars.matchTypeLoc.length--;
+    }
+    foreach (i, child; node.children)
+    {
+        auto valueOffset = tupleType.getOffsetOfValue(i);
+        auto valueSize = tupleType.types[i].size;
+        // Note that it's $-2, because of the above allocation
+        str ~= "    mov    r8, qword [rbp-" ~ vars.matchTypeLoc[$-2].to!string
+                                            ~ "]\n";
+        // r8 is being set to a pointer to the i'th value in the tuple
+        str ~= "    add    r8, " ~ (REF_COUNT_SIZE
+                                  + STRUCT_BUFFER_SIZE
+                                  + valueOffset).to!string
+                                 ~ "\n";
+        switch (valueSize)
+        {
+        case 1:
+        case 2:
+            // If it's not an 8-byte or 4-byte mov, we need to zero the target
+            // register
+            str ~= "    mov    r9, 0\n";
+        case 4:
+        case 8:
+        default:
+            str ~= "    mov    r9" ~ getRRegSuffix(valueSize)
+                                   ~ ", "
+                                   ~ getWordSize(valueSize)
+                                   ~ "[r8]\n";
+            str ~= "    mov    qword [rbp-"
+                ~ vars.matchTypeLoc[$-1].to!string
+                ~ "], r9\n";
+            str ~= compilePattern(cast(PatternNode)child, vars);
+            break;
+        }
+    }
+    return str;
 }
 
 string compileArrayEmptyPattern(ArrayEmptyPatternNode node, Context* vars)
@@ -2457,52 +2452,34 @@ string compileDeclTypeInfer(DeclTypeInferNode node, Context* vars)
                           .get!(Type*)
                           .tuple
                           .types;
+        auto sizes = types.map!(a => a.size)
+                          .array;
         string[] identifiers;
         foreach (child; idNodes)
         {
             identifiers ~= getIdentifier(cast(IdentifierNode)child);
         }
         str ~= compileExpression(cast(BoolExprNode)right, vars);
-        auto var = new VarTypePair;
-        var.varName = identifiers[0];
-        var.type = types[0];
-        vars.addStackVar(var);
-        str ~= vars.compileVarSet(identifiers[0]);
-        auto sizes = types[1..$].map!(a => a.size)
-                                .array;
-        foreach (i, ident, type; lockstep(identifiers[1..$], types[1..$]))
+        str ~= "    mov    r10, r8\n";
+        foreach (i, ident, type; lockstep(identifiers, types))
         {
             auto alignedIndex = sizes.getAlignedIndexOffset(i);
             auto size = sizes[i];
-            switch (size)
-            {
-            case 16:
-                // Fat ptr case
-                break;
-            case 1:
-            case 2:
-            case 4:
-            case 8:
-            default:
-                str ~= "    mov    r8" ~ getRRegSuffix(size)
-                                       ~ ", "
-                                       ~ getWordSize(size)
-                                       ~ " [rsp+"
-                                       ~ alignedIndex.to!string
-                                       ~ "]"
-                                       ~ "\n";
-                var = new VarTypePair;
-                var.varName = ident;
-                var.type = type;
-                vars.addStackVar(var);
-                str ~= vars.compileVarSet(ident);
-                break;
-            }
+            str ~= "    mov    r8" ~ getRRegSuffix(size)
+                                   ~ ", "
+                                   ~ getWordSize(size)
+                                   ~ " [r10+"
+                                   ~ (REF_COUNT_SIZE
+                                    + STRUCT_BUFFER_SIZE
+                                    + alignedIndex).to!string
+                                   ~ "]"
+                                   ~ "\n";
+            auto var = new VarTypePair;
+            var.varName = ident;
+            var.type = type;
+            vars.addStackVar(var);
+            str ~= vars.compileVarSet(ident);
         }
-        str ~= "    add    rsp, " ~ (sizes.getAlignedSize
-                                   + getPadding(sizes.getAlignedSize, 16)
-                                    ).to!string
-                                  ~ "\n";
     }
     return str;
 }
@@ -3105,47 +3082,29 @@ string compileDeclAssignment(DeclAssignmentNode node, Context* vars)
                           .get!(Type*)
                           .tuple
                           .types;
+        auto sizes = types.map!(a => a.size)
+                          .array;
         str ~= compileExpression(cast(BoolExprNode)right, vars);
-        auto var = new VarTypePair;
-        var.varName = identifiers[0];
-        var.type = types[0];
-        vars.addStackVar(var);
-        str ~= vars.compileVarSet(identifiers[0]);
-        auto sizes = types[1..$].map!(a => a.size)
-                                .array;
-        foreach (i, ident, type; lockstep(identifiers[1..$], types[1..$]))
+        str ~= "    mov    r10, r8\n";
+        foreach (i, ident, type; lockstep(identifiers, types))
         {
             auto alignedIndex = sizes.getAlignedIndexOffset(i);
             auto size = sizes[i];
-            switch (size)
-            {
-            case 16:
-                // Fat ptr case
-                break;
-            case 1:
-            case 2:
-            case 4:
-            case 8:
-            default:
-                str ~= "    mov    r8" ~ getRRegSuffix(size)
-                                       ~ ", "
-                                       ~ getWordSize(size)
-                                       ~ " [rsp+"
-                                       ~ alignedIndex.to!string
-                                       ~ "]"
-                                       ~ "\n";
-                var = new VarTypePair;
-                var.varName = ident;
-                var.type = type;
-                vars.addStackVar(var);
-                str ~= vars.compileVarSet(ident);
-                break;
-            }
+            str ~= "    mov    r8" ~ getRRegSuffix(size)
+                                   ~ ", "
+                                   ~ getWordSize(size)
+                                   ~ " [r10+"
+                                   ~ (REF_COUNT_SIZE
+                                    + STRUCT_BUFFER_SIZE
+                                    + alignedIndex).to!string
+                                   ~ "]"
+                                   ~ "\n";
+            auto var = new VarTypePair;
+            var.varName = ident;
+            var.type = type;
+            vars.addStackVar(var);
+            str ~= vars.compileVarSet(ident);
         }
-        str ~= "    add    rsp, " ~ (sizes.getAlignedSize
-                                   + getPadding(sizes.getAlignedSize, 16)
-                                    ).to!string
-                                  ~ "\n";
     }
     return str;
 }
@@ -3329,6 +3288,7 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     debug (COMPILE_TRACE) mixin(tracer);
     auto str = "";
     auto funcName = getIdentifier(cast(IdentifierNode)node.children[0]);
+    auto isExtern = false;
     // We're dealing with a function pointer, not a straight function call
     if ("funcptrsig" in node.data)
     {
@@ -3340,6 +3300,8 @@ string compileFuncCall(FuncCallNode node, Context* vars)
     // This is a simple function call
     else
     {
+        auto funcSig = node.data["funcsig"].get!(FuncSig*);
+        isExtern = funcSig.isExtern;
         str ~= "    mov    r10, " ~ funcName ~ "\n";
     }
     vars.allocateStackSpace(8);
@@ -3362,7 +3324,27 @@ string compileFuncCall(FuncCallNode node, Context* vars)
         numArgs = (cast(ASTNonTerminal)node.children[1]).children.length;
     }
     str ~= "    mov    r10, qword [rbp-" ~ funcLoc ~ "]\n";
-    str ~= "    call   r10\n";
+    // TODO: We need to update this to include passing any stack arguments
+    //
+    // If the function was declared extern, we have to assume it is a C function
+    // which will not yield, or do any other stack switching, but may have an
+    // arbitrarily deep call stack without doing any of the stack maintenance
+    // that normal mellow functions do. So switch out the underlying stack for
+    // the main OS stack, which grows for us
+    if (isExtern)
+    {
+        vars.runtimeExterns["__mellow_use_main_stack"] = true;
+        // Call the wrapper function with the function to wrap as the only
+        // argument.
+        //
+        // NOTE: We are "passing" in the wrapped function in r10
+        str ~= "    call   __mellow_use_main_stack\n";
+    }
+    // Otherwise, it is a normal mellow function, so call directly
+    else
+    {
+        str ~= "    call   r10\n";
+    }
     if (numArgs > 6)
     {
 

@@ -1,0 +1,87 @@
+%YAML 1.2
+---
+name: mellow
+scope: source.mellow
+file_extensions: [mlo]
+
+contexts:
+  prototype:
+    - include: comments
+
+  comments:
+    - match: //.*
+      scope: comment.line.double-slash
+
+  main:
+    - match: \b(import|func|struct|variant|if|else|then|coda|for|foreach|while|match|is|in|fn|return)\b
+      scope: keyword.control.mellow
+    - match: \b(func|struct|variant)\b
+      scope: storage.type.mellow
+    - match: (::|==|\b=|:=|<|>|<=|>=|=>|->|~|!)
+      scope: keyword.operator.mellow
+    - match: \b(true|false)\b
+      scope: constant.language.mellow
+    - match: \b(int|long|short|char|byte|string)\b
+      scope: support.function.mellow
+    - match: \b([0-9]+)\.\.
+      captures:
+        1: constant.numeric.mellow
+    - match: \b([0-9]+\.[0-9]*)
+      scope: constant.numeric.mellow
+    - match: \b([0-9]*\.[0-9]+)
+      scope: constant.numeric.mellow
+    - match: \b([0-9]+)
+      scope: constant.numeric.mellow
+    - match: '"'
+      push: string
+    - match: "'"
+      push: char
+    - match: \(
+      push: parens
+    - match: \)
+      scope: invalid.illegal.stray-bracket-end
+    - match: \{
+      push: braces
+    - match: \}
+      scope: invalid.illegal.stray-bracket-end
+    - match: \[
+      push: brackets
+    - match: \]
+      scope: invalid.illegal.stray-bracket-end
+    - match: \b\.([a-zA-Z_]+)((?=\()|(?!\.))\b
+      captures:
+        1: support.function.mellow
+    - match: \b(?<!!)([a-zA-Z_]+)(?=\s*\()\b
+      captures:
+        1: support.function.mellow
+
+  parens:
+    - match: \)
+      pop: true
+    - include: main
+
+  braces:
+    - match: \}
+      pop: true
+    - include: main
+
+  brackets:
+    - match: \]
+      pop: true
+    - include: main
+
+  string:
+    - meta_include_prototype: false
+    - meta_scope: string.quoted.double.mellow
+    - match: \\.
+      scope: constant.character.escape.mellow
+    - match: '"'
+      pop: true
+
+  char:
+    - meta_include_prototype: false
+    - meta_scope: string.quoted.single.mellow
+    - match: \\.
+      scope: constant.character.escape.mellow
+    - match: "'"
+      pop: true

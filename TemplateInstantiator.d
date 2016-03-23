@@ -81,6 +81,7 @@ class TemplateInstantiator : Visitor
         this.newSig.templateTypes = types;
         string mangledName = getMangledFuncName(newSig);
         this.newSig.funcName = mangledName;
+        this.newSig.isExtern = sig.isExtern;
         auto newIdNode = new IdentifierNode();
         auto newTerminal = new ASTTerminal(mangledName, 0);
         newIdNode.children ~= newTerminal;
@@ -194,6 +195,12 @@ class TemplateInstantiator : Visitor
         {
             child.accept(this);
         }
+    }
+
+    void visit(FuncDefOrStmtNode node)
+    {
+        debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("FuncDefOrStmtNode"));
+        node.children[0].accept(this);
     }
 
     void visit(StatementNode node)

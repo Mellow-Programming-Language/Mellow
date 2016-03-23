@@ -68,6 +68,7 @@ class FunctionSigBuilder : Visitor
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("UnittestBlockNode"));
         funcSig = new FuncSig();
+        funcSig.isExtern = false;
         funcSig.isUnittest = true;
         funcSig.funcName =
             "__unittest_block_" ~ FunctionSigBuilder.unittests.to!string;
@@ -92,6 +93,7 @@ class FunctionSigBuilder : Visitor
         // Visit FuncReturnTypeNode
         node.children[2].accept(this);
         funcSig = new FuncSig();
+        funcSig.isExtern = true;
         funcSig.isUnittest = false;
         funcSig.funcName = funcName;
         funcSig.funcArgs = funcArgs;
@@ -107,6 +109,7 @@ class FunctionSigBuilder : Visitor
         // Visit FuncSignatureNode
         node.children[0].accept(this);
         funcSig = new FuncSig();
+        funcSig.isExtern = false;
         funcSig.isUnittest = false;
         funcSig.funcName = funcName;
         funcSig.templateParams = templateParams;
@@ -259,6 +262,7 @@ class FunctionSigBuilder : Visitor
     void visit(IdOrWildcardNode node) {}
     void visit(FuncBodyBlocksNode node) {}
     void visit(BareBlockNode node) {}
+    void visit(FuncDefOrStmtNode node) {}
     void visit(StatementNode node) {}
     void visit(ReturnStmtNode node) {}
     void visit(BoolExprNode node) {}

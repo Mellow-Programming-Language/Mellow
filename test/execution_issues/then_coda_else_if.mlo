@@ -1,0 +1,49 @@
+// ISSUE: Test for "then if", "coda if", "else if"
+// EXPECTS: "1 3 5 "
+
+// Since any real statement can follow then, coda, or else, that necessarily
+// means that a full if-stmt can follow. Verify that works here.
+
+import std.io;
+
+func main() {
+    foreach (x; [1, 2, 3]) {
+    }
+    then if (true) {
+        write("1 ");
+    }
+
+    foreach (x; [1, 2, 3]) {
+    }
+    then if (false) {
+        write("2 ");
+    }
+
+    foreach (x; [1, 2, 3]) {
+    }
+    coda if (true) {
+        write("3 ");
+    }
+
+    foreach (x; [1, 2, 3]) {
+    }
+    coda if (false) {
+        write("4 ");
+    }
+
+    vars: []int;
+
+    foreach (x; vars) {
+    }
+    else if (true) {
+        write("5 ");
+    }
+
+    foreach (x; vars) {
+    }
+    else if (false) {
+        write("6 ");
+    }
+
+    writeln("");
+}

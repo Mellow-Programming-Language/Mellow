@@ -1,0 +1,29 @@
+// ISSUE: Sanity test for parsing complex end blocks
+// EXPECTS: "1 2 3 A 4 5 6 B 7 8 9 "
+// STATUS: todo
+
+// The EXPECTS for this test demonstrates what we actually expect to see.
+// However, it currently appears to spit out garbage,
+// ("4200336 4200336 4200336 4200336 4200336 4200336 4200336 4200336 4200336 "
+// on last run), and so is set as TODO until the bug, whatever it is, is found
+// and fixed
+
+import std.io;
+import std.conv;
+
+func main() {
+    foreach (str_1 := "A "; a; [1, 2, 3]) {
+        write(intToString(a) ~ " ");
+    }
+    then foreach (str_2 := "B "; b; [4, 5, 6]) {
+        write(str_1 ~ intToString(b) ~ " ");
+    }
+    coda foreach (str_3 := "C"; c; [7, 8, 9]) {
+        write(str_2 ~ intToString(c) ~ " ");
+    }
+    else foreach (d; [10, 11, 12]) {
+        write(str_3 ~ intToString(d) ~ " ");
+    }
+
+    writeln("");
+}

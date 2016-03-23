@@ -570,7 +570,7 @@ string compileValue(ValueNode node, Context* vars)
     } else if (cast(StringLitNode)child) {
         str ~= compileStringLit(cast(StringLitNode)child, vars);
     } else if (cast(ValueTupleNode)child) {
-        assert(false, "Unimplemented");
+        str ~= compileValueTuple(cast(ValueTupleNode)child, vars);
     } else if (cast(ParenExprNode)child) {
         str ~= compileParenExpr(cast(ParenExprNode)child, vars);
     } else if (cast(ArrayLiteralNode)child) {
@@ -755,7 +755,34 @@ string compileStructConstructor(StructConstructorNode node, Context* vars)
 string compileValueTuple(ValueTupleNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return "";
+    auto str = "";
+    auto tupleType = node.data["type"].get!(Type*).tuple;
+    str ~= "    mov    rdi, " ~ getTupleAllocSize(tupleType).to!string ~ "\n";
+    str ~= "    call   malloc\n";
+    // Set refcount
+    str ~= "    mov    dword [rax], 1\n";
+    str ~= "    mov    r8, rax\n";
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto tupleLoc = vars.getTop.to!string;
+    str ~= "    mov    qword [rbp-" ~ tupleLoc ~ "], r8\n";
+    foreach (i, child; node.children)
+    {
+        auto valueOffset = tupleType.getOffsetOfValue(i);
+        auto valueType = tupleType.types[i];
+        str ~= compileBoolExpr(cast(BoolExprNode)child, vars);
+        str ~= "    mov    r10, qword [rbp-" ~ tupleLoc ~ "]\n";
+        str ~= "    add    r10, " ~ (REF_COUNT_SIZE
+                                   + STRUCT_BUFFER_SIZE
+                                   + valueOffset).to!string
+                                  ~ "\n";
+        str ~= "    mov    " ~ getWordSize(valueType.size)
+                             ~ " [r10], r8"
+                             ~ getRRegSuffix(valueType.size)
+                             ~ "\n";
+    }
+    str ~= "    mov    r8, qword [rbp-" ~ tupleLoc ~ "]\n";
+    return str;
 }
 
 string compileParenExpr(ParenExprNode node, Context* vars)
@@ -1130,32 +1157,34 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
     {
     case "func":
         auto funcSig = node.data["funcsig"].get!(FuncSig*);
+        auto isExtern = funcSig.isExtern;
         vars.allocateStackSpace(8);
         auto valLoc = vars.getTop.to!string;
         str ~= "    mov    qword [rbp-" ~ valLoc ~ "], r8\n";
         str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
         str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
         vars.deallocateStackSpace(8);
-        if (funcSig.returnType.tag == TypeEnum.TUPLE)
+        // TODO: We need to update this to include passing any stack arguments
+        //
+        // If the function was declared extern, we have to assume it is a C
+        // function which will not yield, or do any other stack switching, but
+        // may have an arbitrarily deep call stack without doing any of the
+        // stack maintenance that normal mellow functions do. So switch out the
+        // underlying stack for the main OS stack, which grows for us
+        if (isExtern)
         {
-            // Allocate stack space for every return value beyond the first,
-            // which will be returned in rax, to be returned on the stack
-            auto alignedSize = funcSig.returnType
-                                      .tuple
-                                      .types[1..$]
-                                      .map!(a => a.size)
-                                      .array
-                                      .getAlignedSize;
-            str ~= "    sub    rsp, " ~ (alignedSize
-                                       + getPadding(alignedSize, 16))
-                                        .to!string
-                                      ~ "\n";
-            // In the assignment statement that actually deals with assigning
-            // the value, we'll check if the value was from a function call,
-            // and if it was, we'll check if it returned a tuple, and if it
-            // was, we'll grab the values off the stack and fix the stack
+            vars.runtimeExterns["__mellow_use_main_stack"] = true;
+            // Call the wrapper function with the function to wrap as the only
+            // argument.
+            //
+            // NOTE: We are "passing" in the wrapped function in r10
+            str ~= "    call   __mellow_use_main_stack\n";
         }
-        str ~= "    call   r10\n";
+        // Otherwise, it is a normal mellow function, so call directly
+        else
+        {
+            str ~= "    call   r10\n";
+        }
         str ~= "    mov    r8, rax\n";
         break;
     case "funcptr":
@@ -1173,25 +1202,6 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
         // Grab the actual function pointer out of the fat ptr
         str ~= "    mov    r10, qword [r10+16]\n";
         vars.deallocateStackSpace(8);
-        if (funcSig.returnType.tag == TypeEnum.TUPLE)
-        {
-            // Allocate stack space for every return value beyond the first,
-            // which will be returned in rax, to be returned on the stack
-            auto alignedSize = funcSig.returnType
-                                      .tuple
-                                      .types[1..$]
-                                      .map!(a => a.size)
-                                      .array
-                                      .getAlignedSize;
-            str ~= "    sub    rsp, " ~ (alignedSize
-                                       + getPadding(alignedSize, 16))
-                                        .to!string
-                                      ~ "\n";
-            // In the assignment statement that actually deals with assigning
-            // the value, we'll check if the value was from a function call,
-            // and if it was, we'll check if it returned a tuple, and if it
-            // was, we'll grab the values off the stack and fix the stack
-        }
         str ~= "    call   r10\n";
         str ~= "    mov    r8, rax\n";
         break;

@@ -1,10 +1,22 @@
 sudo: false
 addons:
   apt:
+    sources:
+    - ubuntu-toolchain-r-test
     packages:
     - nasm
+    - gcc-5
+    - g++-5
 language: d
 d:
   - dmd
+install:
+  - if [ "$CXX" != "g++-5" ]; then export CXX="g++-5" CC="gcc-5"; fi
+  - echo $CXX
 script:
+  - git --version
+  - dmd --version
+  - $CC --version
+  - $CXX --version
+  - nasm -v
   - travis_retry make test

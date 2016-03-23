@@ -1,0 +1,54 @@
+// ISSUE: Test simple value tuple behavior
+// EXPECTS: "123 123 123 123 123 123 "
+
+import std.io;
+import std.conv;
+
+func retTuple(): (int, string, int) {
+    return (1, "2", 3);
+}
+
+func main() {
+    t1 := ("1", "2", "3");
+    t2 := (1, 2, 3);
+    t3 := ("1", 2, "3");
+    t4 := (1, "2", 3);
+
+    (v11, v21, v31) := t1;
+    write(v11);
+    write(v21);
+    write(v31);
+    write(" ");
+
+    (v12, v22, v32) := t2;
+    write(intToString(v12));
+    write(intToString(v22));
+    write(intToString(v32));
+    write(" ");
+
+    (v13, v23, v33) := t3;
+    write(v13);
+    write(intToString(v23));
+    write(v33);
+    write(" ");
+
+    (v14, v24, v34) := t4;
+    write(intToString(v14));
+    write(v24);
+    write(intToString(v34));
+    write(" ");
+
+    (v15, v25, v35) := (1, 2, 3);
+    write(intToString(v15));
+    write(intToString(v25));
+    write(intToString(v35));
+    write(" ");
+
+    (v16, v26, v36) := retTuple();
+    write(intToString(v16));
+    write(v26);
+    write(intToString(v36));
+    write(" ");
+
+    writeln("");
+}

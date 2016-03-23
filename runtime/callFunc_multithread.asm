@@ -10,6 +10,53 @@
 
     SECTION .text
 
+    ; extern void* __mellow_use_main_stack(...)
+    ; wrapped function passed in r10
+    global __mellow_use_main_stack
+__mellow_use_main_stack:
+    ; Note that this function may take some arbitrary set of arguments, possibly
+    ; using all argument registers, and possibly having pushed arguments to the
+    ; stack.
+    ;
+    ; Note that we have not set up the normal stack frame, so [rsp] is the
+    ; return address on the stack, and rbp is whatever it is from the function
+    ; that called yield().
+    ;
+    ; TODO: It is the responsibility of this function to pass any stack
+    ; arguments to the OS stack before the call is made. Once we start
+    ; supporting stack-pushed arguments, [rsp] will point to the top of those
+    ; arguments, so we'll probably need to start pushing the size of the stack
+    ; arguments (usually 0 bytes) as part of the signature of this function, so
+    ; that we know what to memcpy to the OS stack, since no registers will be
+    ; free to track that
+
+    ; Get curThread pointer in rax
+    call    get_currentthread
+    ; Set curThread StackCur value with the current rsp of the green thread
+    ; stack
+    mov     qword [rax+24], rsp   ; ThreadData->t_StackCur
+    ; Set stack pointer to the real OS-provided stack. Note that we don't save
+    ; this value back off later; there's no reason to. We're using it purely for
+    ; scratch space, and nothing of value is on it after we're done with it.
+    ; Get mainstack stack pointer in rax
+    call    get_mainstack
+    mov     rsp, rax
+
+    ; TODO: We need to handle transfer of any stack-allocated arguments here-ish
+
+    ; Call the function we're wrapping
+    call    r10
+    ; Save off the return value if there is one
+    mov     r10, rax
+    ; Get curThread pointer in rax
+    call    get_currentthread
+    ; Restore the green thread stack
+    mov     rsp, qword [rax+24]   ; ThreadData->t_StackCur
+    ; Restore return value into rax
+    mov     rax, r10
+    ; Return, possibly with a populated rax
+    ret
+
     ; extern void yield();
     global yield
 yield:

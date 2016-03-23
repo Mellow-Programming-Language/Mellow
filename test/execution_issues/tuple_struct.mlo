@@ -1,0 +1,30 @@
+// ISSUE: Test ability to contain tuples within structs
+// EXPECTS: "123 456 "
+
+import std.io;
+import std.conv;
+
+struct TupleHolder {
+    myTup: (int, string, int);
+}
+
+func main() {
+    tupleHolder := TupleHolder {
+        myTup = (1, "2", 3)
+    };
+
+    (v11, v21, v31) := tupleHolder.myTup;
+    write(intToString(v11));
+    write(v21);
+    write(intToString(v31));
+    write(" ");
+
+    tupleHolder.myTup = (4, "5", 6);
+    (v12, v22, v32) := tupleHolder.myTup;
+    write(intToString(v12));
+    write(v22);
+    write(intToString(v32));
+    write(" ");
+
+    writeln("");
+}

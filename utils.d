@@ -481,12 +481,7 @@ VariantType* variantFromConstructor(RecordBuilder records, string constructor)
 struct FuncSigLookupResult
 {
     FuncSig* sig;
-    bool success;
-
-    this (bool success = false)
-    {
-        this.success = success;
-    }
+    bool success = false;
 
     this (FuncSig* sig)
     {
