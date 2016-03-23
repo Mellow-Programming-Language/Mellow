@@ -2,6 +2,7 @@
 #define SCHEDULER_H
 
 #include <stdint.h>
+#include "gc.h"
 
 #define THREAD_DATA_ARR_START_LEN 4
 #define THREAD_DATA_ARR_MUL_INCREASE 2
@@ -14,7 +15,7 @@ typedef struct
     // executing it, and we only need the GC object after we've begun execution
     union {
         void* funcAddr;
-        void* gcEnv;
+        GC_Env* gcEnv;
     };
     // Current position in function (0 if start of function)
     // Will be the value that eip needs to be to continue execution

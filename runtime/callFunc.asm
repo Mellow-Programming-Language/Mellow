@@ -1,5 +1,6 @@
 
     extern malloc
+    extern __GC_malloc_wrapped
 
     SECTION .bss
     global mainstack
@@ -48,6 +49,17 @@ __mellow_use_main_stack:
     ; Restore the green thread stack
     mov     rsp, qword [r11+24]   ; ThreadData->t_StackCur
     ; Return, possibly with a populated rax
+    ret
+
+    ; extern void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env)
+    global __GC_malloc
+__GC_malloc:
+    mov     rdx, rsp
+    ; Get curThread pointer
+    mov     rcx, qword [currentthread]
+    mov     rcx, qword [rcx+16]   ; ThreadData->t_StackBot
+    mov     r10, __GC_malloc_wrapped
+    call    __mellow_use_main_stack
     ret
 
     ; extern void yield();
@@ -104,13 +116,17 @@ callFunc:
     ; Use the gcEnv field (which shares space in an anonymous union with
     ; funcAddr, which we no longer need to store) to malloc a new GC_Env object
     push    rcx
-    mov     rdi, 24             ; sizeof(GC_Env)
+    mov     rdi, 48             ; sizeof(GC_Env)
     call    malloc
     pop     rcx
+
     ; Initialize the new GC_Env object
     mov     qword [rax], 0      ; Set GC_Env->allocs to NULL
     mov     qword [rax+8], 0    ; Set GC_Env->allocs_len to 0
     mov     qword [rax+16], 0   ; Set GC_Env->allocs_end to 0
+    mov     qword [rax+24], 0   ; Set GC_Env->reserved_1 to 0
+    mov     qword [rax+32], 0   ; Set GC_Env->last_collection to 0
+    mov     qword [rax+40], 0   ; Set GC_Env->total_alloced to 0
     ; Set ThreadData->gcEnv to the new GC_Env object
     mov     qword [rcx], rax
 

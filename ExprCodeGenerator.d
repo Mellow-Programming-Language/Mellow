@@ -631,8 +631,9 @@ string compileValue(ValueNode node, Context* vars)
                                             .getVariantAllocSize
                                             .to!string
                                       ~ "\n";
-            str ~= compileGetGCEnv("rsi", vars);
-            str ~= "    call   __GC_malloc\n";
+            //str ~= compileGetGCEnv("rsi", vars);
+            //str ~= "    call   __GC_malloc\n";
+            str ~= "    call   malloc\n";
             // Set the variant tag
             str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
                                             ~ "], "
@@ -711,8 +712,9 @@ string compileStructConstructor(StructConstructorNode node, Context* vars)
     }
     str ~= "    mov    rdi, " ~ getStructAllocSize(structDef).to!string
                               ~ "\n";
-    str ~= compileGetGCEnv("rsi", vars);
-    str ~= "    call   __GC_malloc\n";
+    //str ~= compileGetGCEnv("rsi", vars);
+    //str ~= "    call   __GC_malloc\n";
+    str ~= "    call   malloc\n";
     str ~= "    mov    r8, rax\n";
     vars.allocateStackSpace(8);
     auto structLoc = vars.getTop.to!string;
@@ -806,8 +808,9 @@ string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
     auto totalAllocSize = numElems * elemSize + (MARK_FUNC_PTR + STR_SIZE);
     auto str = "";
     str ~= "    mov    rdi, " ~ totalAllocSize.to!string ~ "\n";
-    str ~= compileGetGCEnv("rsi", vars);
-    str ~= "    call   __GC_malloc\n";
+    //str ~= compileGetGCEnv("rsi", vars);
+    //str ~= "    call   __GC_malloc\n";
+    str ~= "    call   malloc\n";
     // Set array length to number of elements
     str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
                                     ~ "], "
@@ -897,6 +900,9 @@ string compileStringLit(StringLitNode node, Context* vars)
     str ~= "    mov    rdi, " ~ strAllocSize.to!string ~ "\n";
     str ~= compileGetGCEnv("rsi", vars);
     str ~= "    call   __GC_malloc\n";
+    vars.runtimeExterns["__mellow_GC_mark_string"] = true;
+    // Set the marking function for string allocations
+    str ~= "    mov    qword [rax], __mellow_GC_mark_string\n";
     // Set the length of the string, where the string size location is just
     // past the runtime data area
     str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string ~ "], "

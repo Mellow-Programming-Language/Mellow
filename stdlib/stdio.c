@@ -25,10 +25,11 @@ struct MaybeStr* readln()
 
     size_t bytesRead = getline(&buffer, &len, stdin);
 
-    struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
-        sizeof(struct MaybeStr),
-        gc_env
-    );
+    // struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
+    //     sizeof(struct MaybeStr),
+    //     gc_env
+    // );
+    struct MaybeStr* str = (struct MaybeStr*)malloc(sizeof(struct MaybeStr));
     str->runtimeHeader = 0;
     // Check if we outright failed to read a line, ie, EOF
     if (bytesRead == -1)
@@ -41,10 +42,11 @@ struct MaybeStr* readln()
         // Set tag to Some
         str->variantTag = 0;
         // The 1 is for space for the null byte
-        void* mellowStr = __GC_malloc(
-            HEAD_SIZE + bytesRead + 1,
-            gc_env
-        );
+        // void* mellowStr = __GC_malloc(
+        //     HEAD_SIZE + bytesRead + 1,
+        //     gc_env
+        // );
+        void* mellowStr = malloc(HEAD_SIZE + bytesRead + 1);
         // Clear the runtime header
         ((uint64_t*)mellowStr)[0] = 0;
         // Set the string length
@@ -61,8 +63,11 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
 {
     GC_Env* gc_env = __get_GC_Env();
 
-    struct MaybeFile* maybeFile =
-        (struct MaybeFile*)__GC_malloc(sizeof(struct MaybeFile), gc_env);
+    // struct MaybeFile* maybeFile =
+    //     (struct MaybeFile*)__GC_malloc(sizeof(struct MaybeFile), gc_env);
+    struct MaybeFile* maybeFile = (struct MaybeFile*)malloc(
+        sizeof(struct MaybeFile)
+    );
     FILE* file;
     switch (mode->mode)
     {
@@ -79,9 +84,12 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
     }
     if (file != NULL)
     {
-        struct MellowFile* fileRef = (struct MellowFile*)__GC_malloc(
-            sizeof(struct MellowFile),
-            gc_env
+        // struct MellowFile* fileRef = (struct MellowFile*)__GC_malloc(
+        //     sizeof(struct MellowFile),
+        //     gc_env
+        // );
+        struct MellowFile* fileRef = (struct MellowFile*)malloc(
+            sizeof(struct MellowFile)
         );
         fileRef->runtimeHeader = 0;
         fileRef->openMode = mode->mode;
@@ -113,9 +121,12 @@ void mellow_fclose(struct MellowFile* file)
 struct MaybeStr* mellow_freadln(struct MellowFile* file)
 {
     GC_Env* gc_env = __get_GC_Env();
-    struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
-        sizeof(struct MaybeStr),
-        gc_env
+    // struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
+    //     sizeof(struct MaybeStr),
+    //     gc_env
+    // );
+    struct MaybeStr* str = (struct MaybeStr*)malloc(
+        sizeof(struct MaybeStr)
     );
     str->runtimeHeader = 0;
     if (file->isOpen)
@@ -134,9 +145,12 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
             // Set tag to Some
             str->variantTag = 0;
             // The 1 is for space for the null byte
-            void* mellowStr = __GC_malloc(
-                HEAD_SIZE + bytesRead + 1,
-                gc_env
+            // void* mellowStr = __GC_malloc(
+            //     HEAD_SIZE + bytesRead + 1,
+            //     gc_env
+            // );
+            void* mellowStr = malloc(
+                HEAD_SIZE + bytesRead + 1
             );
             // Clear the runtime header
             ((uint64_t*)mellowStr)[0] = 1;

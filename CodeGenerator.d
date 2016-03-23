@@ -2430,6 +2430,9 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
                                   ~ "\n";
         str ~= compileGetGCEnv("rsi", vars);
         str ~= "    call   __GC_malloc\n";
+        vars.runtimeExterns["__mellow_GC_mark_string"] = true;
+        // Set the marking function for string allocations
+        str ~= "    mov    qword [rax], __mellow_GC_mark_string\n";
         // Set the length of the string, where the string size location is just
         // past the runtime data
         str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
@@ -2459,8 +2462,9 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
             str ~= "    imul   rdi, " ~ elemSize.to!string ~ "\n";
             str ~= "    add    rdi, " ~ (MARK_FUNC_PTR + STR_SIZE).to!string
                                       ~ "\n";
-            str ~= compileGetGCEnv("rsi", vars);
-            str ~= "    call   __GC_malloc\n";
+            //str ~= compileGetGCEnv("rsi", vars);
+            //str ~= "    call   __GC_malloc\n";
+            str ~= "    call   malloc\n";
             // Retrive the array length value
             str ~= "    mov    r8, qword [rbp-" ~ arrayLenLoc ~ "]\n";
             // Set array length to number of elements
@@ -2472,8 +2476,9 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         {
             str ~= "    mov    rdi, " ~ (MARK_FUNC_PTR + STR_SIZE).to!string
                                       ~ "\n";
-            str ~= compileGetGCEnv("rsi", vars);
-            str ~= "    call   __GC_malloc\n";
+            //str ~= compileGetGCEnv("rsi", vars);
+            //str ~= "    call   __GC_malloc\n";
+            str ~= "    call   malloc\n";
             str ~= "    mov    qword [rax], 1\n";
             str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
                                             ~ "], 0\n";
@@ -2496,8 +2501,9 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
                             + elemSize;
         str ~= "    mov    rdi, " ~ totalAllocSize.to!string
                                   ~ "\n";
-        str ~= compileGetGCEnv("rsi", vars);
-        str ~= "    call   __GC_malloc\n";
+        //str ~= compileGetGCEnv("rsi", vars);
+        //str ~= "    call   __GC_malloc\n";
+        str ~= "    call   malloc\n";
         // Set chan valid-element segment to false
         str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
                                         ~ "], 0\n";
