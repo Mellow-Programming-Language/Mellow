@@ -1157,25 +1157,6 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
         str ~= compileArgList(cast(FuncCallArgListNode)node.children[0], vars);
         str ~= "    mov    r10, qword [rbp-" ~ valLoc ~ "]\n";
         vars.deallocateStackSpace(8);
-        if (funcSig.returnType.tag == TypeEnum.TUPLE)
-        {
-            // Allocate stack space for every return value beyond the first,
-            // which will be returned in rax, to be returned on the stack
-            auto alignedSize = funcSig.returnType
-                                      .tuple
-                                      .types[1..$]
-                                      .map!(a => a.size)
-                                      .array
-                                      .getAlignedSize;
-            str ~= "    sub    rsp, " ~ (alignedSize
-                                       + getPadding(alignedSize, 16))
-                                        .to!string
-                                      ~ "\n";
-            // In the assignment statement that actually deals with assigning
-            // the value, we'll check if the value was from a function call,
-            // and if it was, we'll check if it returned a tuple, and if it
-            // was, we'll grab the values off the stack and fix the stack
-        }
         // TODO: We need to update this to include passing any stack arguments
         //
         // If the function was declared extern, we have to assume it is a C
@@ -1214,25 +1195,6 @@ string compileFuncCallTrailer(FuncCallTrailerNode node, Context* vars)
         // Grab the actual function pointer out of the fat ptr
         str ~= "    mov    r10, qword [r10+16]\n";
         vars.deallocateStackSpace(8);
-        if (funcSig.returnType.tag == TypeEnum.TUPLE)
-        {
-            // Allocate stack space for every return value beyond the first,
-            // which will be returned in rax, to be returned on the stack
-            auto alignedSize = funcSig.returnType
-                                      .tuple
-                                      .types[1..$]
-                                      .map!(a => a.size)
-                                      .array
-                                      .getAlignedSize;
-            str ~= "    sub    rsp, " ~ (alignedSize
-                                       + getPadding(alignedSize, 16))
-                                        .to!string
-                                      ~ "\n";
-            // In the assignment statement that actually deals with assigning
-            // the value, we'll check if the value was from a function call,
-            // and if it was, we'll check if it returned a tuple, and if it
-            // was, we'll grab the values off the stack and fix the stack
-        }
         str ~= "    call   r10\n";
         str ~= "    mov    r8, rax\n";
         break;
