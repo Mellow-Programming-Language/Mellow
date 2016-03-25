@@ -96,7 +96,7 @@ The struct members will always be aligned, such that an `8 B` member is aligned 
 
     [16 B][1 B char][1 B char][1 B char] == 19 B
 
-No automatic packing is done, so:
+The members of the struct are contained in memory sequentially. Like in C, no automatic re-arranging of the members occurs to "pack" the members and reduce memory consumption of the struct object as a whole, so:
 
     struct Example {
         c: char;
@@ -107,7 +107,7 @@ No automatic packing is done, so:
 
     [16 B][1 B char][3 B pad][4 B int][1 B byte][7 B pad][8 B string] == 40 B
 
-By instead rewriting the struct like so:
+But, the members of the struct can be re-arranged in the struct definition itself to reduce memory consumption of the struct object:
 
     struct Example {
         i: int;
