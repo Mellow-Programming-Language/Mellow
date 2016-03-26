@@ -65,7 +65,7 @@ void* charToString(char c)
 
 void* stringToChars(void* str) {
     // GC_Env* gc_env = __get_GC_Env();
-    uint64_t strLen = ((uint64_t*)(str + RUNTIME_DATA_SIZE))[0];
+    uint64_t strLen = ((uint64_t*)(str + MARK_PTR_SIZE))[0];
     const uint64_t totalSize = HEAD_SIZE + strLen;
     // void* mellowArr = __GC_malloc(totalSize, gc_env);
     void* mellowArr = malloc(totalSize);
@@ -82,6 +82,6 @@ void* stringToChars(void* str) {
 void* charsToString(void* chs) {
     return mellow_allocString(
         chs + HEAD_SIZE,
-        ((uint64_t*)(chs + RUNTIME_DATA_SIZE))[0]
+        ((uint64_t*)(chs + MARK_PTR_SIZE))[0]
     );
 }

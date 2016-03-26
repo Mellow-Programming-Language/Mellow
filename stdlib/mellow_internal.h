@@ -19,9 +19,9 @@
 // Tag 1: None
 
 #define MELLOW_PTR_SIZE (sizeof(char*))
-#define RUNTIME_DATA_SIZE (8)
+#define MARK_PTR_SIZE (8)
 #define LEN_SIZE (8)
-#define HEAD_SIZE (RUNTIME_DATA_SIZE + LEN_SIZE)
+#define HEAD_SIZE (MARK_PTR_SIZE + LEN_SIZE)
 
 // Allocate space for a full mellow string, populate length field, copy c-string
 // into allocated space for string, add null byte to end, and return pointer to

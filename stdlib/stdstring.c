@@ -4,7 +4,7 @@
 void* toLower(void* str)
 {
     void* copy = mellow_copyString(str);
-    uint64_t len = ((uint64_t*)(copy + RUNTIME_DATA_SIZE))[0];
+    uint64_t len = ((uint64_t*)(copy + MARK_PTR_SIZE))[0];
     char* chs = (char*)(copy + HEAD_SIZE);
     uint64_t i;
     for (i = 0; i < len; i++)
@@ -19,7 +19,7 @@ void* toLower(void* str)
 void* toUpper(void* str)
 {
     void* copy = mellow_copyString(str);
-    uint64_t len = ((uint64_t*)(copy + RUNTIME_DATA_SIZE))[0];
+    uint64_t len = ((uint64_t*)(copy + MARK_PTR_SIZE))[0];
     char* chs = (char*)(copy + HEAD_SIZE);
     uint64_t i;
     for (i = 0; i < len; i++)

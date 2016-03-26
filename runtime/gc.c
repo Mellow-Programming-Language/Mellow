@@ -55,8 +55,6 @@ void* __GC_malloc_wrapped(
     return ptr;
 }
 
-typedef void (*Marking_Func_Ptr)(void* ptr, GC_Env* gc_env);
-
 void __GC_mellow_mark_stack(void** rsp, void** stack_bot, GC_Env* gc_env)
 {
     uint64_t index;
