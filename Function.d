@@ -994,7 +994,23 @@ class FunctionBuilder : Visitor
                 child.accept(this);
             }
         }
-        node.data["type"] = builderStack[$-1][$-1];
+        auto resolvedType = builderStack[$-1][$-1];
+        // Remove from our collected list the placeholder type for '[]', which
+        // is temporarily type '[]void' until it is resolved later
+        if (resolvedType.tag == TypeEnum.ARRAY
+            && resolvedType.array.arrayType.tag == TypeEnum.VOID
+        ) {
+        }
+        else if (resolvedType.isHeapType)
+        {
+            // Collect all types known to the entire program. This collection is
+            // used, at the very least, to generate the marking functions for
+            // each type, for garbage collection
+            topContext.allEncounteredTypes[
+                resolvedType.formatMangle()
+            ] = resolvedType;
+        }
+        node.data["type"] = resolvedType;
     }
 
     void visit(ParenExprNode node)

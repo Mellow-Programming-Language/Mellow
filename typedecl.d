@@ -49,6 +49,15 @@ struct ArrayType
     {
         return "@A" ~ arrayType.formatMangle();
     }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
+        return str;
+    }
 }
 
 struct HashType
@@ -74,6 +83,15 @@ struct HashType
         return "@K" ~ keyType.formatMangle()
              ~ "@N" ~ valueType.formatMangle();
     }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
+        return str;
+    }
 }
 
 struct SetType
@@ -95,6 +113,15 @@ struct SetType
     string formatMangle() const
     {
         return "@S" ~ setType.formatMangle();
+    }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
+        return str;
     }
 }
 
@@ -133,6 +160,15 @@ struct AggregateType
     {
         return "@Z" ~ typeName;
     }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
+        return str;
+    }
 }
 
 struct TupleType
@@ -161,6 +197,15 @@ struct TupleType
         {
             str ~= type.formatMangle();
         }
+        return str;
+    }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
         return str;
     }
 
@@ -235,6 +280,15 @@ struct FuncPtrType
             str ~= type.formatMangle();
         }
         str ~= "@Y" ~ returnType.formatMangle();
+        return str;
+    }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
         return str;
     }
 }
@@ -353,6 +407,15 @@ struct StructType
         {
             str ~= mappings[param].formatMangle();
         }
+        return str;
+    }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
         return str;
     }
 
@@ -556,6 +619,15 @@ struct VariantType
         return str;
     }
 
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
+        return str;
+    }
+
     // The total size of a variant value on the heap is the size of the largest
     // constructor
     auto size()
@@ -620,6 +692,15 @@ struct ChanType
     string formatMangle() const
     {
         return "@C" ~ chanType.formatMangle();
+    }
+
+    string compileMarkFunc() const
+    {
+        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto str = "";
+        str ~= "    global " ~ markFuncName ~ "\n";
+        str ~= markFuncName ~ ":\n";
+        return str;
     }
 }
 
@@ -792,6 +873,43 @@ struct Type
         }
     }
 
+    string compileMarkFunc() const
+    {
+        final switch (tag)
+        {
+        case TypeEnum.VOID:
+        case TypeEnum.LONG:
+        case TypeEnum.INT:
+        case TypeEnum.SHORT:
+        case TypeEnum.BYTE:
+        case TypeEnum.FLOAT:
+        case TypeEnum.DOUBLE:
+        case TypeEnum.CHAR:
+        case TypeEnum.BOOL:
+            return "";
+        case TypeEnum.STRING:
+            return compileStringMarkFunc();
+        case TypeEnum.SET:
+            return set.compileMarkFunc();
+        case TypeEnum.HASH:
+            return hash.compileMarkFunc();
+        case TypeEnum.ARRAY:
+            return array.compileMarkFunc();
+        case TypeEnum.AGGREGATE:
+            return aggregate.compileMarkFunc();
+        case TypeEnum.TUPLE:
+            return tuple.compileMarkFunc();
+        case TypeEnum.FUNCPTR:
+            return funcPtr.compileMarkFunc();
+        case TypeEnum.CHAN:
+            return chan.compileMarkFunc();
+        case TypeEnum.STRUCT:
+            return structDef.compileMarkFunc();
+        case TypeEnum.VARIANT:
+            return variantDef.compileMarkFunc();
+        }
+    }
+
     auto size()
     {
         final switch (tag)
@@ -868,6 +986,20 @@ struct Type
             assert(false, "Unimplemented");
         }
     }
+}
+
+string compileStringMarkFunc()
+{
+    auto markFuncName = "__mellow_GC_mark_string";
+    auto str = "";
+    str ~= "    global " ~ markFuncName ~ "\n";
+    str ~= markFuncName ~ ":\n";
+    // Set the mark bit. The mark bit is the leftmost bit of the leftmost byte
+    // of the second 8 bytes of the 16-byte object header
+    str ~= "    or    byte [rdi+8], 0b10000000\n";
+    str ~= "    ret\n";
+
+    return str;
 }
 
 // This function assumes that there is only a single definition of variants and
@@ -1154,6 +1286,25 @@ bool isBasic(Type* type)
         return true;
     default:
         return false;
+    }
+}
+
+bool isHeapType(Type* type)
+{
+    switch (type.tag)
+    {
+    case TypeEnum.VOID:
+    case TypeEnum.LONG:
+    case TypeEnum.INT:
+    case TypeEnum.SHORT:
+    case TypeEnum.BYTE:
+    case TypeEnum.FLOAT:
+    case TypeEnum.DOUBLE:
+    case TypeEnum.CHAR:
+    case TypeEnum.BOOL:
+        return false;
+    default:
+        return true;
     }
 }
 

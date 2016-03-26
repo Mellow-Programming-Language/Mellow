@@ -9,6 +9,7 @@ import parser;
 struct TopLevelContext
 {
     ModuleNamespace*[string] namespaces;
+    Type*[string] allEncounteredTypes;
     string outfileName;
     string stdlibPath;
     string runtimePath;

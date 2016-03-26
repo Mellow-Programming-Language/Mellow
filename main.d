@@ -167,6 +167,7 @@ EOF".write;
             }
             objFileNames ~= objFileName;
         }
+        auto markingFileName = compileMarkingFunctions(context);
     }
 
     if (objFileNames.length == 0)
@@ -763,6 +764,11 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     {
         return assembleString(str, topContext);
     }
+}
+
+string compileMarkingFunctions(TopLevelContext* context)
+{
+    return "";
 }
 
 // This assembly algorithm assumes the OS-provided argc is in rdi, the
