@@ -108,14 +108,16 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
                                            -1, 0);
     void* newStackRaw = newThread->t_StackRaw;
     void* newStackUsable = newStackRaw + PROT_PAGE_SIZE;
+
+    // Clear the stack memory, for sanity's sake
+    memset(newStackRaw, 0, stackSize);
+
     // Set PROT_NONE on the first page of the new stack allocation, which
     // would be the _top-most_ page of the stack (since the stack grows down),
     // so that instead of running off the end of the stack and clobbering
     // non-stack memory, we summarily segfault. This makes it easier to debug
     // stack memory issues.
     mprotect(newStackRaw, PROT_PAGE_SIZE, PROT_NONE);
-    // Clear the stack memory, for sanity's sake
-    memset(newStackUsable, 0, stackSizeUsable);
 
     // StackCur starts as a meaningless pointer
     newThread->t_StackCur = 0;

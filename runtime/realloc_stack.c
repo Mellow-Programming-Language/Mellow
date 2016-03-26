@@ -52,6 +52,10 @@ uint64_t __mremap_stack(ThreadData* thread, const uint64_t rsp)
     );
     void* newStackRaw = thread->t_StackRaw;
     void* newStackUsable = newStackRaw + PROT_PAGE_SIZE;
+
+    // Clear the stack memory, for sanity's sake
+    memset(newStackRaw, 0, newStackSize);
+
     // Set PROT_NONE on the first page of the new stack allocation, which
     // would be the _top-most_ page of the stack (since the stack grows down),
     // so that instead of running off the end of the stack and clobbering
