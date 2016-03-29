@@ -6,6 +6,29 @@ import typedecl;
 import std.range;
 import FunctionSig;
 
+auto getWordSize(ulong size)
+{
+    final switch (size)
+    {
+    case 1:  return "byte";
+    case 2:  return "word";
+    case 4:  return "dword";
+    case 8:  return "qword";
+    case 16: return "oword";
+    }
+}
+
+auto getRRegSuffix(ulong size)
+{
+    final switch (size)
+    {
+    case 1: return "b";
+    case 2: return "w";
+    case 4: return "d";
+    case 8: return "";
+    }
+}
+
 Type* instantiateAggregate(RecordBuilder records, AggregateType* aggregate,
                            ASTNode node)
 {

@@ -3,6 +3,8 @@ import std.algorithm;
 import std.range;
 import std.conv;
 import parser;
+import utils;
+import constants;
 
 const PTR_SIZE = 8;
 
@@ -27,6 +29,38 @@ enum TypeEnum
     STRUCT,
     VARIANT,
     CHAN,
+}
+
+class StackContext
+{
+    private uint topOfStack;
+    private uint uniqLabelCounter;
+
+    this()
+    {
+        topOfStack = 0;
+        uniqLabelCounter = 0;
+    }
+
+    auto getUniqLabel()
+    {
+        return ".L" ~ (uniqLabelCounter++).to!string;
+    }
+
+    auto getTop()
+    {
+        return topOfStack;
+    }
+
+    void allocateStackSpace(uint bytes)
+    {
+        topOfStack += bytes;
+    }
+
+    void deallocateStackSpace(uint bytes)
+    {
+        topOfStack -= bytes;
+    }
 }
 
 struct ArrayType

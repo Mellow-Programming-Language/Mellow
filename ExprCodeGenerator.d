@@ -6,6 +6,8 @@ import parser;
 import visitor;
 import CodeGenerator;
 import typedecl;
+import constants;
+import utils;
 
 debug (COMPILE_TRACE)
 {
