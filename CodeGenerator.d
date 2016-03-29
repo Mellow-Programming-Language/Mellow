@@ -2399,9 +2399,9 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
                                   ~ "\n";
         str ~= compileGetGCEnv("rsi", vars);
         str ~= "    call   __GC_malloc\n";
-        vars.runtimeExterns["__mellow_GC_mark_string"] = true;
+        vars.runtimeExterns["__mellow_GC_mark_@Bstring"] = true;
         // Set the marking function for string allocations
-        str ~= "    mov    qword [rax], __mellow_GC_mark_string\n";
+        str ~= "    mov    qword [rax], __mellow_GC_mark_@Bstring\n";
         // Set the length of the string, where the string size location is just
         // past the runtime data
         str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
@@ -2416,7 +2416,8 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         assert(false, "Unimplemented");
         break;
     case TypeEnum.ARRAY:
-        auto elemSize = pair.type.array.arrayType.size;
+        auto type = pair.type;
+        auto elemSize = type.array.arrayType.size;
         auto typeIdNode = cast(TypeIdNode)node.children[1];
         auto arrayTypeNode = cast(ArrayTypeNode)typeIdNode.children[0];
         if (arrayTypeNode.children.length > 1)
@@ -2431,9 +2432,12 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
             str ~= "    imul   rdi, " ~ elemSize.to!string ~ "\n";
             str ~= "    add    rdi, " ~ (MARK_FUNC_PTR + STR_SIZE).to!string
                                       ~ "\n";
-            //str ~= compileGetGCEnv("rsi", vars);
-            //str ~= "    call   __GC_malloc\n";
-            str ~= "    call   malloc\n";
+            str ~= compileGetGCEnv("rsi", vars);
+            str ~= "    call   __GC_malloc\n";
+            // Populate marking function
+            vars.runtimeExterns[type.formatMarkFuncName] = true;
+            str ~= "    mov    qword [rax], " ~ type.formatMarkFuncName
+                                              ~ "\n";
             // Retrive the array length value
             str ~= "    mov    r8, qword [rbp-" ~ arrayLenLoc ~ "]\n";
             // Set array length to number of elements
@@ -2445,10 +2449,12 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         {
             str ~= "    mov    rdi, " ~ (MARK_FUNC_PTR + STR_SIZE).to!string
                                       ~ "\n";
-            //str ~= compileGetGCEnv("rsi", vars);
-            //str ~= "    call   __GC_malloc\n";
-            str ~= "    call   malloc\n";
-            str ~= "    mov    qword [rax], 1\n";
+            str ~= compileGetGCEnv("rsi", vars);
+            str ~= "    call   __GC_malloc\n";
+            // Populate marking function
+            vars.runtimeExterns[type.formatMarkFuncName] = true;
+            str ~= "    mov    qword [rax], " ~ type.formatMarkFuncName
+                                              ~ "\n";
             str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
                                             ~ "], 0\n";
             str ~= "    mov    r8, rax\n";
@@ -2470,8 +2476,10 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
                             + elemSize;
         str ~= "    mov    rdi, " ~ totalAllocSize.to!string
                                   ~ "\n";
-        //str ~= compileGetGCEnv("rsi", vars);
-        //str ~= "    call   __GC_malloc\n";
+        // TODO: Channels must be allocated on a non-GC'd heap, as they act as
+        // communication methods between green threads which each have their
+        // own, separate, GC'd heaps. This probably implies that channels will
+        // need to be ref-counted
         str ~= "    call   malloc\n";
         // Set chan valid-element segment to false
         str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string

@@ -167,7 +167,6 @@ EOF".write;
             }
             objFileNames ~= objFileName;
         }
-        auto markingFileName = compileMarkingFunctions(context);
     }
 
     if (objFileNames.length == 0)
@@ -656,6 +655,9 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     {
         str ~= vars.runtimeExterns
                    .keys
+                   // Filter out the marking functions
+                   .filter!(a => !(a.length > 17 &&
+                                   a[0..17] ==  "__mellow_GC_mark_"))
                    .map!(a => "    extern " ~ a ~ "\n")
                    .reduce!((a, b) => a ~ b);
     }
@@ -746,6 +748,11 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
     str ~= "    pop    rbp\n";
     str ~= "    ret\n";
+
+    auto markingFunctions = compileMarkingFunctions(topContext);
+
+    str ~= "\n" ~ markingFunctions ~ "\n";
+
     if (topContext.compileOnly)
     {
         try
@@ -768,7 +775,13 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
 
 string compileMarkingFunctions(TopLevelContext* context)
 {
-    return "";
+    auto markingFunctions = context.allEncounteredTypes
+                                   .byValue
+                                   .map!(a => a.compileMarkFunc)
+                                   .array
+                                   .join("\n");
+
+    return markingFunctions;
 }
 
 // This assembly algorithm assumes the OS-provided argc is in rdi, the

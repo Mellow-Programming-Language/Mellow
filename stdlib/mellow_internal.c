@@ -37,8 +37,7 @@ void* __get_mellow_argv(int argc, char** argv)
 {
     GC_Env* gc_env = __get_GC_Env();
     size_t num_entries = argc * sizeof(void*);
-    // void* new_argv = __GC_malloc(HEAD_SIZE + num_entries, gc_env);
-    void* new_argv = malloc(HEAD_SIZE + num_entries);
+    void* new_argv = __GC_malloc(HEAD_SIZE + num_entries, gc_env);
     // Clear runtime header
     ((uint64_t*)new_argv)[0] = 0;
     // Set array length
@@ -49,8 +48,6 @@ void* __get_mellow_argv(int argc, char** argv)
         size_t char_count = strlen(argv[i]);
         size_t str_len = char_count + 1;
         void* mellow_str = __GC_malloc(HEAD_SIZE + str_len, gc_env);
-        // Set string marking function
-        ((Marking_Func_Ptr*)mellow_str)[0] = __mellow_GC_mark_string;
         // Set string length
         ((uint64_t*)mellow_str)[1] = char_count;
         // Copy the string, including the null terminator
@@ -80,15 +77,12 @@ void* __arr_arr_append(void* left, void* right,
         // Null byte
         full_len += 1;
         new_arr = __GC_malloc(full_len, gc_env);
-        // Set string marking function
-        ((Marking_Func_Ptr*)new_arr)[0] = __mellow_GC_mark_string;
         ((uint8_t*)new_arr)[full_len-1] = '\0';
     }
     else
     {
         // No null byte
-        // new_arr = __GC_malloc(full_len, gc_env);
-        new_arr = malloc(full_len);
+        new_arr = __GC_malloc(full_len, gc_env);
     }
     ((uint64_t*)new_arr)[1] = nlen;
     memcpy(
@@ -117,15 +111,12 @@ void* __elem_arr_append(uint64_t left, void* right,
         // Null byte
         full_len += 1;
         new_arr = __GC_malloc(full_len, gc_env);
-        // Set string marking function
-        ((Marking_Func_Ptr*)new_arr)[0] = __mellow_GC_mark_string;
         ((uint8_t*)new_arr)[full_len-1] = '\0';
     }
     else
     {
         // No null byte
-        // new_arr = __GC_malloc(full_len, gc_env);
-        new_arr = malloc(full_len);
+        new_arr = __GC_malloc(full_len, gc_env);
     }
     ((uint64_t*)new_arr)[1] = nlen;
     memcpy(
@@ -154,15 +145,12 @@ void* __arr_elem_append(void* left, uint64_t right,
         // Null byte
         full_len += 1;
         new_arr = __GC_malloc(full_len, gc_env);
-        // Set string marking function
-        ((Marking_Func_Ptr*)new_arr)[0] = __mellow_GC_mark_string;
         ((uint8_t*)new_arr)[full_len-1] = '\0';
     }
     else
     {
         // No null byte
-        // new_arr = __GC_malloc(full_len, gc_env);
-        new_arr = malloc(full_len);
+        new_arr = __GC_malloc(full_len, gc_env);
     }
     ((uint64_t*)new_arr)[1] = nlen;
     memcpy(
@@ -190,15 +178,12 @@ void* __elem_elem_append(uint64_t left, uint64_t right,
         // Null byte
         full_len += 1;
         new_arr = __GC_malloc(full_len, gc_env);
-        // Set string marking function
-        ((Marking_Func_Ptr*)new_arr)[0] = __mellow_GC_mark_string;
         ((uint8_t*)new_arr)[full_len-1] = '\0';
     }
     else
     {
         // No null byte
-        // new_arr = __GC_malloc(full_len, gc_env);
-        new_arr = malloc(full_len);
+        new_arr = __GC_malloc(full_len, gc_env);
     }
     ((uint64_t*)new_arr)[1] = nlen;
     memcpy(
@@ -237,14 +222,11 @@ void* __arr_slice(void* arr, uint64_t lindex, uint64_t rindex,
     {
         size_t full_len = HEAD_SIZE + (elem_size * nlen) + 1;
         new_arr = __GC_malloc(full_len, gc_env);
-        // Set string marking function
-        ((Marking_Func_Ptr*)new_arr)[0] = __mellow_GC_mark_string;
         ((uint8_t*)new_arr)[full_len-1] = '\0';
     }
     else
     {
-        // new_arr = __GC_malloc(HEAD_SIZE + (elem_size * nlen), gc_env);
-        new_arr = malloc(HEAD_SIZE + (elem_size * nlen));
+        new_arr = __GC_malloc(HEAD_SIZE + (elem_size * nlen), gc_env);
     }
     ((uint64_t*)new_arr)[1] = nlen;
     memcpy(

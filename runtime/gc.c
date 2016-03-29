@@ -49,7 +49,7 @@ void* __GC_malloc_wrapped(
         gc_env->last_collection = gc_env->total_allocated;
     }
 
-    void* ptr = malloc(size);
+    void* ptr = calloc(size, 1);
     gc_env->total_allocated += size;
     __GC_mellow_add_alloc(ptr, size, gc_env);
     return ptr;
@@ -73,7 +73,7 @@ void __GC_mellow_mark_stack(void** rsp, void** stack_bot, GC_Env* gc_env)
             {
                 assert(0);
             }
-            mark_func_ptr(ptr, gc_env);
+            mark_func_ptr(ptr);
         }
     }
 }
@@ -106,13 +106,12 @@ void __GC_free_all_allocs(GC_Env* gc_env)
 
 uint64_t __GC_mellow_is_marked(void* ptr)
 {
-    // First eight bytes are the marking function ptr, second eight bytes
-    // are runtime data. First bit of the first byte of these second eight
-    // bytes is the mark bit.
+    // First eight bytes are the marking function ptr, second eight bytes are
+    // runtime data. First bit of the second eight bytes is the mark bit.
     //
     // The object header is 16 bytes:
     // [8 bytes mark func ptr][1 bit mark bit][7 bits+7 bytes 'util']
-    if ((((uint8_t*)ptr)[8] & 0b10000000) != 0)
+    if ((((uint64_t*)(ptr))[1] |= 0x8000000000000000) != 0)
     {
         return 1;
     }
@@ -172,14 +171,14 @@ void __GC_clear_marks(GC_Env* gc_env)
         // First eight bytes are the marking function ptr, second eight bytes
         // are runtime data. First bit of the first byte of these second eight
         // bytes is the mark bit
-        ((uint8_t*)(gc_env->allocs[i].ptr))[8] &= 0b01111111;
+        ((uint64_t*)(gc_env->allocs[i].ptr))[1] &= 0x7FFFFFFFFFFFFFFF;
     }
 }
 
-void __mellow_GC_mark_string(void* ptr, GC_Env* gc_env)
+void __mellow_GC_mark_string(void* ptr)
 {
     // First eight bytes are the marking function ptr, second eight bytes
     // are runtime data. First bit of the first byte of these second eight
     // bytes is the mark bit
-    ((uint8_t*)(ptr))[8] |= 0b10000000;
+    ((uint64_t*)(ptr))[1] |= 0x8000000000000000;
 }

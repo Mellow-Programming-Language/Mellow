@@ -32,7 +32,7 @@ typedef struct {
     uint64_t total_allocated;
 } GC_Env;
 
-typedef void (*Marking_Func_Ptr)(void* ptr, GC_Env* gc_env);
+typedef void (*Marking_Func_Ptr)(void* ptr);
 
 void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env);
 void __GC_mellow_mark_stack(void** rsp, void** stack_bot, GC_Env* gc_env);
@@ -42,6 +42,6 @@ void __GC_free_all_allocs(GC_Env* gc_env);
 void __GC_sweep(GC_Env* gc_env);
 void __GC_clear_marks(GC_Env* gc_env);
 
-void __mellow_GC_mark_string(void* ptr, GC_Env* gc_env);
+void __mellow_GC_mark_string(void* ptr);
 
 #endif

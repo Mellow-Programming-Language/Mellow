@@ -84,12 +84,111 @@ struct ArrayType
         return "@A" ~ arrayType.formatMangle();
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
-        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto vars = new StackContext();
+
+        auto markFuncName = formatMarkFuncName();
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        // If the array does not contain heap types, we don't need to recurse
+        if (!arrayType.isHeapType)
+        {
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+            str ~= "    ret\n";
+        }
+        // We'll need to recurse on each valid value within the array
+        else
+        {
+            // Test if the mark bit is already set. If it is, we've already
+            // marked this array and its children, so return early
+            auto retLabel = vars.getUniqLabel;
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    and    r8, qword [rdi+8]\n";
+            str ~= "    cmp    r8, 0\n";
+            str ~= "    jne    " ~ retLabel ~ "\n";
+
+            str ~= "    push   rbp         ; set up stack frame\n";
+            str ~= "    mov    rbp, rsp\n";
+            // Allocate memory on the stack to hold state
+            str ~= "    sub    rsp, 32\n";
+            // Store the array pointer on the stack
+            vars.allocateStackSpace(8);
+            scope (exit) vars.deallocateStackSpace(8);
+            auto arrPtrLoc = vars.getTop.to!string;
+            str ~= "    mov    qword [rbp-" ~ arrPtrLoc ~ "], rdi\n";
+            // Get the array length
+            str ~= "    mov    r8, qword [rdi+8]\n";
+            // Mask off the top byte, since the array length is only the last
+            // seven bytes
+            str ~= "    mov    r9, 0x00FFFFFFFFFFFFFF\n";
+            str ~= "    and    r8, r9\n";
+            auto endLabel = vars.getUniqLabel;
+            // If the array is empty, jump to the end, we're done
+            str ~= "    cmp    r8, 0\n";
+            str ~= "    je     " ~ endLabel ~ "\n";
+            // Store the array length on the stack
+            vars.allocateStackSpace(8);
+            scope (exit) vars.deallocateStackSpace(8);
+            auto arrLenLoc = vars.getTop.to!string;
+            str ~= "    mov    qword [rbp-" ~ arrLenLoc ~ "], r8\n";
+            // Create an index variable on the stack
+            vars.allocateStackSpace(8);
+            scope (exit) vars.deallocateStackSpace(8);
+            auto indexLoc = vars.getTop.to!string;
+            str ~= "    mov    r9, 0\n";
+            str ~= "    mov    qword [rbp-" ~ indexLoc ~ "], r9\n";
+            auto loopLabel = vars.getUniqLabel;
+            str ~= loopLabel ~ ":\n";
+            str ~= "    mov    rdi, qword [rbp-" ~ arrPtrLoc ~ "]\n";
+            str ~= "    mov    r8, qword [rbp-" ~ arrLenLoc ~ "]\n";
+            str ~= "    mov    r9, qword [rbp-" ~ indexLoc ~ "]\n";
+            str ~= "    cmp    r9, r8\n";
+            str ~= "    jge    " ~ endLabel ~ "\n";
+            // Calculate the offset to the next element in the array
+            str ~= "    mov    r10, r9\n";
+            // If we're recursing to garbage collect the elements of the array,
+            // each element must be a pointer
+            str ~= "    imul   r10, " ~ MELLOW_PTR_SIZE.to!string ~ "\n";
+            // Add in offset of object header
+            str ~= "    add    r10, " ~ OBJ_HEAD_SIZE.to!string ~ "\n";
+            // Put it all together as an offset to the actual array pointer
+            str ~= "    add    r10, rdi\n";
+            // Get the next element in the array in rdi, as its our argument to
+            // the marking function we're about to call
+            str ~= "    mov    rdi, qword [r10]\n";
+            // If the element pointer is 0 (null pointer), then we've likely
+            // initiated a collection during the middle of initializing this as
+            // an array literal, so skip to the end of marking this array. Array
+            // literal elements are initialized sequentially, so the first null
+            // pointer we hit is the beginning of unitialized space
+            str ~= "    cmp    rdi, 0\n";
+            str ~= "    je     " ~ endLabel ~ "\n";
+            // Get the marking function for this type
+            str ~= "    mov    r11, qword [rdi]\n";
+            // Increment our index and store it back to the stack
+            str ~= "    add    r9, 1\n";
+            str ~= "    mov    qword [rbp-" ~ indexLoc ~ "], r9\n";
+            // We have the marking function in r11, and the pointer to the value
+            // we're marking in rdi. Recurse!
+            str ~= "    call   r11\n";
+            str ~= "    jmp    " ~ loopLabel ~ "\n";
+            str ~= endLabel ~ ":\n";
+            str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+            str ~= "    pop    rbp\n";
+            str ~= retLabel ~ ":\n";
+            str ~= "    ret\n";
+        }
         return str;
     }
 }
@@ -118,12 +217,19 @@ struct HashType
              ~ "@N" ~ valueType.formatMangle();
     }
 
+
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 }
@@ -149,12 +255,18 @@ struct SetType
         return "@S" ~ setType.formatMangle();
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 }
@@ -195,12 +307,18 @@ struct AggregateType
         return "@Z" ~ typeName;
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 }
@@ -234,12 +352,18 @@ struct TupleType
         return str;
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 
@@ -317,12 +441,18 @@ struct FuncPtrType
         return str;
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 }
@@ -444,12 +574,18 @@ struct StructType
         return str;
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
-        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
+        auto markFuncName = formatMarkFuncName();
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 
@@ -653,12 +789,18 @@ struct VariantType
         return str;
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 
@@ -728,12 +870,18 @@ struct ChanType
         return "@C" ~ chanType.formatMangle();
     }
 
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+
     string compileMarkFunc() const
     {
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    call    exit\n";
         return str;
     }
 }
@@ -876,16 +1024,25 @@ struct Type
         final switch (tag)
         {
         case TypeEnum.VOID:
+            return "@Bvoid";
         case TypeEnum.LONG:
+            return "@Blong";
         case TypeEnum.INT:
+            return "@Bint";
         case TypeEnum.SHORT:
+            return "@Bshort";
         case TypeEnum.BYTE:
+            return "@Bbyte";
         case TypeEnum.FLOAT:
+            return "@Bfloat";
         case TypeEnum.DOUBLE:
+            return "@Bdouble";
         case TypeEnum.CHAR:
+            return "@Bchar";
         case TypeEnum.BOOL:
+            return "@Bbool";
         case TypeEnum.STRING:
-            return "@B" ~ format();
+            return "@Bstring";
         case TypeEnum.SET:
             return set.formatMangle();
         case TypeEnum.HASH:
@@ -907,6 +1064,44 @@ struct Type
         }
     }
 
+    string formatMarkFuncName() const
+    {
+        string str = "";
+        final switch (tag)
+        {
+        case TypeEnum.VOID:
+        case TypeEnum.LONG:
+        case TypeEnum.INT:
+        case TypeEnum.SHORT:
+        case TypeEnum.BYTE:
+        case TypeEnum.FLOAT:
+        case TypeEnum.DOUBLE:
+        case TypeEnum.CHAR:
+        case TypeEnum.BOOL:
+            assert(false);
+        case TypeEnum.STRING:
+            return "__mellow_GC_mark_" ~ formatMangle();
+        case TypeEnum.SET:
+            return set.formatMarkFuncName();
+        case TypeEnum.HASH:
+            return hash.formatMarkFuncName();
+        case TypeEnum.ARRAY:
+            return array.formatMarkFuncName();
+        case TypeEnum.AGGREGATE:
+            return aggregate.formatMarkFuncName();
+        case TypeEnum.TUPLE:
+            return tuple.formatMarkFuncName();
+        case TypeEnum.FUNCPTR:
+            return funcPtr.formatMarkFuncName();
+        case TypeEnum.CHAN:
+            return chan.formatMarkFuncName();
+        case TypeEnum.STRUCT:
+            return structDef.formatMarkFuncName();
+        case TypeEnum.VARIANT:
+            return variantDef.formatMarkFuncName();
+        }
+    }
+
     string compileMarkFunc() const
     {
         final switch (tag)
@@ -920,9 +1115,19 @@ struct Type
         case TypeEnum.DOUBLE:
         case TypeEnum.CHAR:
         case TypeEnum.BOOL:
-            return "";
+            assert(false);
         case TypeEnum.STRING:
-            return compileStringMarkFunc();
+            auto markFuncName = formatMarkFuncName();
+            auto str = "";
+            str ~= "    global " ~ markFuncName ~ "\n";
+            str ~= markFuncName ~ ":\n";
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+            str ~= "    ret\n";
+            return str;
         case TypeEnum.SET:
             return set.compileMarkFunc();
         case TypeEnum.HASH:
@@ -1020,20 +1225,6 @@ struct Type
             assert(false, "Unimplemented");
         }
     }
-}
-
-string compileStringMarkFunc()
-{
-    auto markFuncName = "__mellow_GC_mark_string";
-    auto str = "";
-    str ~= "    global " ~ markFuncName ~ "\n";
-    str ~= markFuncName ~ ":\n";
-    // Set the mark bit. The mark bit is the leftmost bit of the leftmost byte
-    // of the second 8 bytes of the 16-byte object header
-    str ~= "    or    byte [rdi+8], 0b10000000\n";
-    str ~= "    ret\n";
-
-    return str;
 }
 
 // This function assumes that there is only a single definition of variants and
@@ -1323,7 +1514,7 @@ bool isBasic(Type* type)
     }
 }
 
-bool isHeapType(Type* type)
+bool isHeapType(const Type* type)
 {
     switch (type.tag)
     {

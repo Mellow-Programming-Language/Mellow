@@ -306,6 +306,7 @@ string compileSumExpr(SumExprNode node, Context* vars)
     }
     auto str = "";
     str ~= compileProductExpr(cast(ProductExprNode)node.children[0], vars);
+    Type* resultType = node.data["type"].get!(Type*);
     Type* leftType = node.children[0].data["type"].get!(Type*);
     Type* rightType;
     for (auto i = 2; i < node.children.length; i += 2)
@@ -352,7 +353,7 @@ string compileSumExpr(SumExprNode node, Context* vars)
                 // Since the right type is in r8 and the left type is in r9,
                 // which is totally confusing, we swap them here
                 str ~= "    xchg   r8, r9\n";
-                str ~= compileAppendOp(leftType, rightType, vars);
+                str ~= compileAppendOp(leftType, rightType, resultType, vars);
                 break;
             }
         }
@@ -362,8 +363,9 @@ string compileSumExpr(SumExprNode node, Context* vars)
 }
 
 // leftType is in r8, rightType is in r9
-string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
-{
+string compileAppendOp(
+    Type* leftType, Type* rightType, Type* resultType, Context* vars
+) {
     vars.runtimeExterns["__arr_arr_append"] = true;
     vars.runtimeExterns["__elem_elem_append"] = true;
     vars.runtimeExterns["__elem_arr_append"] = true;
@@ -495,6 +497,9 @@ string compileAppendOp(Type* leftType, Type* rightType, Context* vars)
     {
         assert(false, "Unreachable");
     }
+    // Populate marking function
+    vars.runtimeExterns[resultType.formatMarkFuncName] = true;
+    str ~= "    mov     qword [r8], " ~ resultType.formatMarkFuncName ~ "\n";
     str ~= "    ; append op (~) algorithm end\n";
     return str;
 }
@@ -611,12 +616,16 @@ string compileValue(ValueNode node, Context* vars)
                                            + ENVIRON_PTR_SIZE
                                            + MELLOW_PTR_SIZE).to!string
                                           ~ "\n";
-                str ~= "    call   malloc\n";
+                str ~= compileGetGCEnv("rsi", vars);
+                str ~= "    call   __GC_malloc\n";
                 // Set up memory layout of fat ptr:
-                // [8-bytes runtime header,
+                // [8-bytes marking function,
                 //  8 bytes buffer,
                 //  8 bytes null environ ptr, 8 bytes func ptr]
-                str ~= "    mov    qword [rax], 0\n";
+                // Populate marking function
+                vars.runtimeExterns[type.formatMarkFuncName] = true;
+                str ~= "    mov    qword [rax], " ~ type.formatMarkFuncName
+                                                  ~ "\n";
                 str ~= "    mov    qword [rax+8], 0\n";
                 str ~= "    mov    qword [rax+16], 0\n";
                 str ~= "    mov    r8, qword [rbp-" ~ funcPtrLoc ~ "]\n";
@@ -633,9 +642,12 @@ string compileValue(ValueNode node, Context* vars)
                                             .getVariantAllocSize
                                             .to!string
                                       ~ "\n";
-            //str ~= compileGetGCEnv("rsi", vars);
-            //str ~= "    call   __GC_malloc\n";
-            str ~= "    call   malloc\n";
+            str ~= compileGetGCEnv("rsi", vars);
+            str ~= "    call   __GC_malloc\n";
+            // Populate marking function
+            vars.runtimeExterns[type.formatMarkFuncName] = true;
+            str ~= "    mov    qword [rax], " ~ type.formatMarkFuncName
+                                              ~ "\n";
             // Set the variant tag
             str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
                                             ~ "], "
@@ -714,10 +726,13 @@ string compileStructConstructor(StructConstructorNode node, Context* vars)
     }
     str ~= "    mov    rdi, " ~ getStructAllocSize(structDef).to!string
                               ~ "\n";
-    //str ~= compileGetGCEnv("rsi", vars);
-    //str ~= "    call   __GC_malloc\n";
-    str ~= "    call   malloc\n";
+    str ~= compileGetGCEnv("rsi", vars);
+    str ~= "    call   __GC_malloc\n";
     str ~= "    mov    r8, rax\n";
+    // Populate marking function
+    vars.runtimeExterns[structDef.formatMarkFuncName] = true;
+    str ~= "    mov    qword [r8], " ~ structDef.formatMarkFuncName
+                                     ~ "\n";
     vars.allocateStackSpace(8);
     auto structLoc = vars.getTop.to!string;
     scope (exit) vars.deallocateStackSpace(8);
@@ -765,10 +780,15 @@ string compileValueTuple(ValueTupleNode node, Context* vars)
     auto str = "";
     auto tupleType = node.data["type"].get!(Type*).tuple;
     str ~= "    mov    rdi, " ~ getTupleAllocSize(tupleType).to!string ~ "\n";
-    str ~= "    call   malloc\n";
-    // Set refcount
-    str ~= "    mov    dword [rax], 1\n";
+
+
+    str ~= compileGetGCEnv("rsi", vars);
+    str ~= "    call   __GC_malloc\n";
     str ~= "    mov    r8, rax\n";
+    // Populate marking function
+    vars.runtimeExterns[tupleType.formatMarkFuncName] = true;
+    str ~= "    mov    qword [r8], " ~ tupleType.formatMarkFuncName
+                                     ~ "\n";
     vars.allocateStackSpace(8);
     scope (exit) vars.deallocateStackSpace(8);
     auto tupleLoc = vars.getTop.to!string;
@@ -801,6 +821,7 @@ string compileParenExpr(ParenExprNode node, Context* vars)
 string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    auto arrayType = node.data["type"].get!(Type*);
     auto elemSize = 0;
     if (node.children.length > 0)
     {
@@ -810,9 +831,13 @@ string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
     auto totalAllocSize = numElems * elemSize + (MARK_FUNC_PTR + STR_SIZE);
     auto str = "";
     str ~= "    mov    rdi, " ~ totalAllocSize.to!string ~ "\n";
-    //str ~= compileGetGCEnv("rsi", vars);
-    //str ~= "    call   __GC_malloc\n";
-    str ~= "    call   malloc\n";
+    str ~= compileGetGCEnv("rsi", vars);
+    str ~= "    call   __GC_malloc\n";
+    // Populate marking function
+    writeln("Mark Func Name: " ~ arrayType.formatMarkFuncName);
+    vars.runtimeExterns[arrayType.formatMarkFuncName] = true;
+    str ~= "    mov    qword [rax], " ~ arrayType.formatMarkFuncName
+                                      ~ "\n";
     // Set array length to number of elements
     str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
                                     ~ "], "
@@ -902,9 +927,9 @@ string compileStringLit(StringLitNode node, Context* vars)
     str ~= "    mov    rdi, " ~ strAllocSize.to!string ~ "\n";
     str ~= compileGetGCEnv("rsi", vars);
     str ~= "    call   __GC_malloc\n";
-    vars.runtimeExterns["__mellow_GC_mark_string"] = true;
     // Set the marking function for string allocations
-    str ~= "    mov    qword [rax], __mellow_GC_mark_string\n";
+    vars.runtimeExterns["__mellow_GC_mark_@Bstring"] = true;
+    str ~= "    mov    qword [rax], __mellow_GC_mark_@Bstring\n";
     // Set the length of the string, where the string size location is just
     // past the runtime data area
     str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string ~ "], "
