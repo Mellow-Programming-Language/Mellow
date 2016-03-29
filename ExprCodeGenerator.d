@@ -834,7 +834,6 @@ string compileArrayLiteral(ArrayLiteralNode node, Context* vars)
     str ~= compileGetGCEnv("rsi", vars);
     str ~= "    call   __GC_malloc\n";
     // Populate marking function
-    writeln("Mark Func Name: " ~ arrayType.formatMarkFuncName);
     vars.runtimeExterns[arrayType.formatMarkFuncName] = true;
     str ~= "    mov    qword [rax], " ~ arrayType.formatMarkFuncName
                                       ~ "\n";
