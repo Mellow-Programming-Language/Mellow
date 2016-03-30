@@ -41,7 +41,7 @@ void __GC_mellow_add_alloc(void* ptr, uint64_t size, GC_Env* gc_env)
 void* __GC_malloc_wrapped(
     uint64_t size, GC_Env* gc_env, void** rsp, void** stack_bot
 ) {
-    if (gc_env->total_allocated > gc_env->last_collection * 2)
+    if (gc_env->total_allocated > gc_env->last_collection * 1.5)
     {
         __GC_mellow_mark_stack(rsp, stack_bot, gc_env);
         __GC_sweep(gc_env);
@@ -111,7 +111,7 @@ uint64_t __GC_mellow_is_marked(void* ptr)
     //
     // The object header is 16 bytes:
     // [8 bytes mark func ptr][1 bit mark bit][7 bits+7 bytes 'util']
-    if ((((uint64_t*)(ptr))[1] |= 0x8000000000000000) != 0)
+    if ((((uint64_t*)(ptr))[1] & 0x8000000000000000) != 0)
     {
         return 1;
     }
