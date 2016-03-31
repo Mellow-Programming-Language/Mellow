@@ -373,11 +373,86 @@ struct TupleType
 
     string compileMarkFunc() const
     {
+        auto vars = new StackContext();
+
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
-        str ~= "    call    exit\n";
+
+        if (!containsHeapType())
+        {
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+            str ~= "    ret\n";
+        }
+        // We'll need to recurse on each valid value within the tuple
+        else
+        {
+            // Test if the mark bit is already set. If it is, we've already
+            // marked this tuple and its children, so return early
+            auto retLabel = vars.getUniqLabel;
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    and    r8, qword [rdi+8]\n";
+            str ~= "    cmp    r8, 0\n";
+            str ~= "    jne    " ~ retLabel ~ "\n";
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+
+            str ~= "    push   rbp         ; set up stack frame\n";
+            str ~= "    mov    rbp, rsp\n";
+            str ~= "    sub    rsp, 16\n";
+            vars.allocateStackSpace(8);
+            scope (exit) vars.deallocateStackSpace(8);
+            auto tupleLoc = vars.getTop.to!string;
+            str ~= "    mov    qword [rbp-" ~ tupleLoc ~ "], rdi\n";
+            auto endLabel = vars.getUniqLabel;
+            // For every heap-type the tuple contains, generate sequential
+            // calls to marking functions
+            foreach (i, type; types)
+            {
+                if (!type.isHeapType)
+                {
+                    continue;
+                }
+                auto offset = getOffsetOfValue(i);
+                // Get the next element in the tuple in rdi, as its our argument
+                // to the marking function we're about to call
+                //
+                // Get tuple ptr
+                str ~= "    mov    rdi, qword [rbp-" ~ tupleLoc ~ "]\n";
+                // Get value ptr
+                str ~= "    mov    rdi, qword [rdi+" ~ (OBJ_HEAD_SIZE
+                                                      + offset
+                                                       ).to!string
+                                                     ~ "]\n";
+                // If the element pointer is 0 (null pointer), then we've likely
+                // initiated a collection during the middle of initializing this
+                // as a tuple literal, so skip to the end of marking this tuple.
+                // Tuple literal elements are initialized sequentially, so the
+                // first null pointer we hit is the beginning of unitialized
+                // space
+                str ~= "    cmp    rdi, 0\n";
+                str ~= "    je     " ~ endLabel ~ "\n";
+                // Get the marking function for this type
+                str ~= "    mov    r8, qword [rdi]\n";
+                // We have the marking function in r8, and the pointer to the
+                // value we're marking in rdi. Recurse!
+                str ~= "    call   r8\n";
+            }
+            str ~= endLabel ~ ":\n";
+            str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+            str ~= "    pop    rbp\n";
+            str ~= retLabel ~ ":\n";
+            str ~= "    ret\n";
+        }
+
         return str;
     }
 
