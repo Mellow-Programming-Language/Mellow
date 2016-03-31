@@ -63,6 +63,14 @@ class StackContext
     }
 }
 
+mixin template formatMarkFuncNameMixin()
+{
+    string formatMarkFuncName() const
+    {
+        return "__mellow_GC_mark_" ~ this.formatMangle;
+    }
+}
+
 struct ArrayType
 {
     Type* arrayType;
@@ -84,10 +92,7 @@ struct ArrayType
         return "@A" ~ arrayType.formatMangle();
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -191,6 +196,11 @@ struct ArrayType
         }
         return str;
     }
+
+    auto containsHeapType() const
+    {
+        return arrayType.isHeapType;
+    }
 }
 
 struct HashType
@@ -218,10 +228,7 @@ struct HashType
     }
 
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -231,6 +238,11 @@ struct HashType
         str ~= markFuncName ~ ":\n";
         str ~= "    call    exit\n";
         return str;
+    }
+
+    auto containsHeapType() const
+    {
+        assert(false, "Unimplemented");
     }
 }
 
@@ -255,10 +267,7 @@ struct SetType
         return "@S" ~ setType.formatMangle();
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -268,6 +277,11 @@ struct SetType
         str ~= markFuncName ~ ":\n";
         str ~= "    call    exit\n";
         return str;
+    }
+
+    auto containsHeapType() const
+    {
+        assert(false, "Unimplemented");
     }
 }
 
@@ -307,19 +321,17 @@ struct AggregateType
         return "@Z" ~ typeName;
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
+    // We shouldn't ever be instantiating objects of this dummy "type"
     string compileMarkFunc() const
     {
-        auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
-        auto str = "";
-        str ~= "    global " ~ markFuncName ~ "\n";
-        str ~= markFuncName ~ ":\n";
-        str ~= "    call    exit\n";
-        return str;
+        assert(false, "Unreachable");
+    }
+
+    auto containsHeapType() const
+    {
+        assert(false, "Unreachable");
     }
 }
 
@@ -352,10 +364,7 @@ struct TupleType
         return str;
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -367,7 +376,7 @@ struct TupleType
         return str;
     }
 
-    auto getOffsetOfValue(ulong index)
+    auto getOffsetOfValue(ulong index) const
     {
         int[] valueSizes;
         foreach (i, type; types)
@@ -383,11 +392,17 @@ struct TupleType
 
     // The size of the struct on the heap is the total aligned size of all the
     // values
-    auto size()
+    auto size() const
     {
         return types.map!(a => a.size)
                     .array
                     .getAlignedSize;
+    }
+
+    auto containsHeapType() const
+    {
+        return types.map!(a => a.isHeapType)
+                    .reduce!((a, b) => (a || b) ? true : false);
     }
 }
 
@@ -441,10 +456,7 @@ struct FuncPtrType
         return str;
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -454,6 +466,12 @@ struct FuncPtrType
         str ~= markFuncName ~ ":\n";
         str ~= "    call    exit\n";
         return str;
+    }
+
+    // TODO: Update this for when this type can represent a closure
+    auto containsHeapType() const
+    {
+        return false;
     }
 }
 
@@ -475,9 +493,14 @@ struct StructMember
         return name ~ ": " ~ type.format() ~ ";";
     }
 
-    auto size()
+    auto size() const
     {
         return type.size();
+    }
+
+    auto isHeapType() const
+    {
+        return type.isHeapType;
     }
 }
 
@@ -574,10 +597,7 @@ struct StructType
         return str;
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -591,7 +611,7 @@ struct StructType
 
     // The size of the struct on the heap is the total aligned size of all the
     // members
-    auto size()
+    auto size() const
     {
         return members.map!(a => a.size)
                       .array
@@ -622,6 +642,18 @@ struct StructType
             }
         }
         assert(false, "Unreachable");
+    }
+
+    bool containsHeapType() const
+    {
+        foreach (member; members)
+        {
+            if (member.isHeapType)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
@@ -694,7 +726,7 @@ struct VariantMember
         return str;
     }
 
-    auto size()
+    auto size() const
     {
         if (constructorElems.tag == TypeEnum.VOID)
         {
@@ -706,6 +738,15 @@ struct VariantMember
                                .map!(a => a.size)
                                .array
                                .getAlignedSize;
+    }
+
+    auto containsHeapType() const
+    {
+        if (constructorElems.tag == TypeEnum.VOID)
+        {
+            return false;
+        }
+        return constructorElems.tuple.containsHeapType;
     }
 }
 
@@ -789,10 +830,7 @@ struct VariantType
         return str;
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -806,7 +844,7 @@ struct VariantType
 
     // The total size of a variant value on the heap is the size of the largest
     // constructor
-    auto size()
+    auto size() const
     {
         return members.map!(a => a.size)
                       .reduce!(max);
@@ -847,6 +885,18 @@ struct VariantType
         }
         assert(false, "Unreachable");
     }
+
+    auto containsHeapType() const
+    {
+        foreach (member; members)
+        {
+            if (member.containsHeapType)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 struct ChanType
@@ -870,10 +920,7 @@ struct ChanType
         return "@C" ~ chanType.formatMangle();
     }
 
-    string formatMarkFuncName() const
-    {
-        return "__mellow_GC_mark_" ~ this.formatMangle;
-    }
+    mixin formatMarkFuncNameMixin;
 
     string compileMarkFunc() const
     {
@@ -883,6 +930,11 @@ struct ChanType
         str ~= markFuncName ~ ":\n";
         str ~= "    call    exit\n";
         return str;
+    }
+
+    auto containsHeapType() const
+    {
+        return chanType.containsHeapType;
     }
 }
 
@@ -1078,7 +1130,7 @@ struct Type
         case TypeEnum.DOUBLE:
         case TypeEnum.CHAR:
         case TypeEnum.BOOL:
-            assert(false);
+            assert(false, "Unreachable");
         case TypeEnum.STRING:
             return "__mellow_GC_mark_" ~ formatMangle();
         case TypeEnum.SET:
@@ -1115,7 +1167,7 @@ struct Type
         case TypeEnum.DOUBLE:
         case TypeEnum.CHAR:
         case TypeEnum.BOOL:
-            assert(false);
+            assert(false, "Unreachable");
         case TypeEnum.STRING:
             auto markFuncName = formatMarkFuncName();
             auto str = "";
@@ -1149,7 +1201,7 @@ struct Type
         }
     }
 
-    auto size()
+    auto size() const
     {
         final switch (tag)
         {
@@ -1177,6 +1229,42 @@ struct Type
         // struct or variant pointers, meaning any remaining aggregate
         // placeholder must be of size PTR_SIZE
         case TypeEnum.AGGREGATE : return PTR_SIZE;
+        }
+    }
+
+    bool containsHeapType() const
+    {
+        final switch (tag)
+        {
+        case TypeEnum.VOID:
+        case TypeEnum.LONG:
+        case TypeEnum.INT:
+        case TypeEnum.SHORT:
+        case TypeEnum.BYTE:
+        case TypeEnum.FLOAT:
+        case TypeEnum.DOUBLE:
+        case TypeEnum.CHAR:
+        case TypeEnum.BOOL:
+        case TypeEnum.STRING:
+            return false;
+        case TypeEnum.SET:
+            assert(false, "Unimplemented");
+        case TypeEnum.HASH:
+            assert(false, "Unimplemented");
+        case TypeEnum.ARRAY:
+            return array.containsHeapType();
+        case TypeEnum.AGGREGATE:
+            assert(false, "Unreachable");
+        case TypeEnum.TUPLE:
+            return tuple.containsHeapType();
+        case TypeEnum.FUNCPTR:
+            return funcPtr.containsHeapType();
+        case TypeEnum.CHAN:
+            return chan.containsHeapType();
+        case TypeEnum.STRUCT:
+            return structDef.containsHeapType();
+        case TypeEnum.VARIANT:
+            return variantDef.containsHeapType();
         }
     }
 
