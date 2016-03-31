@@ -122,6 +122,11 @@ struct ArrayType
             str ~= "    and    r8, qword [rdi+8]\n";
             str ~= "    cmp    r8, 0\n";
             str ~= "    jne    " ~ retLabel ~ "\n";
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
 
             str ~= "    push   rbp         ; set up stack frame\n";
             str ~= "    mov    rbp, rsp\n";
