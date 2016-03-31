@@ -914,11 +914,126 @@ struct VariantType
 
     string compileMarkFunc() const
     {
+        auto vars = new StackContext();
+
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
-        str ~= "    call    exit\n";
+        if (!containsHeapType())
+        {
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+            str ~= "    ret\n";
+        }
+        // We'll need to recurse on each valid value within the tuple
+        else
+        {
+
+            auto beginLabel = vars.getUniqLabel;
+            str ~= "    jmp    " ~ beginLabel ~ "\n";
+            //str ~= "    SECTION .data\n";
+            auto jumpTableLabel = ".jmp_table_" ~ this.formatMangle;
+            str ~= jumpTableLabel ~ ":\n";
+            // Generate jump table to each possible constructor's marking
+            // algorithm
+            string[] variantTagLabels;
+            foreach (member; members)
+            {
+                auto constructorLabel = vars.getUniqLabel;
+                variantTagLabels ~= constructorLabel;
+                str ~= "    dq " ~ constructorLabel ~ "\n";
+            }
+            //str ~= "    SECTION .text\n";
+            str ~= beginLabel ~ ":\n";
+            // Test if the mark bit is already set. If it is, we've already
+            // marked this tuple and its children, so return early
+            auto retLabel = vars.getUniqLabel;
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    and    r8, qword [rdi+8]\n";
+            str ~= "    cmp    r8, 0\n";
+            str ~= "    jne    " ~ retLabel ~ "\n";
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+
+            str ~= "    push   rbp         ; set up stack frame\n";
+            str ~= "    mov    rbp, rsp\n";
+            str ~= "    sub    rsp, 16\n";
+            vars.allocateStackSpace(8);
+            scope (exit) vars.deallocateStackSpace(8);
+            auto tupleLoc = vars.getTop.to!string;
+            str ~= "    mov    qword [rbp-" ~ tupleLoc ~ "], rdi\n";
+            auto endLabel = vars.getUniqLabel;
+
+            // Get the active tag. The last two bytes of the second 8 bytes of
+            // the object header
+            str ~= "    mov    r8, qword [rdi+8]\n";
+            str ~= "    mov    r9, 0x000000000000FFFF\n";
+            str ~= "    and    r8, r9\n";
+            // Jump to the relevant constructor's marking algorithm
+            str ~= "    jmp    [" ~ jumpTableLabel ~ "+r8*8]\n";
+
+
+
+            foreach (tagLabel, member; lockstep(variantTagLabels, members))
+            {
+                str ~= tagLabel ~ ":\n";
+                if (member.constructorElems.tag == TypeEnum.VOID)
+                {
+                    str ~= "    jmp    " ~ endLabel ~ "\n";
+                    continue;
+                }
+                auto constructorTuple = member.constructorElems.tuple;
+                // For every heap-type the constructor tuple contains, generate
+                // sequential calls to marking functions
+                foreach (i, type; constructorTuple.types)
+                {
+                    if (!type.isHeapType)
+                    {
+                        continue;
+                    }
+                    auto offset = constructorTuple.getOffsetOfValue(i);
+                    // Get the next element in the constructor tuple in rdi, as
+                    // its our argument to the marking function we're about to
+                    // call
+                    //
+                    // Get constructor tuple ptr
+                    str ~= "    mov    rdi, qword [rbp-" ~ tupleLoc ~ "]\n";
+                    // Get value ptr
+                    str ~= "    mov    rdi, qword [rdi+" ~ (OBJ_HEAD_SIZE
+                                                          + offset
+                                                           ).to!string
+                                                         ~ "]\n";
+                    // If the element pointer is 0 (null pointer), then we've
+                    // likely initiated a collection during the middle of
+                    // initializing this as a constructor tuple literal, so skip
+                    // to the end of marking this constructor tuple. Tuple
+                    // literal elements are initialized sequentially, so the
+                    // first null pointer we hit is the beginning of unitialized
+                    // space
+                    str ~= "    cmp    rdi, 0\n";
+                    str ~= "    je     " ~ endLabel ~ "\n";
+                    // Get the marking function for this type
+                    str ~= "    mov    r8, qword [rdi]\n";
+                    // We have the marking function in r8, and the pointer to the
+                    // value we're marking in rdi. Recurse!
+                    str ~= "    call   r8\n";
+                }
+                str ~= "    jmp    " ~ endLabel ~ "\n";
+            }
+            str ~= endLabel ~ ":\n";
+            str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+            str ~= "    pop    rbp\n";
+            str ~= retLabel ~ ":\n";
+            str ~= "    ret\n";
+        }
+
         return str;
     }
 
