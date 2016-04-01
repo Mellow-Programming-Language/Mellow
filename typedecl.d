@@ -89,7 +89,7 @@ struct ArrayType
 
     string formatMangle() const
     {
-        return "@A" ~ arrayType.formatMangle();
+        return "A" ~ arrayType.formatMangle();
     }
 
     mixin formatMarkFuncNameMixin;
@@ -228,8 +228,8 @@ struct HashType
 
     string formatMangle() const
     {
-        return "@K" ~ keyType.formatMangle()
-             ~ "@N" ~ valueType.formatMangle();
+        return "K" ~ keyType.formatMangle()
+             ~ "N" ~ valueType.formatMangle();
     }
 
 
@@ -269,7 +269,7 @@ struct SetType
 
     string formatMangle() const
     {
-        return "@S" ~ setType.formatMangle();
+        return "J" ~ setType.formatMangle();
     }
 
     mixin formatMarkFuncNameMixin;
@@ -323,7 +323,7 @@ struct AggregateType
 
     string formatMangle() const
     {
-        return "@Z" ~ typeName;
+        return "Z" ~ typeName;
     }
 
     mixin formatMarkFuncNameMixin;
@@ -361,7 +361,7 @@ struct TupleType
     string formatMangle() const
     {
         auto str = "";
-        str ~= "@T" ~ types.length.to!string;
+        str ~= "T" ~ types.length.to!string;
         foreach (type; types)
         {
             str ~= type.formatMangle();
@@ -527,12 +527,16 @@ struct FuncPtrType
     string formatMangle() const
     {
         auto str = "";
-        str ~= "@F" ~ funcArgs.length.to!string;
+        str ~= "F";
+        if (funcArgs.length > 0)
+        {
+            str ~= funcArgs.length.to!string;
+        }
         foreach (type; funcArgs)
         {
             str ~= type.formatMangle();
         }
-        str ~= "@Y" ~ returnType.formatMangle();
+        str ~= "Y" ~ returnType.formatMangle();
         return str;
     }
 
@@ -669,7 +673,11 @@ struct StructType
     string formatMangle() const
     {
         auto str = "";
-        str ~= "@R" ~ name;
+        str ~= "R" ~ name.length.to!string ~ name;
+        if (templateParams.length > 0)
+        {
+            str ~= templateParams.length.to!string;
+        }
         foreach (param; templateParams)
         {
             str ~= mappings[param].formatMangle();
@@ -902,7 +910,11 @@ struct VariantType
     string formatMangle() const
     {
         auto str = "";
-        str ~= "@V" ~ name;
+        str ~= "V" ~ name.length.to!string ~ name;
+        if (templateParams.length > 0)
+        {
+            str ~= templateParams.length.to!string;
+        }
         foreach (param; templateParams)
         {
             str ~= mappings[param].formatMangle();
@@ -1112,7 +1124,7 @@ struct ChanType
 
     string formatMangle() const
     {
-        return "@C" ~ chanType.formatMangle();
+        return "C" ~ chanType.formatMangle();
     }
 
     mixin formatMarkFuncNameMixin;
@@ -1271,25 +1283,25 @@ struct Type
         final switch (tag)
         {
         case TypeEnum.VOID:
-            return "@Bvoid";
+            return "BV";
         case TypeEnum.LONG:
-            return "@Blong";
+            return "BL";
         case TypeEnum.INT:
-            return "@Bint";
+            return "BI";
         case TypeEnum.SHORT:
-            return "@Bshort";
+            return "BG";
         case TypeEnum.BYTE:
-            return "@Bbyte";
+            return "BH";
         case TypeEnum.FLOAT:
-            return "@Bfloat";
+            return "BF";
         case TypeEnum.DOUBLE:
-            return "@Bdouble";
+            return "BD";
         case TypeEnum.CHAR:
-            return "@Bchar";
+            return "BC";
         case TypeEnum.BOOL:
-            return "@Bbool";
+            return "BB";
         case TypeEnum.STRING:
-            return "@Bstring";
+            return "S";
         case TypeEnum.SET:
             return set.formatMangle();
         case TypeEnum.HASH:

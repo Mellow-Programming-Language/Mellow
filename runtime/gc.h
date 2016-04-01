@@ -35,9 +35,9 @@ typedef struct {
 typedef void (*Marking_Func_Ptr)(void* ptr);
 
 void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env);
+void* __GC_malloc_nocollect(uint64_t size, GC_Env* gc_env);
 void __GC_mellow_mark_stack(void** rsp, void** stack_bot, GC_Env* gc_env);
 uint64_t __GC_mellow_is_valid_ptr(void* ptr, GC_Env* gc_env);
-void __GC_track(void* ptr, GC_Env* gc_env);
 void __GC_free_all_allocs(GC_Env* gc_env);
 void __GC_sweep(GC_Env* gc_env);
 void __GC_clear_marks(GC_Env* gc_env);

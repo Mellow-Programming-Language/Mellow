@@ -152,6 +152,39 @@ EOF".write;
                 objFileNames ~= objFileName;
             }
         }
+        // Extract types from std files
+        else
+        {
+            auto funcs = typecheckFile(infileName, context);
+            auto structDefs = context.namespaces[infileName]
+                                     .records
+                                     .structDefs;
+            foreach (sd; structDefs.byValue())
+            {
+                if (sd.templateParams.length != sd.mappings.length)
+                {
+                    continue;
+                }
+                auto wrap = new Type();
+                wrap.tag = TypeEnum.STRUCT;
+                wrap.structDef = sd;
+                context.allEncounteredTypes[wrap.formatMangle] = wrap;
+            }
+            auto variantDefs = context.namespaces[infileName]
+                                      .records
+                                      .variantDefs;
+            foreach (vd; variantDefs.byValue())
+            {
+                if (vd.templateParams.length != vd.mappings.length)
+                {
+                    continue;
+                }
+                auto wrap = new Type();
+                wrap.tag = TypeEnum.VARIANT;
+                wrap.variantDef = vd;
+                context.allEncounteredTypes[wrap.formatMangle] = wrap;
+            }
+        }
     }
 
     if (context.generateMain)
@@ -392,14 +425,24 @@ ModuleNamespace* extractFuncSigs(string infileName, TopLevelContext* context)
     foreach (funcDef; funcDefs)
     {
         auto builder = new FunctionSigBuilder(funcDef, namespace.records);
+        auto returnType = builder.funcSig.returnType;
+        if (builder.funcSig.templateParams.length == 0 && returnType.isHeapType)
+        {
+            // Collect return type of all func sigs. It may be that a func sig
+            // was declared somewhere as extern, meaning now is our only
+            // opportunity to easily collect their return types, which may only
+            // appear by name here
+            context.allEncounteredTypes[
+                returnType.formatMangle()
+            ] = returnType;
+        }
         funcSigs ~= builder.funcSig;
     }
     namespace.funcSigs = funcSigs;
     return namespace;
 }
 
-string compileFile(string infileName, TopLevelContext* context,
-                   Context* subContext)
+auto typecheckFile(string infileName, TopLevelContext* context)
 {
     auto namespace = context.namespaces[infileName];
     foreach (imp; namespace.imports)
@@ -425,13 +468,20 @@ string compileFile(string infileName, TopLevelContext* context,
         namespace.externFuncSigs ~= context.namespaces[imp.path]
                                            .funcSigs;
     }
-    auto funcs = new FunctionBuilder(
+    return new FunctionBuilder(
         namespace.topNode,
         namespace.records,
         namespace.funcSigs,
         namespace.externFuncSigs,
         context
     );
+}
+
+string compileFile(string infileName, TopLevelContext* context,
+                   Context* subContext)
+{
+    auto namespace = context.namespaces[infileName];
+    auto funcs = typecheckFile(infileName, context);
     auto fullAsm = compileProgram(
         namespace.records, funcs, context, subContext
     );

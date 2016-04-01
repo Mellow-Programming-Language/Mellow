@@ -927,8 +927,8 @@ string compileStringLit(StringLitNode node, Context* vars)
     str ~= compileGetGCEnv("rsi", vars);
     str ~= "    call   __GC_malloc\n";
     // Set the marking function for string allocations
-    vars.runtimeExterns["__mellow_GC_mark_@Bstring"] = true;
-    str ~= "    mov    qword [rax], __mellow_GC_mark_@Bstring\n";
+    vars.runtimeExterns["__mellow_GC_mark_S"] = true;
+    str ~= "    mov    qword [rax], __mellow_GC_mark_S\n";
     // Set the length of the string, where the string size location is just
     // past the runtime data area
     str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string ~ "], "

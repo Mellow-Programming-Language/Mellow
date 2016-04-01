@@ -7,6 +7,13 @@
 #include "mellow_internal.h"
 #include "../runtime/runtime_vars.h"
 
+// (Mangled )GC marking functions we expect to exist at link time
+extern void __mellow_GC_mark_S(void*);
+extern void __mellow_GC_mark_V5Maybe1S(void*);
+extern void __mellow_GC_mark_V5Maybe1R4File(void*);
+extern void __mellow_GC_mark_R4File(void*);
+extern void __mellow_GC_mark_V9FopenMode(void*);
+
 void writeln(void* mellowStr)
 {
     printf("%s\n", (char*)(mellowStr + HEAD_SIZE));
@@ -25,49 +32,46 @@ struct MaybeStr* readln()
 
     size_t bytesRead = getline(&buffer, &len, stdin);
 
-    // struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
-    //     sizeof(struct MaybeStr),
-    //     gc_env
-    // );
-    struct MaybeStr* str = (struct MaybeStr*)malloc(sizeof(struct MaybeStr));
-    str->runtimeHeader = 0;
+    struct MaybeStr* maybeStr = (struct MaybeStr*)__GC_malloc_nocollect(
+        sizeof(struct MaybeStr),
+        gc_env
+    );
+    maybeStr->markFunc = __mellow_GC_mark_V5Maybe1S;
     // Check if we outright failed to read a line, ie, EOF
     if (bytesRead == -1)
     {
         // Set tag to None
-        str->variantTag = 1;
+        maybeStr->variantTag = 1;
     }
     else
     {
         // Set tag to Some
-        str->variantTag = 0;
+        maybeStr->variantTag = 0;
         // The 1 is for space for the null byte
-        // void* mellowStr = __GC_malloc(
-        //     HEAD_SIZE + bytesRead + 1,
-        //     gc_env
-        // );
-        void* mellowStr = malloc(HEAD_SIZE + bytesRead + 1);
-        // Clear the runtime header
-        ((uint64_t*)mellowStr)[0] = 0;
+        void* mellowStr = __GC_malloc_nocollect(
+            HEAD_SIZE + bytesRead + 1,
+            gc_env
+        );
+        // Set the string marking function
+        ((void**)mellowStr)[0] = __mellow_GC_mark_S;
         // Set the string length
         ((uint64_t*)mellowStr)[1] = bytesRead;
         memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
         free(buffer);
-        str->str = mellowStr;
+        maybeStr->str = mellowStr;
     }
 
-    return str;
+    return maybeStr;
 }
 
 struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
 {
     GC_Env* gc_env = __get_GC_Env();
 
-    // struct MaybeFile* maybeFile =
-    //     (struct MaybeFile*)__GC_malloc(sizeof(struct MaybeFile), gc_env);
-    struct MaybeFile* maybeFile = (struct MaybeFile*)malloc(
-        sizeof(struct MaybeFile)
+    struct MaybeFile* maybeFile = (struct MaybeFile*)__GC_malloc_nocollect(
+        sizeof(struct MaybeFile), gc_env
     );
+    maybeFile->markFunc = __mellow_GC_mark_V5Maybe1R4File;
     FILE* file;
     switch (mode->mode)
     {
@@ -84,14 +88,11 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
     }
     if (file != NULL)
     {
-        // struct MellowFile* fileRef = (struct MellowFile*)__GC_malloc(
-        //     sizeof(struct MellowFile),
-        //     gc_env
-        // );
-        struct MellowFile* fileRef = (struct MellowFile*)malloc(
-            sizeof(struct MellowFile)
+        struct MellowFile* fileRef = (struct MellowFile*)__GC_malloc_nocollect(
+            sizeof(struct MellowFile),
+            gc_env
         );
-        fileRef->runtimeHeader = 0;
+        fileRef->markFunc = __mellow_GC_mark_R4File;
         fileRef->openMode = mode->mode;
         fileRef->ptr = file;
         fileRef->isOpen = 1;
@@ -105,7 +106,7 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
         // Set tag to None
         maybeFile->variantTag = 1;
     }
-    maybeFile->runtimeHeader = 0;
+    maybeFile->markFunc = 0;
     return maybeFile;
 }
 
@@ -121,14 +122,11 @@ void mellow_fclose(struct MellowFile* file)
 struct MaybeStr* mellow_freadln(struct MellowFile* file)
 {
     GC_Env* gc_env = __get_GC_Env();
-    // struct MaybeStr* str = (struct MaybeStr*)__GC_malloc(
-    //     sizeof(struct MaybeStr),
-    //     gc_env
-    // );
-    struct MaybeStr* str = (struct MaybeStr*)malloc(
-        sizeof(struct MaybeStr)
+    struct MaybeStr* maybeStr = (struct MaybeStr*)__GC_malloc_nocollect(
+        sizeof(struct MaybeStr),
+        gc_env
     );
-    str->runtimeHeader = 0;
+    maybeStr->markFunc = __mellow_GC_mark_V5Maybe1S;
     if (file->isOpen)
     {
         char* buffer = NULL;
@@ -138,33 +136,30 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
         if (bytesRead == -1)
         {
             // Set tag to None
-            str->variantTag = 1;
+            maybeStr->variantTag = 1;
         }
         else
         {
             // Set tag to Some
-            str->variantTag = 0;
+            maybeStr->variantTag = 0;
             // The 1 is for space for the null byte
-            // void* mellowStr = __GC_malloc(
-            //     HEAD_SIZE + bytesRead + 1,
-            //     gc_env
-            // );
-            void* mellowStr = malloc(
-                HEAD_SIZE + bytesRead + 1
+            void* mellowStr = __GC_malloc_nocollect(
+                HEAD_SIZE + bytesRead + 1,
+                gc_env
             );
-            // Clear the runtime header
-            ((uint64_t*)mellowStr)[0] = 1;
+            // Set the string marking function
+            ((void**)mellowStr)[0] = __mellow_GC_mark_S;
             // Set the string length
             ((uint64_t*)mellowStr)[1] = bytesRead;
             memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
             free(buffer);
-            str->str = mellowStr;
+            maybeStr->str = mellowStr;
         }
     }
     else
     {
         // Set tag to None
-        str->variantTag = 1;
+        maybeStr->variantTag = 1;
     }
-    return str;
+    return maybeStr;
 }

@@ -13,7 +13,7 @@
 // 5: append/update
 struct FopenMode
 {
-    uint64_t runtimeHeader;
+    void* markFunc;
     uint64_t mode;
 };
 
@@ -21,7 +21,7 @@ struct FopenMode
 // "extern struct File;" in stdio.mlo
 struct MellowFile
 {
-    uint64_t runtimeHeader;
+    void* markFunc;
     uint64_t openMode;
     FILE* ptr;
     unsigned char isOpen;
@@ -29,14 +29,14 @@ struct MellowFile
 
 struct MaybeFile
 {
-    uint64_t runtimeHeader;
+    void* markFunc;
     uint64_t variantTag;
     struct MellowFile* ptr;
 };
 
 struct MaybeStr
 {
-    uint64_t runtimeHeader;
+    void* markFunc;
     uint64_t variantTag;
     void* str;
 };

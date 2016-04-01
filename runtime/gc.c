@@ -5,6 +5,19 @@
 #include <stdio.h>
 #include "gc.h"
 
+void* __GC_malloc_nocollect(uint64_t size, GC_Env* gc_env)
+{
+
+    printf("Starting allocation request\n");
+
+    void* ptr = calloc(size, 1);
+
+    printf("Allocated: 0x%x, %d\n", ptr, size);
+
+    __GC_mellow_add_alloc(ptr, size, gc_env);
+    return ptr;
+}
+
 void __GC_mellow_add_alloc(void* ptr, uint64_t size, GC_Env* gc_env)
 {
     if (gc_env->allocs == NULL)
@@ -36,6 +49,7 @@ void __GC_mellow_add_alloc(void* ptr, uint64_t size, GC_Env* gc_env)
     gc_env->allocs[gc_env->allocs_len].ptr = ptr;
     gc_env->allocs[gc_env->allocs_len].size = size;
     gc_env->allocs_len += 1;
+    gc_env->total_allocated += size;
 }
 
 void* __GC_malloc_wrapped(
@@ -50,7 +64,6 @@ void* __GC_malloc_wrapped(
     }
 
     void* ptr = calloc(size, 1);
-    gc_env->total_allocated += size;
     __GC_mellow_add_alloc(ptr, size, gc_env);
     return ptr;
 }

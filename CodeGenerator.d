@@ -2399,9 +2399,9 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
                                   ~ "\n";
         str ~= compileGetGCEnv("rsi", vars);
         str ~= "    call   __GC_malloc\n";
-        vars.runtimeExterns["__mellow_GC_mark_@Bstring"] = true;
+        vars.runtimeExterns["__mellow_GC_mark_S"] = true;
         // Set the marking function for string allocations
-        str ~= "    mov    qword [rax], __mellow_GC_mark_@Bstring\n";
+        str ~= "    mov    qword [rax], __mellow_GC_mark_S\n";
         // Set the length of the string, where the string size location is just
         // past the runtime data
         str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string

@@ -1211,6 +1211,15 @@ class FunctionBuilder : Visitor
         pair.type = varType;
         funcScopes[$-1].syms[$-1].decls[varName] = pair;
         decls ~= pair;
+        if (varType.isHeapType)
+        {
+            // Collect all types known to the entire program. This collection is
+            // used, at the very least, to generate the marking functions for
+            // each type, for garbage collection
+            topContext.allEncounteredTypes[
+                varType.formatMangle()
+            ] = varType;
+        }
         node.data["pair"] = pair;
         this.stackVarAllocSize[curFuncName] += varType.size
                                                       .stackAlignSize;
