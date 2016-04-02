@@ -6,6 +6,9 @@
 #include "../runtime/gc.h"
 #include "../runtime/runtime_vars.h"
 
+extern void __mellow_GC_mark_S(void*);
+extern void __mellow_GC_mark_AS(void*);
+
 void* mellow_allocString(const char* str, const uint64_t strLength)
 {
     GC_Env* gc_env = __get_GC_Env();
@@ -15,7 +18,7 @@ void* mellow_allocString(const char* str, const uint64_t strLength)
     const uint64_t totalSize = HEAD_SIZE + strLength + 1;
     void* mellowString = __GC_malloc(totalSize, gc_env);
     // Set string marking function
-    ((Marking_Func_Ptr*)mellowString)[0] = __mellow_GC_mark_string;
+    ((Marking_Func_Ptr*)mellowString)[0] = __mellow_GC_mark_S;
     // set the str-len to the length of the array of characters
     ((uint64_t*)mellowString)[1] = strLength;
     // Copy the array of chars over
@@ -38,8 +41,8 @@ void* __get_mellow_argv(int argc, char** argv)
     GC_Env* gc_env = __get_GC_Env();
     size_t num_entries = argc * sizeof(void*);
     void* new_argv = __GC_malloc(HEAD_SIZE + num_entries, gc_env);
-    // Clear runtime header
-    ((uint64_t*)new_argv)[0] = 0;
+    // Set string marking function
+    ((Marking_Func_Ptr*)new_argv)[0] = __mellow_GC_mark_AS;
     // Set array length
     ((uint64_t*)new_argv)[1] = argc;
     uint64_t i;
@@ -48,6 +51,8 @@ void* __get_mellow_argv(int argc, char** argv)
         size_t char_count = strlen(argv[i]);
         size_t str_len = char_count + 1;
         void* mellow_str = __GC_malloc(HEAD_SIZE + str_len, gc_env);
+        // Set string marking function
+        ((Marking_Func_Ptr*)mellow_str)[0] = __mellow_GC_mark_S;
         // Set string length
         ((uint64_t*)mellow_str)[1] = char_count;
         // Copy the string, including the null terminator

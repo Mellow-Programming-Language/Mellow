@@ -1105,6 +1105,9 @@ string compileDynArrAccess(DynArrAccessNode node, Context* vars)
         }
         str ~= "    call    __arr_slice\n";
         str ~= "    mov     r8, rax\n";
+        // Populate marking function
+        vars.runtimeExterns[arrayType.formatMarkFuncName] = true;
+        str ~= "    mov     qword [r8], " ~ arrayType.formatMarkFuncName ~ "\n";
     }
     else
     {

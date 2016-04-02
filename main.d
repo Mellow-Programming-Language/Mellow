@@ -825,6 +825,17 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
 
 string compileMarkingFunctions(TopLevelContext* context)
 {
+    auto strType = new Type();
+    strType.tag = TypeEnum.STRING;
+    auto strArrType = new ArrayType();
+    strArrType.arrayType = strType;
+    auto strArrWrap = new Type();
+    strArrWrap.tag = TypeEnum.ARRAY;
+    strArrWrap.array = strArrType;
+    context.allEncounteredTypes[
+        strArrWrap.formatMarkFuncName
+    ] = strArrWrap;
+
     auto markingFunctions = context.allEncounteredTypes
                                    .byValue
                                    .map!(a => a.compileMarkFunc)

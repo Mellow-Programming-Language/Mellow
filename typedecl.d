@@ -689,11 +689,86 @@ struct StructType
 
     string compileMarkFunc() const
     {
+        auto vars = new StackContext();
+
         auto markFuncName = formatMarkFuncName();
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
-        str ~= "    call    exit\n";
+
+        if (!containsHeapType())
+        {
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+            str ~= "    ret\n";
+        }
+        // We'll need to recurse on each valid value within the struct
+        else
+        {
+            // Test if the mark bit is already set. If it is, we've already
+            // marked this struct and its children, so return early
+            auto retLabel = vars.getUniqLabel;
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    and    r8, qword [rdi+8]\n";
+            str ~= "    cmp    r8, 0\n";
+            str ~= "    jne    " ~ retLabel ~ "\n";
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+
+            str ~= "    push   rbp         ; set up stack frame\n";
+            str ~= "    mov    rbp, rsp\n";
+            str ~= "    sub    rsp, 16\n";
+            vars.allocateStackSpace(8);
+            scope (exit) vars.deallocateStackSpace(8);
+            auto structLoc = vars.getTop.to!string;
+            str ~= "    mov    qword [rbp-" ~ structLoc ~ "], rdi\n";
+            auto endLabel = vars.getUniqLabel;
+            // For every heap-type the struct contains, generate sequential
+            // calls to marking functions
+            foreach (member; members)
+            {
+                if (!member.isHeapType)
+                {
+                    continue;
+                }
+                auto offset = getOffsetOfMember(member.name);
+                // Get the next member in the struct in rdi, as its our
+                // argument to the marking function we're about to call
+                //
+                // Get struct ptr
+                str ~= "    mov    rdi, qword [rbp-" ~ structLoc ~ "]\n";
+                // Get value ptr
+                str ~= "    mov    rdi, qword [rdi+" ~ (OBJ_HEAD_SIZE
+                                                      + offset
+                                                       ).to!string
+                                                     ~ "]\n";
+                // If the member pointer is 0 (null pointer), then we've likely
+                // initiated a collection during the middle of initializing this
+                // as a struct literal, so skip to the end of marking this
+                // struct. Struct literal elements are initialized sequentially,
+                // so the first null pointer we hit is the beginning of
+                // unitialized space
+                str ~= "    cmp    rdi, 0\n";
+                str ~= "    je     " ~ endLabel ~ "\n";
+                // Get the marking function for this type
+                str ~= "    mov    r8, qword [rdi]\n";
+                // We have the marking function in r8, and the pointer to the
+                // value we're marking in rdi. Recurse!
+                str ~= "    call   r8\n";
+            }
+            str ~= endLabel ~ ":\n";
+            str ~= "    mov    rsp, rbp    ; takedown stack frame\n";
+            str ~= "    pop    rbp\n";
+            str ~= retLabel ~ ":\n";
+            str ~= "    ret\n";
+        }
+
         return str;
     }
 
@@ -706,7 +781,7 @@ struct StructType
                       .getAlignedSize;
     }
 
-    auto getMember(string memberName)
+    auto getMember(string memberName) const
     {
         foreach (i, member; members)
         {
@@ -718,7 +793,7 @@ struct StructType
         assert(false, "Unreachable");
     }
 
-    auto getOffsetOfMember(string memberName)
+    auto getOffsetOfMember(string memberName) const
     {
         int[] memberSizes;
         foreach (i, member; members)

@@ -39,6 +39,14 @@ void __GC_mellow_add_alloc(void* ptr, uint64_t size, GC_Env* gc_env)
     gc_env->total_allocated += size;
 }
 
+// Use this version of the GC allocatior if you're in a context where you want
+// to allocate something through the GC, but you want to be sure a collection
+// will not start because of it.
+//
+// The most immediate example of this being _necessary_ is GC allocations from
+// within C code, which is executing on the OS stack, not the green thread
+// stack, and therefore has a nonsense stack pointer for the purposes of stack
+// scanning during collection.
 void* __GC_malloc_nocollect(uint64_t size, GC_Env* gc_env)
 {
     void* ptr = calloc(size, 1);
@@ -180,12 +188,4 @@ void __GC_clear_marks(GC_Env* gc_env)
         // bytes is the mark bit
         ((uint64_t*)(gc_env->allocs[i].ptr))[1] &= 0x7FFFFFFFFFFFFFFF;
     }
-}
-
-void __mellow_GC_mark_string(void* ptr)
-{
-    // First eight bytes are the marking function ptr, second eight bytes
-    // are runtime data. First bit of the first byte of these second eight
-    // bytes is the mark bit
-    ((uint64_t*)(ptr))[1] |= 0x8000000000000000;
 }

@@ -106,7 +106,7 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode)
         // Set tag to None
         maybeFile->variantTag = 1;
     }
-    maybeFile->markFunc = 0;
+
     return maybeFile;
 }
 
