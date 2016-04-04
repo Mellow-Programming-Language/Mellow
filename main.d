@@ -832,9 +832,9 @@ string compileMarkingFunctions(TopLevelContext* context)
     auto strArrWrap = new Type();
     strArrWrap.tag = TypeEnum.ARRAY;
     strArrWrap.array = strArrType;
-    context.allEncounteredTypes[
-        strArrWrap.formatMarkFuncName
-    ] = strArrWrap;
+
+    context.allEncounteredTypes[strType.formatMangle] = strType;
+    context.allEncounteredTypes[strArrWrap.formatMangle] = strArrWrap;
 
     auto markingFunctions = context.allEncounteredTypes
                                    .byValue

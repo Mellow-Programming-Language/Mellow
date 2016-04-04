@@ -102,6 +102,7 @@ struct ArrayType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
         // If the array does not contain heap types, we don't need to recurse
         if (!arrayType.isHeapType)
         {
@@ -241,6 +242,7 @@ struct HashType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
         str ~= "    call    exit\n";
         return str;
     }
@@ -280,6 +282,7 @@ struct SetType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
         str ~= "    call    exit\n";
         return str;
     }
@@ -379,6 +382,7 @@ struct TupleType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
 
         if (!containsHeapType())
         {
@@ -548,6 +552,7 @@ struct FuncPtrType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
         str ~= "    call    exit\n";
         return str;
     }
@@ -695,6 +700,7 @@ struct StructType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
 
         if (!containsHeapType())
         {
@@ -1007,6 +1013,7 @@ struct VariantType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
         if (!containsHeapType())
         {
             // Set the mark bit. The mark bit is the leftmost bit of the second
@@ -1210,6 +1217,7 @@ struct ChanType
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
+        str ~= "    ; " ~ format() ~ "\n";
         str ~= "    call    exit\n";
         return str;
     }
