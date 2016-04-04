@@ -1,6 +1,7 @@
 
     extern malloc
     extern free
+    extern __GC_malloc_wrapped
 
     ; From tls.asm
     extern get_currentthread
@@ -55,6 +56,17 @@ __mellow_use_main_stack:
     ; Restore return value into rax
     mov     rax, r10
     ; Return, possibly with a populated rax
+    ret
+
+    ; extern void* __GC_malloc(uint64_t alloc_size, GC_Env* gc_env)
+    global __GC_malloc
+__GC_malloc:
+    mov     rdx, rsp
+    ; Get curThread pointer in rax
+    call    get_currentthread
+    mov     rcx, qword [rax+16]   ; ThreadData->t_StackBot
+    mov     r10, __GC_malloc_wrapped
+    call    __mellow_use_main_stack
     ret
 
     ; extern void yield();
