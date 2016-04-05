@@ -188,6 +188,7 @@ class FunctionBuilder : Visitor
     private ProgramNode topNode;
     private uint insideLoop;
     private bool unittestBlock;
+    private Type* arrayExpectedType;
     private TopLevelContext* topContext;
 
     mixin TypeVisitors;
@@ -377,6 +378,10 @@ class FunctionBuilder : Visitor
     void visit(StatementNode node)
     {
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("StatementNode"));
+
+        // Reset state
+        arrayExpectedType = null;
+
         node.children[0].accept(this);
     }
 
@@ -1085,11 +1090,30 @@ class FunctionBuilder : Visitor
             builderStack.length--;
         }
         auto structDef = instantiateAggregate(records, aggregate, node);
+        Type*[string] membersActual;
+        foreach (member; structDef.structDef.members)
+        {
+            membersActual[member.name] = member.type.normalize(records, node);
+        }
+        auto memberNamesActual = membersActual.keys
+                                              .sort;
         Type*[string] memberAssigns;
         for (; i < node.children.length; i += 2)
         {
             node.children[i].accept(this);
             auto memberName = id;
+            if (memberName !in membersActual)
+            {
+                throw new Exception(
+                    errorHeader(node) ~ "\n"
+                    ~ "Struct " ~ structName ~ " does not contain member "
+                    ~ memberName
+                );
+            }
+            if (membersActual[memberName].tag == TypeEnum.ARRAY)
+            {
+                arrayExpectedType = membersActual[memberName];
+            }
             node.children[i+1].accept(this);
             auto valType = builderStack[$-1][$-1];
             builderStack[$-1] = builderStack[$-1][0..$-1];
@@ -1102,15 +1126,8 @@ class FunctionBuilder : Visitor
             }
             memberAssigns[memberName] = valType;
         }
-        Type*[string] membersActual;
-        foreach (member; structDef.structDef.members)
-        {
-            membersActual[member.name] = member.type.normalize(records, node);
-        }
         auto memberNamesAssigned = memberAssigns.keys
                                                 .sort;
-        auto memberNamesActual = membersActual.keys
-                                              .sort;
         if (memberNamesAssigned.sort
                                .setSymmetricDifference(memberNamesActual.sort)
                                .walkLength > 0)
@@ -1129,7 +1146,7 @@ class FunctionBuilder : Visitor
                 && assignedType.array.arrayType.tag == TypeEnum.VOID
                 && expectedType.tag == TypeEnum.ARRAY)
             {
-                assignedType = expectedType.copy;
+                assert(false, "Unreachable");
             }
             if (!assignedType.cmp(expectedType))
             {
@@ -1155,9 +1172,12 @@ class FunctionBuilder : Visitor
         auto type = new Type();
         if (node.children.length == 0)
         {
-            auto voidType = new Type();
-            voidType.tag = TypeEnum.VOID;
-            arrayType.arrayType = voidType;
+            if (arrayExpectedType == null)
+            {
+                assert(false, "Unreachable");
+            }
+            arrayType = arrayExpectedType.array.copy;
+            arrayExpectedType = null;
         }
         else
         {
@@ -1194,6 +1214,10 @@ class FunctionBuilder : Visitor
         // Visit TypeIdNode
         node.children[1].accept(this);
         auto varType = builderStack[$-1][$-1];
+        if (varType.tag == TypeEnum.ARRAY)
+        {
+            arrayExpectedType = varType;
+        }
         builderStack[$-1] = builderStack[$-1][0..$-1];
         if (varType.tag == TypeEnum.AGGREGATE
             || varType.tag == TypeEnum.STRUCT
@@ -1306,6 +1330,10 @@ class FunctionBuilder : Visitor
         debug (FUNCTION_TYPECHECK_TRACE) mixin(tracer("AssignExistingNode"));
         node.children[0].accept(this);
         auto left = lvalue;
+        if (left.tag == TypeEnum.ARRAY)
+        {
+            arrayExpectedType = left;
+        }
         auto op = (cast(ASTTerminal)node.children[1]).token;
         node.children[2].accept(this);
         auto varType = builderStack[$-1][$-1];
@@ -1860,17 +1888,21 @@ class FunctionBuilder : Visitor
             }
             foreach (i, child, argExpected; lockstep(node.children, funcArgs))
             {
+                argExpected.type = normalize(argExpected.type, records, node);
+                if (argExpected.type.tag == TypeEnum.ARRAY)
+                {
+                    arrayExpectedType = argExpected.type;
+                }
                 child.accept(this);
                 auto argPassed = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
-                argExpected.type = normalize(argExpected.type, records, node);
                 // Reconcile case of having passed a "[]" as an array literal
                 // for this argument to the function
                 if (argPassed.tag == TypeEnum.ARRAY
                     && argPassed.array.arrayType.tag == TypeEnum.VOID
                     && argExpected.type.tag == TypeEnum.ARRAY)
                 {
-                    argPassed = argExpected.type.copy;
+                    assert(false, "Unreachable");
                 }
                 if (!argPassed.cmp(argExpected.type))
                 {
@@ -1926,17 +1958,21 @@ class FunctionBuilder : Visitor
             foreach (child, typeExpected; lockstep(node.children,
                                                    expectedTypes))
             {
+                typeExpected = normalize(typeExpected, records, node);
+                if (typeExpected.tag == TypeEnum.ARRAY)
+                {
+                    arrayExpectedType = typeExpected;
+                }
                 child.accept(this);
                 auto typeGot = builderStack[$-1][$-1];
                 builderStack[$-1] = builderStack[$-1][0..$-1];
-                typeExpected = normalize(typeExpected, records, node);
                 // Reconcile case of passing empty array literal "[]" as value
                 // in instantiating this variant constructor
                 if (typeGot.tag == TypeEnum.ARRAY
                     && typeGot.array.arrayType.tag == TypeEnum.VOID
                     && typeExpected.tag == TypeEnum.ARRAY)
                 {
-                    typeGot = typeExpected.copy;
+                    assert(false, "Unreachable");
                 }
                 if (!typeExpected.cmp(typeGot))
                 {
