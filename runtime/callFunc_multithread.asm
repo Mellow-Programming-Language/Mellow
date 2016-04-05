@@ -20,8 +20,7 @@ __mellow_use_main_stack:
     ; stack.
     ;
     ; Note that we have not set up the normal stack frame, so [rsp] is the
-    ; return address on the stack, and rbp is whatever it is from the function
-    ; that called yield().
+    ; return address on the stack
     ;
     ; TODO: It is the responsibility of this function to pass any stack
     ; arguments to the OS stack before the call is made. Once we start
