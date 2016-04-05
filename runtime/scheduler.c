@@ -274,6 +274,9 @@ void scheduler()
     int64_t i = 0;
     uint8_t stillValid = 0;
     uint64_t kthreadExecuting = 0;
+    // Use an index variable to always move through the entire list of green
+    // threads linearly, without prematurely starting over at 0
+    uint64_t curIndex = 0;
     for (i = 0; i < numThreads; i++)
     {
         if (schedulerData[i].valid != 0)
@@ -286,14 +289,9 @@ void scheduler()
             schedulerData[i].threadData = 0;
         }
         pthread_mutex_lock(&mutex);
-        int64_t j = 0;
-        for (j = 0; j < g_threadManager->threadArrIndex; j++)
+        for (; curIndex < g_threadManager->threadArrIndex; curIndex++)
         {
-            if (j == 0)
-            {
-                pthread_mutex_unlock(&mutex);
-            }
-            ThreadData* curThread = g_threadManager->threadArr[j];
+            ThreadData* curThread = g_threadManager->threadArr[curIndex];
             // Try to find the green thread in the scheduler list
             uint64_t m;
             uint64_t isScheduled = 0;
@@ -331,6 +329,11 @@ void scheduler()
                 }
             }
         }
+        if (curIndex >= g_threadManager->threadArrIndex)
+        {
+            curIndex = 0;
+        }
+        pthread_mutex_unlock(&mutex);
 SKIP_WORKER:
         // At least one worker thread is still executing
         if (i + 1 >= numThreads)
