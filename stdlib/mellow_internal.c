@@ -16,7 +16,7 @@ void* mellow_allocString(const char* str, const uint64_t strLength)
     // the runtime header plus the bytes allocated to hold the string length
     // plus a byte to hold the null byte
     const uint64_t totalSize = HEAD_SIZE + strLength + 1;
-    void* mellowString = __GC_malloc(totalSize, gc_env);
+    void* mellowString = __GC_malloc_nocollect(totalSize, gc_env);
     // Set string marking function
     ((Marking_Func_Ptr*)mellowString)[0] = __mellow_GC_mark_S;
     // set the str-len to the length of the array of characters

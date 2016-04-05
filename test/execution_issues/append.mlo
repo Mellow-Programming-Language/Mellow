@@ -9,8 +9,8 @@ struct Dummy {
     str: string;
 }
 
-func printIntArr(is: []int) {
-    foreach (i; is) {
+func printIntArr(vals: []int) {
+    foreach (i; vals) {
         write(intToString(i));
     }
 }
@@ -32,13 +32,13 @@ func main() {
     write("AB" ~ 'Z');
     write(" ");
 
-    is: []int;
+    vals: []int;
     write("[");
-    printIntArr(is ~ is);
+    printIntArr(vals ~ vals);
     write("] ");
-    printIntArr([1, 2] ~ is);
+    printIntArr([1, 2] ~ vals);
     write(" ");
-    printIntArr(is ~ [3, 4]);
+    printIntArr(vals ~ [3, 4]);
     write(" ");
     printIntArr([1, 2] ~ [3, 4]);
     write(" ");

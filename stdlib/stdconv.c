@@ -18,7 +18,7 @@ int ord(char c)
 void* chr(int c)
 {
     GC_Env* gc_env = __get_GC_Env();
-    struct MaybeChar* maybeChar = (struct MaybeChar*)__GC_malloc(
+    struct MaybeChar* maybeChar = (struct MaybeChar*)__GC_malloc_nocollect(
         sizeof(struct MaybeChar), gc_env
     );
     maybeChar->markFunc = __mellow_GC_mark_V5Maybe1BC;
@@ -50,7 +50,7 @@ void* charToString(char c)
 {
     GC_Env* gc_env = __get_GC_Env();
     // The 1 is for space for the null byte
-    void* mellowStr = __GC_malloc(
+    void* mellowStr = __GC_malloc_nocollect(
         HEAD_SIZE + sizeof(char) + 1,
         gc_env
     );
@@ -69,7 +69,7 @@ void* stringToChars(void* str) {
     GC_Env* gc_env = __get_GC_Env();
     uint64_t strLen = ((uint64_t*)(str + MARK_PTR_SIZE))[0];
     const uint64_t totalSize = HEAD_SIZE + strLen;
-    void* mellowArr = __GC_malloc(totalSize, gc_env);
+    void* mellowArr = __GC_malloc_nocollect(totalSize, gc_env);
     // Set the []char marking function
     ((void**)mellowArr)[0] = __mellow_GC_mark_ABC;
     ((uint64_t*)mellowArr)[1] = strLen;
