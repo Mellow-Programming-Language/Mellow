@@ -5,6 +5,11 @@
 #include "mellow_internal.h"
 #include "../runtime/runtime_vars.h"
 
+// (Mangled) GC marking functions we expect to exist at link time
+extern void __mellow_GC_mark_S(void*);
+extern void __mellow_GC_mark_ABC(void*);
+extern void __mellow_GC_mark_V5Maybe1BC(void*);
+
 int ord(char c)
 {
     return (int)c;
@@ -12,13 +17,11 @@ int ord(char c)
 
 void* chr(int c)
 {
-    // GC_Env* gc_env = __get_GC_Env();
-    // struct MaybeChar* maybeChar =
-    //     (struct MaybeChar*)__GC_malloc(sizeof(struct MaybeChar), gc_env);
-    struct MaybeChar* maybeChar = (struct MaybeChar*)malloc(
-        sizeof(struct MaybeChar)
+    GC_Env* gc_env = __get_GC_Env();
+    struct MaybeChar* maybeChar = (struct MaybeChar*)__GC_malloc(
+        sizeof(struct MaybeChar), gc_env
     );
-    maybeChar->runtimeData = 0;
+    maybeChar->markFunc = __mellow_GC_mark_V5Maybe1BC;
     if (c <= 0xFF)
     {
         // Set tag to Some
@@ -45,15 +48,14 @@ uint8_t intToByte(uint32_t in)
 
 void* charToString(char c)
 {
-    // GC_Env* gc_env = __get_GC_Env();
+    GC_Env* gc_env = __get_GC_Env();
     // The 1 is for space for the null byte
-    // void* mellowStr = __GC_malloc(
-    //     HEAD_SIZE + sizeof(char) + 1,
-    //     gc_env
-    // );
-    void* mellowStr = malloc(HEAD_SIZE + sizeof(char) + 1);
-    // Clear the "runtime" header
-    ((uint64_t*)mellowStr)[0] = 1;
+    void* mellowStr = __GC_malloc(
+        HEAD_SIZE + sizeof(char) + 1,
+        gc_env
+    );
+    // Set the string marking function
+    ((void**)mellowStr)[0] = __mellow_GC_mark_S;
     // Set the string length
     ((uint64_t*)mellowStr)[1] = 1;
     // Set the char in the string
@@ -64,12 +66,12 @@ void* charToString(char c)
 }
 
 void* stringToChars(void* str) {
-    // GC_Env* gc_env = __get_GC_Env();
+    GC_Env* gc_env = __get_GC_Env();
     uint64_t strLen = ((uint64_t*)(str + MARK_PTR_SIZE))[0];
     const uint64_t totalSize = HEAD_SIZE + strLen;
-    // void* mellowArr = __GC_malloc(totalSize, gc_env);
-    void* mellowArr = malloc(totalSize);
-    ((uint64_t*)mellowArr)[0] = 1;
+    void* mellowArr = __GC_malloc(totalSize, gc_env);
+    // Set the []char marking function
+    ((void**)mellowArr)[0] = __mellow_GC_mark_ABC;
     ((uint64_t*)mellowArr)[1] = strLen;
     memcpy(
         mellowArr + HEAD_SIZE,
@@ -82,6 +84,6 @@ void* stringToChars(void* str) {
 void* charsToString(void* chs) {
     return mellow_allocString(
         chs + HEAD_SIZE,
-        ((uint64_t*)(chs + MARK_PTR_SIZE))[0]
+        ((uint64_t*)(chs))[1]
     );
 }
