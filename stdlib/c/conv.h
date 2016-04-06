@@ -4,8 +4,8 @@
 
 struct CString
 {
-    uint32_t refCount;
-    uint32_t dummy;
+    uint64_t markFunc;
+    uint64_t dummy;
     const char* str;
 };
 
