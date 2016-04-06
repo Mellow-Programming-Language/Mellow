@@ -156,7 +156,13 @@ sub testsub {
                 || $directives->{'NO_OUTPUT'} !~ /true|yes/i
             )
         ) {
-            my $output = `$input $binDir$dummyFile $args`;
+            my $program_cmd = "$input $binDir$dummyFile $args";
+            if (exists $directives->{'RUN_WITH'}) {
+                my $outer_cmd = $directives->{'RUN_WITH'};
+                $outer_cmd =~ s/!!PROGRAM!!/$program_cmd/;
+                $program_cmd = $outer_cmd;
+            }
+            my $output = `$program_cmd`;
             if (exists $directives->{'EXPECTS'}) {
                 chomp $output;
                 $continue = is(
@@ -244,6 +250,9 @@ sub processDirectives {
         elsif ($line =~ m|//\s*BUILD_SINGLE:\s*(.*)\s*$|) {
             $directives->{'BUILD_SINGLE'} = $1;
         }
+        elsif ($line =~ m|//\s*RUN_WITH:\s*(.*)\s*$|) {
+            $directives->{'RUN_WITH'} = $1;
+        }
     }
     # No directives were passed, so we assume the default case of:
     # "We expect this to compile, but don't continue beyond that"
@@ -264,6 +273,10 @@ sub processDirectives {
     if (exists $directives->{'EXPECTS'}
         && exists $directives->{'EXPECTS_UNORDERED'}) {
         die "Cannot have both 'EXPECTS' and 'EXPECTS_UNORDERED'";
+    }
+    if (exists $directives->{'RUN_WITH'}
+        && exists $directives->{'INPUT'}) {
+        die "Cannot have both 'RUN_WITH' and 'INPUT'";
     }
     return $directives;
 }
