@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include "gc.h"
 
-void __GC_mellow_add_alloc(void* ptr, uint64_t size, GC_Env* gc_env)
+void __GC_mellow_add_alloc_wrapped(void* ptr, uint64_t size, GC_Env* gc_env)
 {
     if (gc_env->allocs == NULL)
     {
@@ -50,7 +50,7 @@ void __GC_mellow_add_alloc(void* ptr, uint64_t size, GC_Env* gc_env)
 void* __GC_malloc_nocollect(uint64_t size, GC_Env* gc_env)
 {
     void* ptr = calloc(size, 1);
-    __GC_mellow_add_alloc(ptr, size, gc_env);
+    __GC_mellow_add_alloc_wrapped(ptr, size, gc_env);
     return ptr;
 }
 
@@ -66,7 +66,7 @@ void* __GC_malloc_wrapped(
     }
 
     void* ptr = calloc(size, 1);
-    __GC_mellow_add_alloc(ptr, size, gc_env);
+    __GC_mellow_add_alloc_wrapped(ptr, size, gc_env);
     return ptr;
 }
 

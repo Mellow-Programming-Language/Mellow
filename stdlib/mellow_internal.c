@@ -38,9 +38,8 @@ void* mellow_copyString(void* str)
 
 void* __get_mellow_argv(int argc, char** argv)
 {
-    GC_Env* gc_env = __get_GC_Env();
     size_t num_entries = argc * sizeof(void*);
-    void* new_argv = __GC_malloc(HEAD_SIZE + num_entries, gc_env);
+    void* new_argv = malloc(HEAD_SIZE + num_entries);
     // Set string marking function
     ((Marking_Func_Ptr*)new_argv)[0] = __mellow_GC_mark_AS;
     // Set array length
@@ -50,7 +49,7 @@ void* __get_mellow_argv(int argc, char** argv)
     {
         size_t char_count = strlen(argv[i]);
         size_t str_len = char_count + 1;
-        void* mellow_str = __GC_malloc(HEAD_SIZE + str_len, gc_env);
+        void* mellow_str = malloc(HEAD_SIZE + str_len);
         // Set string marking function
         ((Marking_Func_Ptr*)mellow_str)[0] = __mellow_GC_mark_S;
         // Set string length

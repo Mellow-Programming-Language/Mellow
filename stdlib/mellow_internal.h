@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "../runtime/gc.h"
 
 // mellow-string:
 // [
@@ -22,6 +23,9 @@
 #define MARK_PTR_SIZE (8)
 #define LEN_SIZE (8)
 #define HEAD_SIZE (MARK_PTR_SIZE + LEN_SIZE)
+
+// Defined in callFunc*.asm
+void* __GC_malloc(uint64_t size, GC_Env* gc_env);
 
 // Allocate space for a full mellow string, populate length field, copy c-string
 // into allocated space for string, add null byte to end, and return pointer to

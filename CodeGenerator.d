@@ -405,7 +405,7 @@ struct Context
     }
 
     // Because we've passed the typecheck stage, we're guaranteed that lookup
-    // will succeed
+    // will succeed. Get the variable in r8
     string compileVarGet(string varName)
     {
         const environOffset = (closureVars.length > 0)
@@ -593,6 +593,8 @@ string compileGetCurrentThread(string reg, Context* vars)
     return str;
 }
 
+// Using only the given register (and rax), populate the given register with
+// a pointer to the GC_Env struct ptr for this green thread
 string compileGetGCEnv(string reg, Context* vars)
 {
     vars.runtimeExterns["__GC_malloc"] = true;
@@ -685,6 +687,7 @@ string compileFunction(FuncSig* sig, Context* vars)
     auto intRegIndex = 0;
     auto floatRegIndex = 0;
     vars.resetState(sig);
+
     foreach (arg; sig.funcArgs)
     {
         if (arg.type.isFloat)
@@ -727,6 +730,76 @@ string compileFunction(FuncSig* sig, Context* vars)
                 intRegIndex++;
             }
         }
+    }
+
+    // If this is the main function and we were passed argv: []string, we need
+    // to claim argv in the GC, which means adding the array ptr to GC, and each
+    // string element to the GC
+    if (sig.funcName == "__mellow_main" && sig.funcArgs.length > 0)
+    {
+        vars.runtimeExterns["__GC_mellow_add_alloc"] = true;
+        auto argvName = sig.funcArgs[0].varName;
+        funcHeader_2 ~=
+            "    ; BEGIN: Add [" ~ argvName ~ "] (main() argv) to GC\n";
+        // Get the argv variable in r8
+        funcHeader_2 ~= vars.compileVarGet(argvName);
+        // Get array length
+        funcHeader_2 ~= "    mov    r9, qword [r8+" ~ MARK_FUNC_PTR.to!string
+                                                    ~ "]\n";
+        // Initialize a counter
+        funcHeader_2 ~= "    mov    r10, 0\n";
+        vars.allocateStackSpace(8);
+        auto argvLoc = vars.getTop.to!string;
+        vars.allocateStackSpace(8);
+        auto argvLenLoc = vars.getTop.to!string;
+        vars.allocateStackSpace(8);
+        auto argvIndexLoc = vars.getTop.to!string;
+        scope (exit) vars.deallocateStackSpace(24);
+        funcHeader_2 ~= "    mov    qword [rbp-" ~ argvLoc ~ "], r8\n";
+        funcHeader_2 ~= "    mov    qword [rbp-" ~ argvLenLoc ~ "], r9\n";
+        funcHeader_2 ~= "    mov    qword [rbp-" ~ argvIndexLoc ~ "], r10\n";
+        // Calculate total size of array allocation: Array length * 8 bytes per
+        // string ptr + object header
+        funcHeader_2 ~= "    mov    rdi, r8\n";
+        funcHeader_2 ~= "    mov    rsi, r9\n";
+        funcHeader_2 ~= "    imul   rsi, " ~ MELLOW_PTR_SIZE.to!string ~ "\n";
+        funcHeader_2 ~= "    add    rsi, " ~ OBJ_HEAD_SIZE.to!string ~ "\n";
+        // Add array pointer to GC allocation list
+        funcHeader_2 ~= compileGetGCEnv("rdx", vars);
+        funcHeader_2 ~= "    call   __GC_mellow_add_alloc\n";
+        auto loopLabel = vars.getUniqLabel;
+        auto endLoopLabel = vars.getUniqLabel;
+        funcHeader_2 ~= loopLabel ~ ":\n";
+        // Get array ptr, array length, and counter
+        funcHeader_2 ~= "    mov    r8, qword [rbp-" ~ argvLoc ~ "]\n";
+        funcHeader_2 ~= "    mov    r9, qword [rbp-" ~ argvLenLoc ~ "]\n";
+        funcHeader_2 ~= "    mov    r10, qword [rbp-" ~ argvIndexLoc ~ "]\n";
+        funcHeader_2 ~= "    cmp    r10, r9\n";
+        funcHeader_2 ~= "    je     " ~ endLoopLabel ~ "\n";
+        // Get next string in array
+        funcHeader_2 ~= "    mov    rdi, r10\n";
+        funcHeader_2 ~= "    imul   rdi, " ~ MELLOW_PTR_SIZE.to!string ~ "\n";
+        funcHeader_2 ~= "    add    rdi, " ~ OBJ_HEAD_SIZE.to!string ~ "\n";
+        // Add offset to argv itself, to get address of string in array
+        funcHeader_2 ~= "    add    rdi, r8\n";
+        // Index into argv to extract string into rdi
+        funcHeader_2 ~= "    mov    rdi, qword [rdi]\n";
+        // Increment index counter
+        funcHeader_2 ~= "    add    r10, 1\n";
+        funcHeader_2 ~= "    mov    qword [rbp-" ~ argvIndexLoc ~ "], r10\n";
+        // Get string size
+        funcHeader_2 ~= "    mov    rsi, qword [rdi+" ~ MARK_FUNC_PTR.to!string
+                                                      ~ "]\n";
+        // Add in object header and null byte
+        funcHeader_2 ~= "    add    rsi, " ~ (OBJ_HEAD_SIZE + 1).to!string
+                                           ~ "\n";
+        // Add string to GC allocations
+        funcHeader_2 ~= compileGetGCEnv("rdx", vars);
+        funcHeader_2 ~= "    call   __GC_mellow_add_alloc\n";
+        funcHeader_2 ~= "    jmp    " ~ loopLabel ~ "\n";
+        funcHeader_2 ~= endLoopLabel ~ ":\n";
+        funcHeader_2 ~=
+            "    ; END: Add [" ~ argvName ~ "] (main() argv) to GC\n";
     }
 
     // TODO handle the other block cases

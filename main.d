@@ -597,7 +597,7 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
         {
             mainExists = true;
             topContext.generateMain = true;
-            sig.funcName = "__ZZmain";
+            sig.funcName = "__mellow_main";
             if (sig.funcArgs.length > 1)
             {
                 throw new Exception("main() can only take 0 or 1 args");
@@ -723,7 +723,7 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
          ~ "    extern realloc\n"
          ~ "    extern free\n"
          ~ "    extern memcpy\n";
-    str ~= "    extern __ZZmain\n";
+    str ~= "    extern __mellow_main\n";
     str ~= "    SECTION .text\n";
     str ~= "    global main\n";
     str ~= "main:\n";
@@ -774,7 +774,7 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
         str ~= "    mov    r10, qword [rbp-32]\n";
         str ~= "    mov    qword [r10], r8\n";
         str ~= "    mov    rdi, 1\n";
-        str ~= "    mov    rsi, __ZZmain\n";
+        str ~= "    mov    rsi, __mellow_main\n";
         // Retrieve argLens from stack
         str ~= "    mov    rdx, qword [rbp-24]\n";
         str ~= "    mov    rcx, r10\n";
@@ -788,7 +788,7 @@ string compileEntryPoint(bool mainTakesArgv, TopLevelContext* topContext,
     else
     {
         str ~= "    mov    rdi, 0\n";
-        str ~= "    mov    rsi, __ZZmain\n";
+        str ~= "    mov    rsi, __mellow_main\n";
         str ~= "    mov    rdx, 0\n";
         str ~= "    mov    rcx, 0\n";
         str ~= "    call   newProc\n";

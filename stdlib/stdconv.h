@@ -3,7 +3,7 @@
 
 struct MaybeChar
 {
-    uint64_t markFunc;
+    void* markFunc;
     uint64_t variantTag;
     char c;
 };

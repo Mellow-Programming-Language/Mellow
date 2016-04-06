@@ -2,6 +2,7 @@
     extern malloc
     extern free
     extern __GC_malloc_wrapped
+    extern __GC_mellow_add_alloc_wrapped
 
     ; From tls.asm
     extern get_currentthread
@@ -65,6 +66,19 @@ __GC_malloc:
     call    get_currentthread
     mov     rcx, qword [rax+16]   ; ThreadData->t_StackBot
     mov     r10, __GC_malloc_wrapped
+    call    __mellow_use_main_stack
+    ret
+
+    ; extern void __GC_mellow_add_alloc(
+    ;     void* ptr, uint64_t size, GC_Env* gc_env
+    ; )
+    ; which calls
+    ; extern void __GC_mellow_add_alloc_wrapped(
+    ;     void* ptr, uint64_t size, GC_Env* gc_env
+    ; )
+    global __GC_mellow_add_alloc
+__GC_mellow_add_alloc:
+    mov     r10, __GC_mellow_add_alloc_wrapped
     call    __mellow_use_main_stack
     ret
 
