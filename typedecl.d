@@ -548,16 +548,42 @@ struct FuncPtrType
 
     string compileMarkFunc() const
     {
+        auto vars = new StackContext();
+
         auto markFuncName = "__mellow_GC_mark_" ~ this.formatMangle;
         auto str = "";
         str ~= "    global " ~ markFuncName ~ "\n";
         str ~= markFuncName ~ ":\n";
         str ~= "    ; " ~ format() ~ "\n";
-        str ~= "    call    exit\n";
+
+        if (!containsHeapType())
+        {
+            // Set the mark bit. The mark bit is the leftmost bit of the second
+            // 8 bytes of the 16-byte object header. Note that due to endianness
+            // we shouldn't simply try to affect a single byte
+            str ~= "    mov    r8, 0x8000000000000000\n";
+            str ~= "    or     qword [rdi+8], r8\n";
+            str ~= "    ret\n";
+        }
+        // We'll need to recurse on each valid value within the func ptr
+        // environment ptr
+        //
+        // TODO: Update this for when this type can represent a closure. It
+        // seems it may be wise to represent the environment ptr internally as a
+        // tuple, and simply recurse on the environment ptr as a tuple object
+        // which would have a marking function
+        else
+        {
+            str ~= "    call   exit\n";
+        }
+
         return str;
     }
 
-    // TODO: Update this for when this type can represent a closure
+    // TODO: Update this for when this type can represent a closure. It seems it
+    // may be wise to represent the environment ptr internally as a tuple, and
+    // simply recurse on the environment ptr as a tuple object which would have
+    // a marking function
     auto containsHeapType() const
     {
         return false;
