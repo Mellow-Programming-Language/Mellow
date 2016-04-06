@@ -152,9 +152,9 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
             // Set the string length
             ((uint64_t*)mellowStr)[1] = bytesRead;
             memcpy(mellowStr + HEAD_SIZE, buffer, bytesRead + 1);
-            free(buffer);
             maybeStr->str = mellowStr;
         }
+        free(buffer);
     }
     else
     {
