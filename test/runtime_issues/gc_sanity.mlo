@@ -1,0 +1,23 @@
+// ISSUE: GC sanity test; this program allocates ~40GB total
+// RUN_WITH: valgrind --log-fd=1 !!PROGRAM!! | perl -e 'my $stdin = join "\n", <STDIN>; my @lost = $stdin =~ /((?:definitely|indirectly|possibly) lost: [\d,]+ bytes in [\d,]+ blocks)/g; print join("\n", @lost) . "\n";'
+// EXPECTS_UNORDERED: "definitely lost: 0 bytes in 0 blocks" "indirectly lost: 0 bytes in 0 blocks" "possibly lost: 0 bytes in 0 blocks"
+
+// NOTE: We run this under valgrind, and make sure no bytes were lost.
+// --log-fd=1 sends all valgrind output to stdout (default is stderr), and perl
+// is used to scrape valgrind output for the memory allocation results.
+
+struct Test {
+    i: int;
+    tup: (int, string, []string);
+}
+
+func main() {
+    for (i := 0; i < 10000; i += 1) {
+        arrs: [1000000]int;
+        str_arr := ["String", "GC", "Recursive", "test!"];
+        t := Test {
+            i = 10,
+            tup = (5, "Deep mark recurse!", ["one", "two", "three"])
+        };
+    }
+}
