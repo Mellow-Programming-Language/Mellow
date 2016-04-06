@@ -81,6 +81,15 @@ void __GC_mellow_mark_stack(void** rsp, void** stack_bot, GC_Env* gc_env)
     for (index = 0; index < indices; index++)
     {
         void* ptr = rsp[index];
+
+        // If the value is "small" or not eight-byte aligned, it's very, very
+        // likely not a real pointer, so skip it. Note that if this heuristic is
+        // wrong, this will cause a leak
+        if ((uint64_t)ptr < 1024 || ((uint64_t)ptr & 0b111) != 0)
+        {
+            continue;
+        }
+
         if (__GC_mellow_is_valid_ptr(ptr, gc_env))
         {
             Marking_Func_Ptr mark_func_ptr = ((Marking_Func_Ptr*)(ptr))[0];
