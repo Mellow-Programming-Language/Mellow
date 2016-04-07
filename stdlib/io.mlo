@@ -17,3 +17,4 @@ extern func readln(): Maybe!string;
 extern func mellow_fopen(str: string, mode: FopenMode): Maybe!File;
 extern func mellow_fclose(file: File);
 extern func mellow_freadln(file: File): Maybe!string;
+extern func readText(file: File): Maybe!string;

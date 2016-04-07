@@ -1,8 +1,9 @@
+#include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include <assert.h>
+#include <sys/stat.h>
 #include "stdio.h"
 #include "mellow_internal.h"
 #include "../runtime/runtime_vars.h"
@@ -161,5 +162,67 @@ struct MaybeStr* mellow_freadln(struct MellowFile* file)
         // Set tag to None
         maybeStr->variantTag = 1;
     }
+    return maybeStr;
+}
+
+// Read in entire file
+struct MaybeStr* readText(struct MellowFile* file)
+{
+    FILE* fd = file->ptr;
+
+
+    GC_Env* gc_env = __get_GC_Env();
+    struct MaybeStr* maybeStr = (struct MaybeStr*)__GC_malloc_nocollect(
+        sizeof(struct MaybeStr),
+        gc_env
+    );
+    maybeStr->markFunc = __mellow_GC_mark_V5Maybe1S;
+
+    if (file->isOpen)
+    {
+        // Seek to beginning of file
+        fseek(fd, 0L, SEEK_SET);
+
+        struct stat stat_struct;
+        fstat(fileno(fd), &stat_struct);
+        size_t fileSize = stat_struct.st_size;
+
+        size_t strAllocSize = HEAD_SIZE + fileSize + 1;
+        void* mellowStr = malloc(strAllocSize);
+
+        size_t bytesRead = fread(mellowStr + HEAD_SIZE, 1, fileSize, fd);
+
+        // Successfully read the file
+        if (bytesRead == fileSize)
+        {
+            // Add string to GC tracking
+            __GC_mellow_add_alloc_wrapped(mellowStr, strAllocSize, gc_env);
+            // Set the string marking function
+            ((void**)mellowStr)[0] = __mellow_GC_mark_S;
+            // Set the string length
+            ((uint64_t*)mellowStr)[1] = fileSize;
+            // Add null terminator to string
+            ((uint8_t*)mellowStr)[HEAD_SIZE + fileSize] = '\0';
+            // Set tag to Some
+            maybeStr->variantTag = 0;
+            maybeStr->str = mellowStr;
+
+            // Seek back to the beginning of the file
+            fseek(fd, 0L, SEEK_SET);
+        }
+        else
+        {
+            // Set tag to None
+            maybeStr->variantTag = 1;
+            // We failed to fully read in the file
+            free(mellowStr);
+        }
+    }
+    else
+    {
+        // Set tag to None
+        maybeStr->variantTag = 1;
+    }
+
     return maybeStr;
 }

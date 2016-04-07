@@ -55,5 +55,6 @@ struct MaybeFile* mellow_fopen(void* str, struct FopenMode* mode);
 void mellow_fclose(struct MellowFile* file);
 
 struct MaybeStr* mellow_freadln(struct MellowFile* file);
+struct MaybeStr* readText(struct MellowFile* file);
 
 #endif
