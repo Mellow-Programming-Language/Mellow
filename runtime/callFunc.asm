@@ -1,6 +1,7 @@
 
     extern malloc
     extern __GC_malloc_wrapped
+    extern __GC_realloc_wrapped
     extern __GC_mellow_add_alloc_wrapped
 
     SECTION .bss
@@ -63,6 +64,21 @@ __GC_malloc:
     mov     rcx, qword [currentthread]
     mov     rcx, qword [rcx+16]   ; ThreadData->t_StackBot
     mov     r10, __GC_malloc_wrapped
+    call    __mellow_use_main_stack
+    ret
+
+    ; extern void* __GC_realloc(uint64_t alloc_size, GC_Env* gc_env)
+    ; which calls
+    ; __GC_realloc_wrapped(
+    ;     void* ptr, uint64_t size, GC_Env* gc_env, void** rsp, void** stack_bot
+    ; )
+    global __GC_realloc
+__GC_realloc:
+    mov     rcx, rsp
+    ; Get curThread pointer
+    mov     r8, qword [currentthread]
+    mov     r8, qword [r8+16]   ; ThreadData->t_StackBot
+    mov     r10, __GC_realloc_wrapped
     call    __mellow_use_main_stack
     ret
 

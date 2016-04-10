@@ -2843,8 +2843,10 @@ string compileArrayElemAppendEquals(Context* vars, uint typeSize)
                               ~ "\n";
     // r13 contains the original array pointer
     str ~= "    mov    rdi, r13\n";
+    str ~= compileGetGCEnv("rdx", vars);
     str ~= compileRegSave(["r8", "r9", "r12"], vars);
-    str ~= "    call   realloc\n";
+    vars.runtimeExterns["__GC_realloc"] = true;
+    str ~= "    call   __GC_realloc\n";
     str ~= compileRegRestore(["r8", "r9", "r12"], vars);
     // r12 still contains the old array alloc length, which happens to be where
     // the new element needs to go, minus the runtime data and array length

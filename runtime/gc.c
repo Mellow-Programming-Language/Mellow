@@ -70,6 +70,38 @@ void* __GC_malloc_wrapped(
     return ptr;
 }
 
+void* __GC_realloc_wrapped(
+    void* ptr, uint64_t size, GC_Env* gc_env, void** rsp, void** stack_bot
+) {
+    __GC_remove_alloc(ptr, gc_env);
+
+    void* new_ptr = realloc(ptr, size);
+    __GC_mellow_add_alloc_wrapped(new_ptr, size, gc_env);
+
+    return new_ptr;
+}
+
+void __GC_remove_alloc(void* ptr, GC_Env* gc_env)
+{
+    if (!__GC_mellow_is_valid_ptr(ptr, gc_env))
+    {
+        assert(0);
+    }
+
+    // Minus 1 because if the ptr is the last ptr in the list, we're
+    // decrementing the length of the valid portion of the allocs array anyway
+    uint64_t index;
+    for (index = 0; index < gc_env->allocs_len - 1; index++)
+    {
+        if (gc_env->allocs[index].ptr == ptr)
+        {
+            gc_env->allocs[index] = gc_env->allocs[gc_env->allocs_len - 1];
+        }
+    }
+
+    gc_env->allocs_len--;
+}
+
 void __GC_mellow_mark_stack(void** rsp, void** stack_bot, GC_Env* gc_env)
 {
     uint64_t index;
