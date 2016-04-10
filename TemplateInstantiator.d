@@ -900,7 +900,14 @@ class TemplateInstantiator : Visitor
 
     void visit(UserTypeNode node) {}
 
-    void visit(FuncPtrTypeNode node) {}
+    void visit(FuncPtrTypeNode node)
+    {
+        debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("FuncPtrTypeNode"));
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
+    }
 
     void visit(TemplateInstantiationNode node)
     {
