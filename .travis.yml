@@ -4,6 +4,7 @@ addons:
     sources:
     - ubuntu-toolchain-r-test
     packages:
+    - valgrind
     - nasm
     - gcc-5
     - g++-5
