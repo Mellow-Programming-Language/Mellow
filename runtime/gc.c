@@ -152,17 +152,25 @@ uint64_t __GC_mellow_is_valid_ptr(void* ptr, GC_Env* gc_env)
 
 void __GC_free_all_allocs(GC_Env* gc_env)
 {
-    uint64_t i;
-    for (i = 0; i < gc_env->allocs_len; i++)
+    if (gc_env->allocs != NULL)
     {
-        free(gc_env->allocs[i].ptr);
+        uint64_t i;
+        for (i = 0; i < gc_env->allocs_len; i++)
+        {
+            free(gc_env->allocs[i].ptr);
+        }
+        free(gc_env->allocs);
     }
-    free(gc_env->allocs);
+
     gc_env->allocs = NULL;
     gc_env->allocs_len = 0;
     gc_env->allocs_end = 0;
-    destroy_ptr_hashset(gc_env->allocs_hashset);
-    free(gc_env->allocs_hashset);
+
+    if (gc_env->allocs_hashset != NULL)
+    {
+        destroy_ptr_hashset(gc_env->allocs_hashset);
+        free(gc_env->allocs_hashset);
+    }
 }
 
 uint64_t __GC_mellow_is_marked(void* ptr)

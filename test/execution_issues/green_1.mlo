@@ -2,6 +2,11 @@
 // EXPECTS_UNORDERED: "1" "3" "2" "5" "4"
 // COMPILE_OPTIONS: unittest
 
+// NOTE: Remove the STATUS: todo pragma just as soon as memory isolation between
+// green threads is implemented!
+// STATUS: todo
+
+
 import std.io;
 
 func talker(str: string) {

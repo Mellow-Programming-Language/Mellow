@@ -23,7 +23,7 @@ runtime_multithread.o: callFunc_multithread.o scheduler_multithread.o tls.o \
 					   runtime_vars_multithread.o
 	ld $(LD_MULTITHREAD) -r callFunc_multithread.o scheduler_multithread.o \
 		tls.o realloc_stack_multithread.o gc.o runtime_vars_multithread.o \
-		-o runtime_multithread.o
+		ptr_hashset.o -o runtime_multithread.o
 
 callFunc.o: callFunc.asm
 	$(ASM) $(ASM_FLAGS) callFunc.asm
