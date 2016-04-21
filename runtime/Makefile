@@ -1,8 +1,7 @@
 all: runtime.o runtime_multithread.o
 
 CC ?= gcc
-# CC_FLAGS = -g -pg -Wall
-CC_FLAGS = -g -pg -Wall
+CC_FLAGS = -Wall
 ASM = nasm
 ASM_FLAGS = -f elf64
 CC_MULTITHREAD = -D MULTITHREAD -pthread
