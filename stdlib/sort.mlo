@@ -1,0 +1,52 @@
+// Algorithm structure credit:
+//   https://en.wikipedia.org/wiki/Heapsort#Pseudocode
+
+func heapsort(T)(arr: []T, less: func(T, T): bool) {
+    if (arr.length < 2) {
+        return;
+    }
+
+    _heapsort_heapify!(T)(arr, less);
+
+    while (end := arr.length - 1; end > 0) {
+        tmp := arr[0];
+        arr[0] = arr[end];
+        arr[end] = tmp;
+
+        end -= 1;
+
+        _heapsort_sift_down!(T)(arr, 0, end, less);
+    }
+}
+
+func _heapsort_heapify(T)(arr: []T, less: func(T, T): bool) {
+    for (start := (arr.length - 2) / 2; start >= 0; start -= 1) {
+        _heapsort_sift_down!(T)(arr, start, arr.length - 1, less);
+    }
+}
+
+func _heapsort_sift_down(T)(
+    arr: []T, start: int, end: int, less: func(T, T): bool
+) {
+    while (root := start; 2 * root + 1 <= end) {
+        child := 2 * root + 1;
+        swap := root;
+
+        if (arr[swap] < arr[child]) {
+            swap = child;
+        }
+        if (child + 1 <= end && less(arr[swap], arr[child+1])) {
+            swap = child + 1;
+        }
+        if (swap == root) {
+            return;
+        }
+        else {
+            tmp := arr[swap];
+            arr[swap] = arr[root];
+            arr[root] = tmp;
+
+            root = swap;
+        }
+    }
+}

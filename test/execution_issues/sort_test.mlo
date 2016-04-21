@@ -1,0 +1,28 @@
+// ISSUE: Test the std.sort library
+// EXPECTS: "5 1 10 4 2 9 3 8 6 7 -- 1 2 3 4 5 6 7 8 9 10 "
+
+import std.io;
+import std.conv;
+import std.sort;
+
+func int_less(a: int, b: int): bool {
+    return a < b;
+}
+
+func main() {
+    arr := [5, 1, 10, 4, 2, 9, 3, 8, 6, 7];
+
+    foreach (i; arr) {
+        write(intToString(i) ~ " ");
+    }
+
+    write("-- ");
+
+    heapsort!(int)(arr, int_less);
+
+    foreach (i; arr) {
+        write(intToString(i) ~ " ");
+    }
+
+    writeln("");
+}

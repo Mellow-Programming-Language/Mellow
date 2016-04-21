@@ -1,5 +1,5 @@
 MELLOW_INTERNAL = mellow_internal.h mellow_internal.c
-STDLIB = stdc stdlib.o core.o conv.o io.o string.o trie.o path.o
+STDLIB = stdc stdlib.o core.o conv.o io.o sort.o string.o trie.o path.o
 COMPILER = ../compiler
 
 CC ?= gcc
@@ -23,6 +23,10 @@ io.o: stdio.c stdio.h $(MELLOW_INTERNAL)
 path.o: path.mlo
 	$(COMPILER) --stdlib="../stdlib" -c path.mlo -o path_mlo.o
 	ld -r path_mlo.o -o path.o
+
+sort.o: sort.mlo
+	$(COMPILER) --stdlib="../stdlib" -c sort.mlo -o sort_mlo.o
+	ld -r sort_mlo.o -o sort.o
 
 string.o: stdstring.h stdstring.c $(MELLOW_INTERNAL) string.mlo
 	$(CC) $(CC_FLAGS) -c stdstring.c -o stdstring.o
