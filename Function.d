@@ -1380,7 +1380,18 @@ class FunctionBuilder : Visitor
             }
             break;
         case "~=":
-            if (left.tag != TypeEnum.ARRAY)
+            if (left.tag == TypeEnum.STRING)
+            {
+                if (varType.tag != TypeEnum.STRING)
+                {
+                    throw new Exception(
+                        errorHeader(node) ~ "\n"
+                        ~ "Cannot append-equal type [" ~ varType.format
+                                                      ~ "] onto string"
+                    );
+                }
+            }
+            else if (left.tag != TypeEnum.ARRAY)
             {
                 throw new Exception(
                     errorHeader(node) ~ "\n"

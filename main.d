@@ -231,6 +231,7 @@ EOF".write;
                 ~ stdObjs
                 ~ [context.runtimePath]
                 ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)]
+                //~ ["-pg"]
                 ~ ["-lm"];
             if (context.verbose)
             {

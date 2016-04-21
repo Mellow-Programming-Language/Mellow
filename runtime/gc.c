@@ -68,7 +68,7 @@ void* __GC_malloc_nocollect(uint64_t size, GC_Env* gc_env)
 void* __GC_malloc_wrapped(
     uint64_t size, GC_Env* gc_env, void** rsp, void** stack_bot
 ) {
-    if (gc_env->total_allocated > gc_env->last_collection * 1.5)
+    if (gc_env->total_allocated > gc_env->last_collection * 2)
     {
         __GC_mellow_mark_stack(rsp, stack_bot, gc_env);
         __GC_sweep(gc_env);

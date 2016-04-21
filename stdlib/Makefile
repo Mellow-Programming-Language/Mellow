@@ -3,7 +3,8 @@ STDLIB = stdc stdlib.o core.o conv.o io.o string.o trie.o path.o
 COMPILER = ../compiler
 
 CC ?= gcc
-CC_FLAGS = -Wall
+# CC_FLAGS = -g -pg -Wall
+CC_FLAGS = -g -pg -Wall
 CXX ?= g++
 CXX_FLAGS = -std=c++11 -Wall
 
