@@ -3,6 +3,7 @@
 #define GC_H
 
 #include <stdint.h>
+#include "ptr_hashset.h"
 
 #define ALLOCS_START_SIZE 64
 
@@ -22,8 +23,8 @@ typedef struct {
     uint64_t allocs_len;
     // Size of the allocations list (total size allocated for array)
     uint64_t allocs_end;
-    // Reserved
-    void* reserved_1;
+    // Hashset of live pointers
+    ptr_hashset_t* allocs_hashset;
     // This is the value of the total amount of alloc'd memory that the GC was
     // in charge of immediately _after_ the last collection
     uint64_t last_collection;

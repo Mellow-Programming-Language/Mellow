@@ -230,7 +230,8 @@ EOF".write;
                 ~ objFileNames
                 ~ stdObjs
                 ~ [context.runtimePath]
-                ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)];
+                ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)]
+                ~ ["-lm"];
             if (context.verbose)
             {
                 writeln("Executing:\n  [" ~ cmd.join(" ") ~ "]");

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "gc.h"
+#include "ptr_hashset.h"
 
 void __GC_mellow_add_alloc_wrapped(void* ptr, uint64_t size, GC_Env* gc_env)
 {
@@ -33,6 +34,16 @@ void __GC_mellow_add_alloc_wrapped(void* ptr, uint64_t size, GC_Env* gc_env)
         gc_env->allocs = new_allocs;
         gc_env->allocs_end = new_size;
     }
+
+    if (gc_env->allocs_hashset == NULL)
+    {
+        gc_env->allocs_hashset = (ptr_hashset_t*)calloc(
+            sizeof(ptr_hashset_t), 1
+        );
+        init_ptr_hashset(gc_env->allocs_hashset, 32768);
+    }
+    add_key(gc_env->allocs_hashset, ptr);
+
     gc_env->allocs[gc_env->allocs_len].ptr = ptr;
     gc_env->allocs[gc_env->allocs_len].size = size;
     gc_env->allocs_len += 1;
@@ -136,15 +147,7 @@ void __GC_mellow_mark_stack(void** rsp, void** stack_bot, GC_Env* gc_env)
 
 uint64_t __GC_mellow_is_valid_ptr(void* ptr, GC_Env* gc_env)
 {
-    uint64_t index;
-    for (index = 0; index < gc_env->allocs_len; index++)
-    {
-        if (gc_env->allocs[index].ptr == ptr)
-        {
-            return 1;
-        }
-    }
-    return 0;
+    return contains_key(gc_env->allocs_hashset, ptr);
 }
 
 void __GC_free_all_allocs(GC_Env* gc_env)
@@ -158,6 +161,8 @@ void __GC_free_all_allocs(GC_Env* gc_env)
     gc_env->allocs = NULL;
     gc_env->allocs_len = 0;
     gc_env->allocs_end = 0;
+    destroy_ptr_hashset(gc_env->allocs_hashset);
+    free(gc_env->allocs_hashset);
 }
 
 uint64_t __GC_mellow_is_marked(void* ptr)
@@ -190,6 +195,7 @@ void __GC_sweep(GC_Env* gc_env)
         {
             // Free the unmarked ptr
             free(gc_env->allocs[i].ptr);
+            remove_key(gc_env->allocs_hashset, gc_env->allocs[i].ptr);
             gc_env->total_allocated -= gc_env->allocs[i].size;
             num_frees++;
             // While rightmost ptr is unmarked, move left in search of a marked
@@ -197,6 +203,7 @@ void __GC_sweep(GC_Env* gc_env)
             for (; j > i && __GC_mellow_is_marked(gc_env->allocs[j].ptr) == 0; j--)
             {
                 free(gc_env->allocs[j].ptr);
+                remove_key(gc_env->allocs_hashset, gc_env->allocs[j].ptr);
                 gc_env->total_allocated -= gc_env->allocs[j].size;
                 num_frees++;
             }

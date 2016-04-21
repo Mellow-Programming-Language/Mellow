@@ -13,12 +13,13 @@ CC_MULTITHREAD = -D MULTITHREAD -pthread
 LD_LIBS = $(shell find / -name 'libpthread.*' -print 2> /dev/null | perl -MFile::Basename -e 'print join " ", map {$$t = $$_; chomp $$t; (undef, $$t, undef) = fileparse $$t; "-L $$t"} <STDIN>')
 LD_MULTITHREAD = $(LD_LIBS) -lpthread
 
-runtime.o: callFunc.o scheduler.o realloc_stack.o gc.o runtime_vars.o
+runtime.o: callFunc.o scheduler.o realloc_stack.o gc.o ptr_hashset.o \
+		   runtime_vars.o
 	ld -r callFunc.o scheduler.o realloc_stack.o gc.o runtime_vars.o \
-		-o runtime.o
+		ptr_hashset.o -o runtime.o
 
 runtime_multithread.o: callFunc_multithread.o scheduler_multithread.o tls.o \
-					   realloc_stack_multithread.o gc.o \
+					   realloc_stack_multithread.o gc.o ptr_hashset.o \
 					   runtime_vars_multithread.o
 	ld $(LD_MULTITHREAD) -r callFunc_multithread.o scheduler_multithread.o \
 		tls.o realloc_stack_multithread.o gc.o runtime_vars_multithread.o \
@@ -63,6 +64,9 @@ tls.o: tls.asm
 
 gc.o: gc.h gc.c
 	$(CC) $(CC_FLAGS) -c gc.c -o gc.o
+
+ptr_hashset.o: ptr_hashset.h ptr_hashset.c
+	$(CC) $(CC_FLAGS) -c ptr_hashset.c -o ptr_hashset.o
 
 # Provided so that the invocation used to produce tls.asm is recorded
 tls.asm: tls.c tls.h

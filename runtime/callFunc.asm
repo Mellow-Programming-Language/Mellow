@@ -157,7 +157,7 @@ callFunc:
     mov     qword [rax], 0      ; Set GC_Env->allocs to NULL
     mov     qword [rax+8], 0    ; Set GC_Env->allocs_len to 0
     mov     qword [rax+16], 0   ; Set GC_Env->allocs_end to 0
-    mov     qword [rax+24], 0   ; Set GC_Env->reserved_1 to 0
+    mov     qword [rax+24], 0   ; Set GC_Env->ptr_hashset_t to 0
     mov     qword [rax+32], 0   ; Set GC_Env->last_collection to 0
     mov     qword [rax+40], 0   ; Set GC_Env->total_alloced to 0
     ; Set ThreadData->gcEnv to the new GC_Env object
