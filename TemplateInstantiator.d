@@ -686,13 +686,19 @@ class TemplateInstantiator : Visitor
     void visit(ForStmtNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForStmtNode"));
-        assert(false, "Unimplemented");
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
     }
 
     void visit(ForUpdateStmtNode node)
     {
         debug (TEMPLATE_INSTANTIATION_TRACE) mixin(tracer("ForUpdateStmtNode"));
-        assert(false, "Unimplemented");
+        foreach (child; node.children)
+        {
+            child.accept(this);
+        }
     }
 
     void visit(EndBlocksNode node)
