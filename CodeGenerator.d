@@ -3220,12 +3220,16 @@ string compileChanWrite(ChanWriteNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
     vars.runtimeExterns["yield"] = true;
+    vars.runtimeExterns["__mellow_lock_chan_access_mutex"] = true;
+    vars.runtimeExterns["__mellow_unlock_chan_access_mutex"] = true;
     auto str = "";
     auto valSize = node.children[1].data["type"].get!(Type*).size;
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
     vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
     auto chanLoc = vars.getTop;
     vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
     auto valLoc = vars.getTop;
     str ~= "    mov    qword [rbp-" ~ chanLoc.to!string
                                     ~ "], r8\n";
@@ -3233,42 +3237,64 @@ string compileChanWrite(ChanWriteNode node, Context* vars)
     // Chan is in r9, value is in r8
     str ~= "    mov    r9, qword [rbp-" ~ chanLoc.to!string
                                         ~ "]\n";
+    str ~= "    mov    qword [rbp-" ~ valLoc.to!string ~ "], r8\n";
     auto tryWrite = vars.getUniqLabel;
     auto cannotWrite = vars.getUniqLabel;
     auto successfulWrite = vars.getUniqLabel;
     str ~= tryWrite ~ ":\n";
     str ~= "    ; Test if the channel has a valid value in it already,\n";
-    str ~= "    ; yield if yes, write if not\n";
-    str ~= "    cmp    qword [r9+" ~ MARK_FUNC_PTR.to!string
-                                   ~ "], 0\n";
-    str ~= "    jnz    " ~ cannotWrite
-                         ~ "\n";
+    str ~= "    ; yield if yes, write if not.\n";
+    str ~= "    ;\n";
+    str ~= "    ; First, lock the channel access mutex\n";
+    str ~= "    mov    r11, qword [r9+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    ; Get the mutex index\n";
+    str ~= "    shr    r11, 16\n";
+    str ~= "    and    r11, 0xFFFF\n";
+    str ~= "    ; Lock the access mutex for this channel\n";
+    str ~= "    mov    rdi, r11\n";
+    str ~= "    call   __mellow_lock_chan_access_mutex\n";
+    str ~= "    ; Restore channel (r9) and value to write (r8)\n";
+    str ~= "    mov    r9, qword [rbp-" ~ chanLoc.to!string ~ "]\n";
+    str ~= "    mov    r8, qword [rbp-" ~ valLoc.to!string ~ "]\n";
+    str ~= "    ; Get 'contains' bit from chan object header\n";
+    str ~= "    mov    r11, qword [r9+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    and    r11, 1\n";
+    str ~= "    cmp    r11, 0\n";
+    str ~= "    jne    " ~ cannotWrite ~ "\n";
     str ~= "    mov    " ~ getWordSize(valSize)
                          ~ " [r9+" ~ (MARK_FUNC_PTR + STR_SIZE).to!string
                                    ~ "], r8"
                          ~ getRRegSuffix(valSize)
                          ~ "\n";
     // Set the channel to declare it contains valid data
-    str ~= "    mov    qword [r9+" ~ MARK_FUNC_PTR.to!string
-                                   ~ "], 1\n";
+    str ~= "    or     qword [r9+" ~ MARK_FUNC_PTR.to!string ~ "], 1\n";
     str ~= "    jmp    " ~ successfulWrite
                          ~ "\n";
     str ~= cannotWrite ~ ":\n";
-    // Store channel and value on stack, then yield
-    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string
-                                    ~ "], r9\n";
-    str ~= "    mov    qword [rbp-" ~ valLoc.to!string
-                                    ~ "], r8\n";
+    // Store channel and value on stack, unlock mutex, then yield
+    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string ~ "], r9\n";
+    str ~= "    mov    qword [rbp-" ~ valLoc.to!string ~ "], r8\n";
+    str ~= "    mov    r11, qword [r9+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    ; Get the mutex index\n";
+    str ~= "    shr    r11, 16\n";
+    str ~= "    and    r11, 0xFFFF\n";
+    str ~= "    ; Unlock the access mutex for this channel\n";
+    str ~= "    mov    rdi, r11\n";
+    str ~= "    call   __mellow_unlock_chan_access_mutex\n";
     str ~= "    call   yield\n";
     // Restore channel and value, reattempt write
-    str ~= "    mov    r9, qword [rbp-" ~ chanLoc.to!string
-                                        ~ "]\n";
-    str ~= "    mov    r8, qword [rbp-" ~ valLoc.to!string
-                                        ~ "]\n";
-    str ~= "    jmp    " ~ tryWrite
-                         ~ "\n";
+    str ~= "    mov    r9, qword [rbp-" ~ chanLoc.to!string ~ "]\n";
+    str ~= "    mov    r8, qword [rbp-" ~ valLoc.to!string ~ "]\n";
+    str ~= "    jmp    " ~ tryWrite ~ "\n";
     str ~= successfulWrite ~ ":\n";
-    vars.deallocateStackSpace(16);
+    str ~= "    ; Successfully wrote to the channel! Unlocking mutex...\n";
+    str ~= "    mov    r11, qword [r9+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    ; Get the mutex index\n";
+    str ~= "    shr    r11, 16\n";
+    str ~= "    and    r11, 0xFFFF\n";
+    str ~= "    ; Unlock the access mutex for this channel\n";
+    str ~= "    mov    rdi, r11\n";
+    str ~= "    call   __mellow_unlock_chan_access_mutex\n";
     return str;
 }
 

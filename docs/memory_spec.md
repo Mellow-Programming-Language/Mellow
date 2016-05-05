@@ -36,8 +36,10 @@ Channel
 ---
 
     [8 B GC Mark Func Ptr]                          \
-    [1 b GC Mark Bit:1 b Contains Bit:6 b Reserved]  |== 16 B Header
-    [7 B Reserved]                                  /
+    [1 b GC Mark Bit:7 b Reserved]                   \
+    [3 B Reserved]                                    |== 16 B Header
+    [2 B mutex counter:1 B Reserved]                 /
+    [7 b Reserved:1 b Contains Bit]                 /
     [N B Channel Contents]
 
 The "Contains Bit" is set to `1` if the channel contains valid data that can be read. The Bit is then set to `0` when it is read, and stays `0` until the channel is written to, at which point it is switched back to `1`.

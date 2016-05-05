@@ -84,6 +84,10 @@ typedef struct
 
 void initThreadManager();
 
+uint64_t __mellow_get_chan_mutex_index();
+void __mellow_lock_chan_access_mutex(uint64_t index);
+void __mellow_unlock_chan_access_mutex(uint64_t index);
+
 void takedownThreadManager();
 
 // void addThreadData(uint32_t argBytes, void* funcAddr, ...);

@@ -15,8 +15,15 @@
 #include "gc.h"
 
 static GlobalThreadMem* g_threadManager = NULL;
+
+static const uint64_t CHAN_MUTEXES_PER_CORE = 8;
+static uint64_t chan_mutexes_count;
+static pthread_mutex_t chan_alloc_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t* chan_access_mutexes;
+static uint64_t chan_mutex_accumulator_index = 0;
+
 #ifdef MULTITHREAD
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t runtime_mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t numCores;
 static uint32_t numThreads;
 static pthread_t* kernelThreads;
@@ -64,6 +71,49 @@ void initThreadManager()
     g_threadManager->threadArrLen = THREAD_DATA_ARR_START_LEN;
     // Init ThreadData* array index tracker
     g_threadManager->threadArrIndex = 0;
+
+    // Initialize the access mutexes used by allocated channels. Each created
+    // channel will be assigned a number corresponding to one of these mutexes,
+    // and will always use that mutex for channel accesses. This way, the
+    // probability of lock contention between two different channels is
+    // minimized, while avoiding allocating a different mutex for each channel
+    chan_mutexes_count = sysconf(_SC_NPROCESSORS_ONLN) * CHAN_MUTEXES_PER_CORE;
+    chan_access_mutexes = (pthread_mutex_t*)malloc(
+        sizeof(pthread_mutex_t) * chan_mutexes_count
+    );
+    uint64_t i;
+    for (i = 0; i < chan_mutexes_count; i++)
+    {
+        pthread_mutex_init(&chan_access_mutexes[i], NULL);
+    }
+}
+
+uint64_t __mellow_get_chan_mutex_index()
+{
+    uint64_t cur_index;
+
+    pthread_mutex_lock(&chan_alloc_mutex);
+
+    cur_index = chan_mutex_accumulator_index;
+    chan_mutex_accumulator_index++;
+    if (chan_mutex_accumulator_index >= chan_mutexes_count)
+    {
+        chan_mutex_accumulator_index = 0;
+    }
+
+    pthread_mutex_unlock(&chan_alloc_mutex);
+
+    return cur_index;
+}
+
+void __mellow_lock_chan_access_mutex(uint64_t index)
+{
+    pthread_mutex_lock(&chan_access_mutexes[index]);
+}
+
+void __mellow_unlock_chan_access_mutex(uint64_t index)
+{
+    pthread_mutex_unlock(&chan_access_mutexes[index]);
 }
 
 void takedownThreadManager()
@@ -191,7 +241,7 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     // Number of bytes allocated for arguments on stack
     newThread->stackArgsSize = onStack * 8;
 #ifdef MULTITHREAD
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&runtime_mutex);
 #endif
     // Put newThread into global thread manager, allocating space for the
     // pointer if necessary. Check first if we need to allocate more memory
@@ -210,7 +260,7 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     // Increment index
     g_threadManager->threadArrIndex++;
 #ifdef MULTITHREAD
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&runtime_mutex);
 #endif
 }
 
@@ -288,7 +338,7 @@ void scheduler()
         {
             schedulerData[i].threadData = 0;
         }
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&runtime_mutex);
         for (; curIndex < g_threadManager->threadArrIndex; curIndex++)
         {
             ThreadData* curThread = g_threadManager->threadArr[curIndex];
@@ -333,7 +383,7 @@ void scheduler()
         {
             curIndex = 0;
         }
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&runtime_mutex);
 SKIP_WORKER:
         // At least one worker thread is still executing
         if (i + 1 >= numThreads)
