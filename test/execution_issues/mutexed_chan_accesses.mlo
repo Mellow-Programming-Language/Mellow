@@ -1,0 +1,46 @@
+// ISSUE: Ensure that channel accesses are properly mutexed
+// RUN_WITH: !!PROGRAM!! | wc -l
+// EXPECTS: "10000"
+
+// NOTE: Essentially, on failure, we expect the output to (probably) be some
+// number very slightly below "10000" ("9998" or "9999", for example as multiple
+// producers write to a channel at once, a write-after-write error), or some
+// number very slightly above ("10001", "10002", for example as multiple
+// consumers read from a channel at once). Or, the test may hang, as not all
+// consumers were able to read a loop-breaking "1" from the channel, likely due
+// to a write-after-write.
+
+// NOTE: This test should never fail given a proper implementation, but it is
+// likely to false pass often. In brief testing, it appears to false pass ~50%
+// of the time.
+
+import std.conv;
+import std.io;
+
+func producer(i: int, ch: chan!int) {
+    while (i > 0) {
+        ch <-= i;
+        i -= 1;
+    }
+}
+
+func consumer(ch: chan!int) {
+    while (true) {
+        v := <-ch;
+
+        writeln(intToString(v));
+
+        if (v == 1) {
+            break;
+        }
+    }
+}
+
+func main() {
+    ch: chan!int;
+
+    for (i := 0; i < 100; i += 1) {
+        spawn producer(100, ch);
+        spawn consumer(ch);
+    }
+}
