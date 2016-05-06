@@ -3271,9 +3271,7 @@ string compileChanWrite(ChanWriteNode node, Context* vars)
     str ~= "    jmp    " ~ successfulWrite
                          ~ "\n";
     str ~= cannotWrite ~ ":\n";
-    // Store channel and value on stack, unlock mutex, then yield
-    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string ~ "], r9\n";
-    str ~= "    mov    qword [rbp-" ~ valLoc.to!string ~ "], r8\n";
+    // Unlock mutex, then yield
     str ~= "    mov    r11, qword [r9+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
     str ~= "    ; Get the mutex index\n";
     str ~= "    shr    r11, 16\n";

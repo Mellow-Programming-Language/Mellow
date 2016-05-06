@@ -984,42 +984,71 @@ string compileChanRead(ChanReadNode node, Context* vars)
     auto valSize = node.data["type"].get!(Type*).size;
     str ~= compileBoolExpr(cast(BoolExprNode)node.children[0], vars);
     vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
     auto chanLoc = vars.getTop;
+    vars.allocateStackSpace(8);
+    scope (exit) vars.deallocateStackSpace(8);
+    auto valLoc = vars.getTop;
     auto tryRead = vars.getUniqLabel;
     auto cannotRead = vars.getUniqLabel;
     auto successfulRead = vars.getUniqLabel;
+    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string ~ "], r8\n";
     // Channel is in r8
     str ~= tryRead ~ ":\n";
     str ~= "    ; Test if the channel has a valid value in it.\n";
     str ~= "    ; Yield if no, read if yes\n";
-    str ~= "    cmp    qword [r8+" ~ MARK_FUNC_PTR.to!string
-                                   ~ "], 0\n";
-    str ~= "    jz     " ~ cannotRead
-                         ~ "\n";
+    str ~= "    ; First, lock the channel access mutex\n";
+    str ~= "    mov    r11, qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    ; Get the mutex index\n";
+    str ~= "    shr    r11, 16\n";
+    str ~= "    and    r11, 0xFFFF\n";
+    str ~= "    ; Lock the access mutex for this channel\n";
+    str ~= "    mov    rdi, r11\n";
+    str ~= "    call   __mellow_lock_chan_access_mutex\n";
+    str ~= "    ; Restore channel (r8)\n";
+    str ~= "    mov    r8, qword [rbp-" ~ chanLoc.to!string ~ "]\n";
+    str ~= "    ; Get 'contains' bit from chan object header\n";
+    str ~= "    mov    r11, qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    and    r11, 1\n";
+    str ~= "    cmp    r11, 0\n";
+    str ~= "    je    " ~ cannotRead ~ "\n";
     str ~= "    mov    r9" ~ getRRegSuffix(valSize)
                            ~ ", "
                            ~ getWordSize(valSize)
                            ~ " [r8+"
                            ~ (MARK_FUNC_PTR + STR_SIZE).to!string
                            ~ "]\n";
+    str ~= "    mov    qword [rbp-" ~ valLoc.to!string ~ "], r9\n";
+
     // Invalidate the data in the channel
-    str ~= "    mov    qword [r8+" ~ MARK_FUNC_PTR.to!string
-                                   ~ "], 0\n";
-    str ~= "    mov    r8, r9\n";
+    str ~= "    ; Set 'contains' bit to 0\n";
+    str ~= "    mov    r12, 0xFFFFFFFFFFFFFFFE\n";
+    str ~= "    and    qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "], r12\n";
     str ~= "    jmp    " ~ successfulRead
                          ~ "\n";
     str ~= cannotRead ~ ":\n";
-    // Store channel on stack, then yield
-    str ~= "    mov    qword [rbp-" ~ chanLoc.to!string
-                                    ~ "], r8\n";
+    // Unlock mutex, then yield
+    str ~= "    mov    r11, qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    ; Get the mutex index\n";
+    str ~= "    shr    r11, 16\n";
+    str ~= "    and    r11, 0xFFFF\n";
+    str ~= "    ; Unlock the access mutex for this channel\n";
+    str ~= "    mov    rdi, r11\n";
+    str ~= "    call   __mellow_unlock_chan_access_mutex\n";
     str ~= "    call   yield\n";
-    // Restore channel and value, reattempt write
-    str ~= "    mov    r8, qword [rbp-" ~ chanLoc.to!string
-                                        ~ "]\n";
-    str ~= "    jmp    " ~ tryRead
-                         ~ "\n";
+    // Restore channel and value, reattempt read
+    str ~= "    mov    r8, qword [rbp-" ~ chanLoc.to!string ~ "]\n";
+    str ~= "    jmp    " ~ tryRead ~ "\n";
     str ~= successfulRead ~ ":\n";
-    vars.deallocateStackSpace(8);
+    str ~= "    ; Successfully read from the channel! Unlocking mutex...\n";
+    str ~= "    mov    r11, qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "]\n";
+    str ~= "    ; Get the mutex index\n";
+    str ~= "    shr    r11, 16\n";
+    str ~= "    and    r11, 0xFFFF\n";
+    str ~= "    ; Unlock the access mutex for this channel\n";
+    str ~= "    mov    rdi, r11\n";
+    str ~= "    call   __mellow_unlock_chan_access_mutex\n";
+    str ~= "    mov    r8, qword [rbp-" ~ valLoc.to!string ~ "]\n";
     return str;
 }
 
