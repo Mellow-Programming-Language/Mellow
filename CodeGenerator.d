@@ -2543,6 +2543,7 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         assert(false, "Unimplemented");
         break;
     case TypeEnum.CHAN:
+        vars.runtimeExterns["__mellow_get_chan_mutex_index"] = true;
         auto elemSize = pair.type.chan.chanType.size;
         auto totalAllocSize = MARK_FUNC_PTR
                             + CHAN_VALID_SIZE
@@ -2554,10 +2555,18 @@ string compileVariableTypePair(VariableTypePairNode node, Context* vars)
         // own, separate, GC'd heaps. This probably implies that channels will
         // need to be ref-counted
         str ~= "    call   malloc\n";
+        vars.allocateStackSpace(8);
+        scope (exit) vars.deallocateStackSpace(8);
+        auto chanLoc = vars.getTop.to!string;
+        str ~= "    mov    qword [rbp-" ~ chanLoc ~ "], rax\n";
+        str ~= "    call   __mellow_get_chan_mutex_index\n";
+        str ~= "    shl    rax, 16\n";
+        str ~= "    mov    r8, qword [rbp-" ~ chanLoc ~ "]\n";
+        str ~= "    mov    qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "], 0\n";
+        str ~= "    or     qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "], rax\n";
         // Set chan valid-element segment to false
-        str ~= "    mov    qword [rax+" ~ MARK_FUNC_PTR.to!string
-                                        ~ "], 0\n";
-        str ~= "    mov    r8, rax\n";
+        str ~= "    mov    r12, 0xFFFFFFFFFFFFFFFE\n";
+        str ~= "    and    qword [r8+" ~ MARK_FUNC_PTR.to!string ~ "], r12\n";
         break;
     case TypeEnum.LONG:
     case TypeEnum.INT:
