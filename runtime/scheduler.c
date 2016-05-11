@@ -313,7 +313,6 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
 
 void execScheduler()
 {
-    // This is a blindingly terrible scheduler
 #ifdef MULTITHREAD
     kernelThreads = (pthread_t*)malloc(numThreads * sizeof(pthread_t));
     schedulerData = (SchedulerData*)malloc(numThreads * sizeof(SchedulerData));
@@ -449,6 +448,8 @@ int64_t queue_empty_slot_index()
     return -1;
 }
 
+// A simple queue-based scheduler that uses condition variables for signalling
+// between the worker threads and the scheduler itself
 void scheduler()
 {
     uint64_t cur_gthread_index = 0;
