@@ -16,19 +16,37 @@
 
 static GlobalThreadMem* g_threadManager = NULL;
 
+static volatile uint64_t numCores;
+static volatile uint64_t numThreads;
+
 static const uint64_t CHAN_MUTEXES_PER_CORE = 8;
-static uint64_t chan_mutexes_count;
+static volatile uint64_t chan_mutexes_count;
 static pthread_mutex_t chan_alloc_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t* chan_access_mutexes;
-static uint64_t chan_mutex_accumulator_index = 0;
+static volatile uint64_t chan_mutex_accumulator_index = 0;
 
 #ifdef MULTITHREAD
+
+typedef enum
+{
+    INVALID,
+    SCHEDULED,
+    RUNNING
+} scheduled_thread_state;
+
+typedef struct
+{
+    ThreadData* threadData;
+    scheduled_thread_state valid;
+} SchedulerData;
+
 static pthread_mutex_t runtime_mutex = PTHREAD_MUTEX_INITIALIZER;
-static uint32_t numCores;
-static uint32_t numThreads;
 static pthread_t* kernelThreads;
 static volatile SchedulerData* schedulerData;
 static volatile uint64_t programDone = 0;
+static pthread_cond_t* cond_workers;
+static pthread_cond_t* cond_scheduler;
+
 #endif
 
 void printThreadData(ThreadData* curThread, int32_t v)
@@ -54,6 +72,14 @@ void callThreadFunc(ThreadData* thread)
 
 void deallocThreadData(ThreadData* thread)
 {
+    GC_Env* gcEnv = thread->gcEnv;
+    if (gcEnv != NULL)
+    {
+        __GC_free_all_allocs(gcEnv);
+        free(gcEnv);
+        thread->gcEnv = NULL;
+    }
+
     // Unmap memory allocated for thread stack
     munmap(thread->t_StackRaw, 1 << thread->stackSize);
     // Dealloc memory for struct
@@ -72,12 +98,15 @@ void initThreadManager()
     // Init ThreadData* array index tracker
     g_threadManager->threadArrIndex = 0;
 
+    numCores = sysconf(_SC_NPROCESSORS_ONLN);
+    numThreads = numCores;
+
     // Initialize the access mutexes used by allocated channels. Each created
     // channel will be assigned a number corresponding to one of these mutexes,
     // and will always use that mutex for channel accesses. This way, the
     // probability of lock contention between two different channels is
     // minimized, while avoiding allocating a different mutex for each channel
-    chan_mutexes_count = sysconf(_SC_NPROCESSORS_ONLN) * CHAN_MUTEXES_PER_CORE;
+    chan_mutexes_count = numCores * CHAN_MUTEXES_PER_CORE;
     chan_access_mutexes = (pthread_mutex_t*)malloc(
         sizeof(pthread_mutex_t) * chan_mutexes_count
     );
@@ -86,6 +115,15 @@ void initThreadManager()
     {
         pthread_mutex_init(&chan_access_mutexes[i], NULL);
     }
+
+#ifdef MULTITHREAD
+    cond_workers = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+    cond_scheduler = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+    // Initialize the worker kthreads condition variable
+    pthread_cond_init(cond_workers, NULL);
+    // Initialize the scheduler condition variable
+    pthread_cond_init(cond_scheduler, NULL);
+#endif
 }
 
 uint64_t __mellow_get_chan_mutex_index()
@@ -128,6 +166,15 @@ void takedownThreadManager()
     free(g_threadManager->threadArr);
     // Dealloc memory for struct
     free(g_threadManager);
+
+    free(chan_access_mutexes);
+
+#ifdef MULTITHREAD
+    pthread_cond_destroy(cond_workers);
+    pthread_cond_destroy(cond_scheduler);
+    free(cond_workers);
+    free(cond_scheduler);
+#endif
 }
 
 void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
@@ -247,13 +294,13 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     // pointer if necessary. Check first if we need to allocate more memory
     if (g_threadManager->threadArrIndex >= g_threadManager->threadArrLen)
     {
+        const uint64_t growth_factor =
+            g_threadManager->threadArrLen * THREAD_DATA_ARR_MUL_INCREASE;
         // Allocate more space for thread manager
         g_threadManager->threadArr = (ThreadData**)realloc(
             g_threadManager->threadArr,
-            sizeof(ThreadData*) * g_threadManager->threadArrLen *
-                THREAD_DATA_ARR_MUL_INCREASE);
-        g_threadManager->threadArrLen =
-            g_threadManager->threadArrLen * THREAD_DATA_ARR_MUL_INCREASE;
+            sizeof(ThreadData*) * growth_factor);
+        g_threadManager->threadArrLen = growth_factor;
     }
     // Place pointer into ThreadData* array
     g_threadManager->threadArr[g_threadManager->threadArrIndex] = newThread;
@@ -268,15 +315,17 @@ void execScheduler()
 {
     // This is a blindingly terrible scheduler
 #ifdef MULTITHREAD
-    numCores = sysconf(_SC_NPROCESSORS_ONLN);
-    numThreads = numCores;
     kernelThreads = (pthread_t*)malloc(numThreads * sizeof(pthread_t));
     schedulerData = (SchedulerData*)malloc(numThreads * sizeof(SchedulerData));
     uint64_t i;
+    // The scheduler queue must be initialized fully first!
     for (i = 0; i < numThreads; i++)
     {
-        schedulerData[i].valid = 0;
+        schedulerData[i].valid = INVALID;
         schedulerData[i].threadData = NULL;
+    }
+    for (i = 0; i < numThreads; i++)
+    {
         int resCode = pthread_create(
             (kernelThreads + i), NULL, awaitTask, (void*)i
         );
@@ -319,111 +368,263 @@ void execScheduler()
 }
 
 #ifdef MULTITHREAD
-void scheduler()
+
+// Only execute this when you have the runtime_mutex locked!
+static uint64_t scheduler_queue_full()
 {
-    int64_t i = 0;
-    uint8_t stillValid = 0;
-    uint64_t kthreadExecuting = 0;
-    // Use an index variable to always move through the entire list of green
-    // threads linearly, without prematurely starting over at 0
-    uint64_t curIndex = 0;
+    uint64_t i;
     for (i = 0; i < numThreads; i++)
     {
-        if (schedulerData[i].valid != 0)
+        // If there is an empty slot, the queue isn't full
+        if (schedulerData[i].valid == INVALID)
         {
-            kthreadExecuting = i + 1;
-            goto SKIP_WORKER;
-        }
-        if (schedulerData[i].valid == 0 && schedulerData[i].threadData != NULL)
-        {
-            schedulerData[i].threadData = 0;
-        }
-        pthread_mutex_lock(&runtime_mutex);
-        for (; curIndex < g_threadManager->threadArrIndex; curIndex++)
-        {
-            ThreadData* curThread = g_threadManager->threadArr[curIndex];
-            // Try to find the green thread in the scheduler list
-            uint64_t m;
-            uint64_t isScheduled = 0;
-            for (m = 0; m < numThreads; m++)
-            {
-                if (curThread == schedulerData[m].threadData)
-                {
-                    isScheduled++;
-                }
-            }
-            if (isScheduled != 0)
-            {
-                assert(isScheduled == 1);
-                stillValid = 1;
-            }
-            else if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
-            {
-                schedulerData[i].threadData = curThread;
-                schedulerData[i].valid = 1;
-                stillValid = 1;
-                // We've scheduled a gthread for this worker thread
-                break;
-            }
-            // This green thread has finished executing, and needs to be cleaned
-            // up. Meaning, free all GC'd memory, and (TODO) remove from thread
-            // list
-            else
-            {
-                GC_Env* gcEnv = curThread->gcEnv;
-                if (gcEnv != NULL)
-                {
-                    __GC_free_all_allocs(gcEnv);
-                    free(gcEnv);
-                    curThread->gcEnv = NULL;
-                }
-            }
-        }
-        if (curIndex >= g_threadManager->threadArrIndex)
-        {
-            curIndex = 0;
-        }
-        pthread_mutex_unlock(&runtime_mutex);
-SKIP_WORKER:
-        // At least one worker thread is still executing
-        if (i + 1 >= numThreads)
-        {
-            if (kthreadExecuting != 0)
-            {
-                kthreadExecuting = 0;
-                i = -1;
-            }
-            else if (stillValid != 0)
-            {
-                stillValid = 0;
-                i = -1;
-            }
+            return 0;
         }
     }
+
+    return 1;
+}
+
+// Only execute this when you have the runtime_mutex locked!
+static uint64_t scheduler_queue_runnable()
+{
+    uint64_t i;
+    for (i = 0; i < numThreads; i++)
+    {
+        if (schedulerData[i].valid == SCHEDULED)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static uint64_t schedule_queue_count_valid()
+{
+    uint64_t i;
+    uint64_t count = 0;
+    for (i = 0; i < numThreads; i++)
+    {
+        if (schedulerData[i].valid != INVALID)
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+// Either the thread is scheduled or running in the queue. When this is false,
+// and while the runtime mutex is held, it is safe to inspect and modify the
+// ThreadData object
+static uint64_t thread_valid_in_queue(ThreadData* thread)
+{
+    uint64_t i;
+    for (i = 0; i < numThreads; i++)
+    {
+        if (
+            schedulerData[i].threadData == thread &&
+            schedulerData[i].valid != INVALID
+        ) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+// Return a valid index into the queue representing an empty slot, or a negative
+// number
+int64_t queue_empty_slot_index()
+{
+    uint64_t i;
+    for (i = 0; i < numThreads; i++)
+    {
+        if (schedulerData[i].valid == INVALID) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void scheduler()
+{
+    uint64_t cur_gthread_index = 0;
+
+    while (1)
+    {
+        pthread_mutex_lock(&runtime_mutex);
+
+        // Wait while either the queue is full, or the queue contains all of the
+        // available green threads
+        while (
+            scheduler_queue_full(schedulerData) != 0 ||
+            (
+                g_threadManager->threadArrIndex > 0 &&
+                schedule_queue_count_valid() == g_threadManager->threadArrIndex
+            )
+        ) {
+            pthread_cond_wait(cond_scheduler, &runtime_mutex);
+        }
+
+        if (g_threadManager->threadArrIndex == 0)
+        {
+            break;
+        }
+
+        uint64_t empty_slots = numThreads - schedule_queue_count_valid();
+
+        uint64_t scheduled_gthreads = 0;
+        uint64_t num_gthreads_tested = 0;
+
+        while (
+            g_threadManager->threadArrIndex > 0 &&
+            scheduled_gthreads < empty_slots &&
+            num_gthreads_tested < g_threadManager->threadArrIndex
+        ) {
+            // If we make it in here, we know that:
+            //  - The queue is not full
+            //  - There are green threads available to schedule
+
+            if (cur_gthread_index >= g_threadManager->threadArrIndex)
+            {
+                cur_gthread_index = 0;
+            }
+
+            ThreadData* curThread =
+                g_threadManager->threadArr[cur_gthread_index];
+
+            num_gthreads_tested++;
+
+            if (thread_valid_in_queue(curThread) != 0)
+            {
+                cur_gthread_index++;
+                continue;
+            }
+
+            // If the green thread is schedulable, check to see if it's already
+            // scheduled or if there's room to put it. If it's not already
+            // scheduled, and there's somewhere to put it, put it there, and
+            // notify the waiting threads of a new task
+            if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
+            {
+                // If we make it in here, we know that:
+                //  - The queue is not full
+                //  - This green thread is not already either scheduled or
+                //    running on the queue
+                //  - This green thread is still active, and needs to be
+                //    scheduled
+
+                int64_t slot_index = queue_empty_slot_index();
+
+                assert(slot_index >= 0);
+
+                schedulerData[slot_index].threadData = curThread;
+                schedulerData[slot_index].valid = SCHEDULED;
+
+                scheduled_gthreads++;
+            }
+            // If the green thread is not schedulable, free it from the list
+            else
+            {
+                deallocThreadData(curThread);
+
+                // Replace this entry with the last entry in the list, if we're
+                // not already at the end
+                if (cur_gthread_index < g_threadManager->threadArrIndex - 1)
+                {
+                    g_threadManager->threadArr[
+                        cur_gthread_index
+                    ] = g_threadManager->threadArr[
+                        g_threadManager->threadArrIndex - 1
+                    ];
+                }
+                g_threadManager->threadArrIndex--;
+            }
+
+            cur_gthread_index++;
+        }
+
+        pthread_cond_broadcast(cond_workers);
+
+        pthread_mutex_unlock(&runtime_mutex);
+    }
+
     programDone = 1;
+
+    pthread_cond_broadcast(cond_workers);
+
+    pthread_mutex_unlock(&runtime_mutex);
+
+    uint64_t i;
     for (i = 0; i < numThreads; i++)
     {
         pthread_join(kernelThreads[i], NULL);
     }
+
     // Reset programDone in case we restart the runtime
     programDone = 0;
 }
 
 void* awaitTask(void* arg)
 {
-    uint64_t index = (uint64_t)arg;
     // Init the TLS tempstack used when dynamically growing the thread stack
     __init_tempstack();
-    while (programDone == 0)
+
+    while (1)
     {
-        if (schedulerData[index].valid == 1)
+        pthread_mutex_lock(&runtime_mutex);
+
+        while (
+            scheduler_queue_runnable(schedulerData) == 0 &&
+            programDone == 0
+        ) {
+            pthread_cond_wait(cond_workers, &runtime_mutex);
+        }
+
+        if (programDone != 0)
         {
-            ThreadData* curThread = schedulerData[index].threadData;
+            break;
+        }
+
+        uint64_t curThreadIndex;
+        ThreadData* curThread = NULL;
+
+        for (curThreadIndex = 0; curThreadIndex < numThreads; curThreadIndex++)
+        {
+            if (
+                schedulerData[curThreadIndex].valid == SCHEDULED
+            ) {
+                curThread = schedulerData[curThreadIndex].threadData;
+                schedulerData[curThreadIndex].valid = RUNNING;
+                break;
+            }
+        }
+
+        pthread_mutex_unlock(&runtime_mutex);
+
+        if (curThread != NULL)
+        {
+
             callThreadFunc(curThread);
-            schedulerData[index].valid = 0;
+
+            pthread_mutex_lock(&runtime_mutex);
+
+            schedulerData[curThreadIndex].valid = INVALID;
+
+            pthread_cond_signal(cond_scheduler);
+
+            pthread_mutex_unlock(&runtime_mutex);
         }
     }
+
+    pthread_mutex_unlock(&runtime_mutex);
+
     __free_tempstack();
+
     return NULL;
 }
+
 #endif
