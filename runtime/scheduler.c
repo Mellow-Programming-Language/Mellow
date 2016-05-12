@@ -80,6 +80,10 @@ void deallocThreadData(ThreadData* thread)
         thread->gcEnv = NULL;
     }
 
+    // Free the memory allocated for the register-allocated arguments to the
+    // spawned function
+    free(thread->regVars);
+
     // Unmap memory allocated for thread stack
     munmap(thread->t_StackRaw, 1 << thread->stackSize);
     // Dealloc memory for struct
