@@ -503,22 +503,24 @@ void scheduler()
 
             num_gthreads_tested++;
 
+            // Check to see if the green thread is already scheduled. If it is,
+            // skip it, of course, and loop
             if (thread_valid_in_queue(curThread) != 0)
             {
                 cur_gthread_index++;
                 continue;
             }
+            
+            // If we make it in here, we know that:
+            //  - This green thread is not already either scheduled or
+            //    running on the queue
 
-            // If the green thread is schedulable, check to see if it's already
-            // scheduled or if there's room to put it. If it's not already
-            // scheduled, and there's somewhere to put it, put it there, and
-            // notify the waiting threads of a new task
+            // If the green thread is schedulable, (and we know now that it
+            // isn't already scheduled), put it in the open slot we know is
+            // in the queue, and notify the waiting threads of a new task
             if (curThread->stillValid != 0 || curThread->curFuncAddr == 0)
             {
                 // If we make it in here, we know that:
-                //  - The queue is not full
-                //  - This green thread is not already either scheduled or
-                //    running on the queue
                 //  - This green thread is still active, and needs to be
                 //    scheduled
 
