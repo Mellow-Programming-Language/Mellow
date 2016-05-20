@@ -41,7 +41,7 @@ realloc_stack_multithread.o: scheduler.c scheduler.h realloc_stack.c \
 							 realloc_stack.h stack_realloc_multithread.asm
 	$(ASM) $(ASM_FLAGS) stack_realloc_multithread.asm
 	$(CC) $(CC_FLAGS) $(CC_MULTITHREAD) -c realloc_stack.c -o realloc_stack_c.o
-	ld $(LD_MULTITHREAD) -r stack_realloc.o realloc_stack_c.o -o \
+	ld $(LD_MULTITHREAD) -r stack_realloc_multithread.o realloc_stack_c.o -o \
 		realloc_stack_multithread.o
 
 runtime_vars.o: runtime_vars.c runtime_vars.h gc.c gc.h scheduler.c scheduler.h
