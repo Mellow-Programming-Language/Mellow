@@ -16,12 +16,7 @@
 
 uint64_t __mremap_stack(ThreadData* thread, const uint64_t rsp);
 
-#ifdef MULTITHREAD
-
-extern void __init_tempstack();
-extern void __free_tempstack();
-
-#else
+#ifndef MULTITHREAD
 
 void* __get_tempstack();
 void __init_tempstack();

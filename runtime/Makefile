@@ -38,8 +38,8 @@ realloc_stack.o: scheduler.c scheduler.h realloc_stack.c realloc_stack.h \
 	ld -r stack_realloc.o realloc_stack_c.o -o realloc_stack.o
 
 realloc_stack_multithread.o: scheduler.c scheduler.h realloc_stack.c \
-							 realloc_stack.h stack_realloc.asm
-	$(ASM) $(ASM_FLAGS) stack_realloc.asm
+							 realloc_stack.h stack_realloc_multithread.asm
+	$(ASM) $(ASM_FLAGS) stack_realloc_multithread.asm
 	$(CC) $(CC_FLAGS) $(CC_MULTITHREAD) -c realloc_stack.c -o realloc_stack_c.o
 	ld $(LD_MULTITHREAD) -r stack_realloc.o realloc_stack_c.o -o \
 		realloc_stack_multithread.o

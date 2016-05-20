@@ -584,9 +584,6 @@ void scheduler()
 
 void* awaitTask(void* arg)
 {
-    // Init the TLS tempstack used when dynamically growing the thread stack
-    __init_tempstack();
-
     while (1)
     {
         pthread_mutex_lock(&runtime_mutex);
@@ -635,8 +632,6 @@ void* awaitTask(void* arg)
     }
 
     pthread_mutex_unlock(&runtime_mutex);
-
-    __free_tempstack();
 
     return NULL;
 }
