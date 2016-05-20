@@ -2287,6 +2287,10 @@ class FunctionBuilder : Visitor
         nodeIndex++;
         auto loopType = builderStack[$-1][$-1];
         builderStack[$-1] = builderStack[$-1][0..$-1];
+
+        node.data["type"] = loopType;
+        node.data["argnames"] = foreachArgs;
+
         Type*[] loopTypes;
         if (loopType.tag == TypeEnum.ARRAY || loopType.tag == TypeEnum.STRING)
         {
@@ -2342,6 +2346,9 @@ class FunctionBuilder : Visitor
             this.stackVarAllocSize[curFuncName] += indexType.size
                                                             .stackAlignSize;
         }
+
+        node.data["hasindex"] = hasIndex;
+
         foreach (varName, type; lockstep(varUpdateArgs, loopTypes))
         {
             auto pair = new VarTypePair();
@@ -2364,7 +2371,7 @@ class FunctionBuilder : Visitor
             }
             funcScopes[$-1].syms[$-1].decls[varName] = pair;
         }
-        // BareBlockNode
+        // StatementNode
         node.children[nodeIndex].accept(this);
         nodeIndex++;
         // Remove loop variables from scope
@@ -2378,9 +2385,6 @@ class FunctionBuilder : Visitor
         }
         // Remove condassignment variables from scope
         funcScopes[$-1].syms.length--;
-        node.data["type"] = loopType;
-        node.data["argnames"] = foreachArgs;
-        node.data["hasindex"] = hasIndex;
     }
 
     void visit(ForeachArgsNode node)
