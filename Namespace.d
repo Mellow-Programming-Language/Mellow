@@ -15,6 +15,7 @@ struct TopLevelContext
     string runtimePath;
     bool compileOnly;
     bool dump;
+    bool debugSymbols;
     bool help;
     bool keepObjs;
     bool assembleOnly;
