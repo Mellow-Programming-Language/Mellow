@@ -93,12 +93,13 @@ void deallocThreadData(ThreadData* thread)
 void initThreadManager()
 {
     // Alloc space for struct
-    g_threadManager = (GlobalThreadMem*)malloc(sizeof(GlobalThreadMem));
-    // Alloc initial space for ThreadData* array
-    g_threadManager->threadArr =
-        (ThreadData**)malloc(sizeof(ThreadData*) * THREAD_DATA_ARR_START_LEN);
+    g_threadManager = (GlobalThreadMem*)calloc(1, sizeof(GlobalThreadMem));
     // Init ThreadData* array length tracker
     g_threadManager->threadArrLen = THREAD_DATA_ARR_START_LEN;
+    // Alloc initial space for ThreadData* array
+    g_threadManager->threadArr = (ThreadData**)calloc(
+        g_threadManager->threadArrLen, sizeof(ThreadData*)
+    );
     // Init ThreadData* array index tracker
     g_threadManager->threadArrIndex = 0;
 
@@ -111,8 +112,8 @@ void initThreadManager()
     // probability of lock contention between two different channels is
     // minimized, while avoiding allocating a different mutex for each channel
     chan_mutexes_count = numCores * CHAN_MUTEXES_PER_CORE;
-    chan_access_mutexes = (pthread_mutex_t*)malloc(
-        sizeof(pthread_mutex_t) * chan_mutexes_count
+    chan_access_mutexes = (pthread_mutex_t*)calloc(
+        chan_mutexes_count, sizeof(pthread_mutex_t)
     );
     uint64_t i;
     for (i = 0; i < chan_mutexes_count; i++)
@@ -121,8 +122,8 @@ void initThreadManager()
     }
 
 #ifdef MULTITHREAD
-    cond_workers = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
-    cond_scheduler = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+    cond_workers = (pthread_cond_t*)calloc(1, sizeof(pthread_cond_t));
+    cond_scheduler = (pthread_cond_t*)calloc(1, sizeof(pthread_cond_t));
     // Initialize the worker kthreads condition variable
     pthread_cond_init(cond_workers, NULL);
     // Initialize the scheduler condition variable
@@ -184,7 +185,7 @@ void takedownThreadManager()
 void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
 {
     // Alloc new ThreadData
-    ThreadData* newThread = (ThreadData*)malloc(sizeof(ThreadData));
+    ThreadData* newThread = (ThreadData*)calloc(1, sizeof(ThreadData));
     // Init the address of the function this green thread manages
     newThread->funcAddr = funcAddr;
     // Init the instruction position within the function. 0 means the
@@ -234,9 +235,9 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
     // doing it
 
     // This is an overallocation for the stack vars
-    void* stackVars = malloc(numArgs * 8);
+    void* stackVars = calloc(numArgs * 8, 1);
     // 8 * 6 bytes for the int registers, and 8 * 8 bytes for the xmm registers
-    void* regVars = malloc((8 * 6) + (8 * 8));
+    void* regVars = calloc((8 * 6) + (8 * 8), 1);
     // Place any int args past the sixth int arg and any float args past the
     // 8th float arg onto the stack
     uint32_t intArgsIndex = 0;
@@ -303,7 +304,13 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
         // Allocate more space for thread manager
         g_threadManager->threadArr = (ThreadData**)realloc(
             g_threadManager->threadArr,
-            sizeof(ThreadData*) * growth_factor);
+            sizeof(ThreadData*) * growth_factor
+        );
+        memset(
+            g_threadManager->threadArr + g_threadManager->threadArrLen,
+            0,
+            sizeof(ThreadData*) * growth_factor / 2
+        );
         g_threadManager->threadArrLen = growth_factor;
     }
     // Place pointer into ThreadData* array
@@ -318,8 +325,8 @@ void newProc(uint32_t numArgs, void* funcAddr, int8_t* argLens, void* args)
 void execScheduler()
 {
 #ifdef MULTITHREAD
-    kernelThreads = (pthread_t*)malloc(numThreads * sizeof(pthread_t));
-    schedulerData = (SchedulerData*)malloc(numThreads * sizeof(SchedulerData));
+    kernelThreads = (pthread_t*)calloc(numThreads, sizeof(pthread_t));
+    schedulerData = (SchedulerData*)calloc(numThreads, sizeof(SchedulerData));
     uint64_t i;
     // The scheduler queue must be initialized fully first!
     for (i = 0; i < numThreads; i++)
