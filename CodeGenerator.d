@@ -2345,6 +2345,7 @@ string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
 string compileWildcardPattern(WildcardPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    // No-op
     return "";
 }
 

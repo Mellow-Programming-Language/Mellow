@@ -242,6 +242,7 @@ string compileStringComparison(ComparisonNode node, Context* vars)
 string compileSetComparison(ComparisonNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
@@ -688,12 +689,14 @@ string compileBooleanLiteral(BooleanLiteralNode node, Context* vars)
 string compileLambda(LambdaNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
 string compileLambdaArgs(LambdaArgsNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
