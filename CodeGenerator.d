@@ -587,15 +587,9 @@ struct Context
         {
             if (varName == var.varName)
             {
-                if (var.type.size <= 8)
-                {
-                    return "    mov    r8, rbp\n"
-                         ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n";
-                }
-                return "    mov    r8, rbp\n"
-                     ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n"
-                     ~ "    mov    r9, rbp\n"
-                     ~ "    sub    r9, " ~ ((i + 1) * 8 + 8).to!string ~ "]n";
+                auto str = "";
+                str ~= "    lea    r8, [rbp-" ~ ((i + 1) * 8).to!string ~ "]\n";
+                return str;
             }
         }
         assert(false);
