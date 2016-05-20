@@ -636,6 +636,10 @@ string compileValue(ValueNode node, Context* vars)
                                                 ~ "\n";
             str ~= "    mov    r8, rax\n";
         }
+        else
+        {
+            assert(false, "Unreachable");
+        }
         if (node.children.length > 1)
         {
             str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);

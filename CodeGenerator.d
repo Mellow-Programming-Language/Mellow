@@ -2400,6 +2400,7 @@ string compileDeclaration(DeclarationNode node, Context* vars)
     else if (cast(VariableTypePairNode)child) {
         return compileVariableTypePair(cast(VariableTypePairNode)child, vars);
     }
+    assert(false, "Unreachable");
     return "";
 }
 
