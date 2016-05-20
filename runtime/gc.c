@@ -11,7 +11,7 @@ void __GC_mellow_add_alloc_wrapped(void* ptr, uint64_t size, GC_Env* gc_env)
     if (gc_env->allocs == NULL)
     {
         uint64_t start_size = ALLOCS_START_SIZE;
-        Allocation* allocs = malloc(start_size * sizeof(Allocation));
+        Allocation* allocs = calloc(start_size, sizeof(Allocation));
         if (allocs == NULL)
         {
             // Error case
