@@ -494,8 +494,9 @@ struct Context
         {
             if (varName == var.varName)
             {
-                return "    mov    r8, rbp\n"
-                     ~ "    sub    r8, " ~ ((i + 1) * 8).to!string ~ "\n";
+                auto str = "";
+                str ~= "    lea    r8, [rbp-" ~ ((i + 1) * 8).to!string ~ "]\n";
+                return str;
             }
         }
         assert(false);
@@ -2343,6 +2344,7 @@ string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
 string compileWildcardPattern(WildcardPatternNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    // No-op
     return "";
 }
 
@@ -2394,6 +2396,7 @@ string compileDeclaration(DeclarationNode node, Context* vars)
     else if (cast(VariableTypePairNode)child) {
         return compileVariableTypePair(cast(VariableTypePairNode)child, vars);
     }
+    assert(false, "Unreachable");
     return "";
 }
 

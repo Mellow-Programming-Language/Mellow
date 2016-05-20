@@ -246,6 +246,7 @@ string compileStringComparison(ComparisonNode node, Context* vars)
 string compileSetComparison(ComparisonNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
@@ -655,6 +656,10 @@ string compileValue(ValueNode node, Context* vars)
                                             ~ "\n";
             str ~= "    mov    r8, rax\n";
         }
+        else
+        {
+            assert(false, "Unreachable");
+        }
         if (node.children.length > 1)
         {
             str ~= compileTrailer(cast(TrailerNode)node.children[1], vars);
@@ -703,12 +708,14 @@ string compileBooleanLiteral(BooleanLiteralNode node, Context* vars)
 string compileLambda(LambdaNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
 string compileLambdaArgs(LambdaArgsNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
+    assert(false, "Unimplemented");
     return "";
 }
 
