@@ -75,29 +75,33 @@ int main(string[] argv)
 q"EOF
 All arguments must be prefaced by double dashes, as in --help or --o.
 
+-c              Compile and assemble only, don't link. (Implies --keep)
+
 --dump          Inelegantly dump varied information about the parsing and
                 analyzing process.
 
 --help          Print this help text and exit.
 
 --outfile S
---o S           Provide a string S which will act as the filename of the
+-o S            Provide a string S which will act as the filename of the
                 generated outfile.
 
 --keep
---k             Don't delete the generated object files.
+-k              Don't delete the generated object files.
 
---c             Compile and assemble only, don't link. (Implies --keep)
+--release       Disables assert statements and disallows --unittest.
 
 --runtime S     Provide the path to the runtime object file, if the default is
                 incorrect.
 
---S             Compile only, don't assemble or link.
+-S              Compile only, don't assemble or link.
+
+--stacktrace    (Debugging) Show the stacktrace for thrown typecheck exceptions
 
 --stdlib S      Provide the path to the stdlib directory.
+
 --unittest      Enable compilation of unittest blocks.
---release       Disables assert statements and disallows --unittest.
---stacktrace    (Debugging) Show the stacktrace for thrown typecheck exceptions
+
 --verbose       Print information about the files compiled, linked, and output
 EOF".write;
         return 0;
