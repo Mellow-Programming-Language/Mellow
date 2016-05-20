@@ -40,12 +40,14 @@ int main(string[] argv)
     context.unittests = false;
     context.stacktrace = false;
     context.release = false;
+    context.debugSymbols = false;
     try
     {
         getopt(argv,
             "outfile|o", &context.outfileName,
             "keep|k", &context.keepObjs,
             "c", &context.assembleOnly,
+            "g", &context.debugSymbols,
             "runtime", &context.runtimePath,
             "stdlib", &context.stdlibPath,
             "S", &context.compileOnly,
@@ -75,29 +77,35 @@ int main(string[] argv)
 q"EOF
 All arguments must be prefaced by double dashes, as in --help or --o.
 
+-c              Compile and assemble only, don't link. (Implies --keep)
+
 --dump          Inelegantly dump varied information about the parsing and
                 analyzing process.
+
+-g              Insert debugging symbols.
 
 --help          Print this help text and exit.
 
 --outfile S
---o S           Provide a string S which will act as the filename of the
+-o S            Provide a string S which will act as the filename of the
                 generated outfile.
 
 --keep
---k             Don't delete the generated object files.
+-k              Don't delete the generated object files.
 
---c             Compile and assemble only, don't link. (Implies --keep)
+--release       Disables assert statements and disallows --unittest.
 
 --runtime S     Provide the path to the runtime object file, if the default is
                 incorrect.
 
---S             Compile only, don't assemble or link.
+-S              Compile only, don't assemble or link.
+
+--stacktrace    (Debugging) Show the stacktrace for thrown typecheck exceptions
 
 --stdlib S      Provide the path to the stdlib directory.
+
 --unittest      Enable compilation of unittest blocks.
---release       Disables assert statements and disallows --unittest.
---stacktrace    (Debugging) Show the stacktrace for thrown typecheck exceptions
+
 --verbose       Print information about the files compiled, linked, and output
 EOF".write;
         return 0;
@@ -544,16 +552,18 @@ string assembleString(string fullAsm, TopLevelContext* context,
     scope (exit) remove(asmTmpfileName);
     try
     {
-        auto nasmPid = spawnProcess(
-            ["nasm", "-f", "elf64", "-o", objectFileName, asmTmpfileName]
-        );
+        auto nasmCmd = ["nasm", "-f", "elf64"];
+        if (context.debugSymbols)
+        {
+            nasmCmd ~= ["-F", "dwarf", "-g"];
+        }
+        nasmCmd ~= ["-o", objectFileName, asmTmpfileName];
+        auto nasmPid = spawnProcess(nasmCmd);
         auto retCode = wait(nasmPid);
         if (retCode != 0)
         {
-            writeln(
-                "Error: [nasm -f elf64 -o " ~ objectFileName ~ " "
-                ~ asmTmpfileName ~ "] failed"
-            );
+            auto errMsg = "Error: [" ~ nasmCmd.join(" ") ~ "] failed";
+            writeln(errMsg);
             return "";
         }
     }
