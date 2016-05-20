@@ -1,0 +1,45 @@
+// ISSUE: Ensure all append semantics work correctly
+// EXPECTS: "6789100123451112131415 HI,J,KL,A,B,C,D,E,F,G,MN,OP, !?Hello <> world?!"
+// STATUS: ok
+
+import std.io;
+import std.conv;
+
+func main() {
+    vs: []int;
+    vs ~= 0;
+    vs ~= 1 ~ 2;
+    vs ~= 3 ~ [4, 5] ~ 6;
+    vs ~= [7, 8] ~ 9 ~ [10, 11];
+    vs ~= [12, 13] ~ [14, 15];
+    vs = vs[6..11] ~ vs[..6] ~ vs[11..];
+
+    foreach (x; vs) {
+        write(intToString(x));
+    }
+
+    write(" ");
+
+    vvs: [][]string;
+    vvs ~= [["A"]];
+    vvs ~= [["B"]] ~ [["C"]];
+    vvs ~= [["D"]] ~ ["E"] ~ ["F"] ~ ["G"];
+    vvs ~= [["H", "I"]] ~ ["J"] ~ [["K", "L"]];
+    vvs ~= [["M", "N"]] ~ [["O", "P"]];
+    vvs = vvs[7..10] ~ vvs[..7] ~ vvs[10..];
+    foreach (xs; vvs) {
+        foreach (y; xs) {
+            write(y);
+        }
+        write(",");
+    }
+
+    write(" ");
+
+    str: string = "!";
+    str ~= "!" ~ '?' ~ "Hello " ~ '<' ~ '>' ~ " world" ~ '?';
+    str = str[1..];
+    str ~= '!';
+
+    writeln(str);
+}

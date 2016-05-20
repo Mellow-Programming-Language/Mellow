@@ -662,6 +662,10 @@ string compileProgram(RecordBuilder records, FunctionBuilder funcs,
             ~ "    extern free\n"
             ~ "    extern memcpy\n";
     header ~= "    extern exit\n";
+    header ~= "    extern __mellow_GC_mark_S\n";
+    header ~= "    extern __mellow_GC_mark_AS\n";
+    header ~= "    extern __mellow_GC_mark_ABC\n";
+    header ~= "    extern __mellow_GC_mark_V5Maybe1BC\n";
     if (context.runtimeExterns.length > 0)
     {
         header ~= context.runtimeExterns

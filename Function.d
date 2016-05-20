@@ -1382,8 +1382,10 @@ class FunctionBuilder : Visitor
         case "~=":
             if (left.tag == TypeEnum.STRING)
             {
-                if (varType.tag != TypeEnum.STRING)
-                {
+                if (
+                    varType.tag != TypeEnum.STRING &&
+                    varType.tag != TypeEnum.CHAR
+                ) {
                     throw new Exception(
                         errorHeader(node) ~ "\n"
                         ~ "Cannot append-equal type [" ~ varType.format
