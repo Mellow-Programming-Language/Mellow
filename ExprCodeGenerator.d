@@ -392,6 +392,7 @@ string compileAppendOp(
         {
             str ~= "    mov     rcx, 0\n";
         }
+        str ~= "    mov     r8, " ~ resultType.formatMarkFuncName ~ "\n";
         str ~= "    call    __elem_elem_append\n";
         str ~= "    mov     r8, rax\n";
     }
@@ -497,9 +498,6 @@ string compileAppendOp(
     {
         assert(false, "Unreachable");
     }
-    // Populate marking function
-    vars.runtimeExterns[resultType.formatMarkFuncName] = true;
-    str ~= "    mov     qword [r8], " ~ resultType.formatMarkFuncName ~ "\n";
     str ~= "    ; append op (~) algorithm end\n";
     return str;
 }
