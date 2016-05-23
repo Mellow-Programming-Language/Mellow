@@ -29,10 +29,8 @@ import ExprCodeGenerator;
 // RSP. The stack must be kept on a 16 byte alignment or else everything blows
 // up
 
-// Any operation that expects an expression value can be found on the top of the
-// stack, save for the actual variable values, which are in register r8, or
-// across r8 and r9 in the case of a fat ptr. A tuple will always be on the
-// stack
+// After compilation of any particular expression, the result will be in r8
+// unless otherwise noted.
 
 // Listing of caller-saved vs. callee-saved registers
 // Caller-Saved        Callee-Saved
