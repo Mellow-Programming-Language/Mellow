@@ -62,9 +62,6 @@ static void free_node(ptr_hashset_t *hashset,key_node_t *node)
 */
 static uint64_t rehash(void *key)
 {
-
-	// return (uint64_t)key >> 3;
-
 #ifdef NAIVE_GC
     return 0;
 #else
@@ -72,10 +69,10 @@ static uint64_t rehash(void *key)
     uint64_t i_key = (uint64_t)key;
 
     // Get the upper 32-bits of the key
-    uint64_t hi_bits = (uint64_t)(i_key >> 32);
+    uint32_t hi_bits = (uint32_t)(i_key >> 32);
 
     // Get the lower 32-bits of the key
-    uint64_t lo_bits = (uint64_t)(i_key);
+    uint32_t lo_bits = (uint32_t)(i_key);
 
     // hi_bits = (31 * hi_bits) ^ (61 * (hi_bits >> 16)) ^ (53 * (hi_bits >> 24));
     // lo_bits = (17 * lo_bits) ^ ( 37 * (lo_bits >> 16)) ^ ( 7 * (lo_bits >> 24)) ;
