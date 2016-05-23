@@ -1,8 +1,14 @@
 all: runtime.o runtime_multithread.o
 
 CC ?= gcc
+# Add '-DNAIVE_GC' to turn off the GC live pointer hashset (can sometimes
+# improve performance).
+# Add '-DGC_DEBUG' to enable GC debugging output.
+# Add '-g' for debugging symbols.
+# Add '-pg' for profiling symbols.
 CC_FLAGS = -Wall
 ASM = nasm
+# Add '-F dwarf -g' for debugging symbols in assembled .asm files.
 ASM_FLAGS = -f elf64
 CC_MULTITHREAD = -D MULTITHREAD -pthread
 # Find all directories libpthread-related files exist within, and construct a

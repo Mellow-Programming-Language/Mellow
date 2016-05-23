@@ -3,6 +3,8 @@ STDLIB = stdc stdlib.o core.o conv.o io.o sort.o string.o trie.o path.o
 COMPILER = ../compiler
 
 CC ?= gcc
+# Add '-g' for debugging symbols.
+# Add '-pg' for profiling symbols.
 CC_FLAGS = -Wall
 CXX ?= g++
 CXX_FLAGS = -std=c++11 -Wall

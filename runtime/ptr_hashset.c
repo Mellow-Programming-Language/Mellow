@@ -65,6 +65,9 @@ static uint64_t rehash(void *key)
 
 	// return (uint64_t)key >> 3;
 
+#ifdef NAIVE_GC
+    return 0;
+#else
     // Make the key the kind of number I want it to be
     uint64_t i_key = (uint64_t)key;
 
@@ -87,7 +90,7 @@ static uint64_t rehash(void *key)
     lo_bits ^= (lo_bits >> 7) ^ (lo_bits >> 5);
 
     return  (i_key & 0xffffffff00000000L ) | ((hi_bits) ^ (lo_bits));
-
+#endif
 }
 
 /*

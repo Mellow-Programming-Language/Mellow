@@ -375,6 +375,12 @@ void execScheduler()
     }
     __free_tempstack();
 #endif
+#ifdef GC_DEBUG
+    printf(
+        "Total GC collections: %" PRIu64 "\n",
+        __mellow_debug_total_gc_collections
+    );
+#endif
 }
 
 #ifdef MULTITHREAD

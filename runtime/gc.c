@@ -6,6 +6,15 @@
 #include "gc.h"
 #include "ptr_hashset.h"
 
+#ifdef GC_DEBUG
+
+#include <pthread.h>
+
+static pthread_mutex_t gc_debug_mutex = PTHREAD_MUTEX_INITIALIZER;
+uint64_t __mellow_debug_total_gc_collections = 0;
+
+#endif
+
 void __GC_mellow_add_alloc_wrapped(void* ptr, uint64_t size, GC_Env* gc_env)
 {
     if (gc_env->allocs == NULL)
@@ -70,6 +79,11 @@ void* __GC_malloc_wrapped(
 ) {
     if (gc_env->total_allocated > gc_env->last_collection * 2)
     {
+#ifdef GC_DEBUG
+        pthread_mutex_lock(&gc_debug_mutex);
+        __mellow_debug_total_gc_collections++;
+        pthread_mutex_unlock(&gc_debug_mutex);
+#endif
         __GC_mellow_mark_stack(rsp, stack_bot, gc_env);
         __GC_sweep(gc_env);
         __GC_clear_marks(gc_env);

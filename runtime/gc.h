@@ -7,6 +7,12 @@
 
 #define ALLOCS_START_SIZE 64
 
+#ifdef GC_DEBUG
+
+extern uint64_t __mellow_debug_total_gc_collections;
+
+#endif
+
 typedef struct {
     void* ptr;
     uint64_t size;
