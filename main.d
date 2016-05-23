@@ -41,6 +41,7 @@ int main(string[] argv)
     context.stacktrace = false;
     context.release = false;
     context.debugSymbols = false;
+    context.profile = false;
     try
     {
         getopt(argv,
@@ -56,6 +57,7 @@ int main(string[] argv)
             "stacktrace", &context.stacktrace,
             "release", &context.release,
             "help", &context.help,
+            "profile|p", &context.profile,
             "verbose", &context.verbose,
         );
     }
@@ -92,6 +94,9 @@ All arguments must be prefaced by double dashes, as in --help or --o.
 
 --keep
 -k              Don't delete the generated object files.
+
+--profile
+-p              Enable profiling symbols in the resultant executable.
 
 --release       Disables assert statements and disallows --unittest.
 
@@ -238,9 +243,12 @@ EOF".write;
                 ~ objFileNames
                 ~ stdObjs
                 ~ [context.runtimePath]
-                ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)]
-                //~ ["-pg"]
-                ~ ["-lm"];
+                ~ ["stdlib.o".absolutePath(context.stdlibPath.absolutePath)];
+            if (context.profile)
+            {
+                cmd ~= ["-pg"];
+            }
+            cmd ~= ["-lm"];
             if (context.verbose)
             {
                 writeln("Executing:\n  [" ~ cmd.join(" ") ~ "]");

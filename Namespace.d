@@ -22,6 +22,7 @@ struct TopLevelContext
     bool unittests;
     bool generateMain;
     bool mainTakesArgv;
+    bool profile;
     bool stacktrace;
     bool release;
     bool verbose;
