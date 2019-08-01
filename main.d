@@ -248,6 +248,15 @@ EOF".write;
             {
                 cmd ~= ["-pg"];
             }
+            // Until we figure out how to allow PIE, we must enforce -no-pie
+            // so that all of the relevant object files are actually able to
+            // be linked together.
+            //
+            // NOTE: This _may_ need to extend to also adding the `default rel`
+            // pragma to relevant hand-written assembly files in the runtime
+            // and the generated assembly from the compiler, but initially it
+            // looks like that isn't necessary yet.
+            cmd ~= ["-no-pie"];
             cmd ~= ["-lm"];
             if (context.verbose)
             {
