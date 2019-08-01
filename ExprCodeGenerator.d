@@ -253,7 +253,7 @@ string compileSetComparison(ComparisonNode node, Context* vars)
 string compileExpr(ExprNode node, Context* vars)
 {
     debug (COMPILE_TRACE) mixin(tracer);
-    return compileOrExpr(cast(OrExprNode)node.children[0], vars);;
+    return compileOrExpr(cast(OrExprNode)node.children[0], vars);
 }
 
 string compileOrExpr(OrExprNode node, Context* vars)
@@ -1474,6 +1474,7 @@ string compileIsExpr(IsExprNode node, Context* vars)
                     // mov's of size 4 automatically zero the upper 4 bytes of
                     // the register, but smaller mov sizes don't
                     str ~= "    mov    r9, 0\n";
+                    goto case;
                 case 4:
                 case 8:
                 default:

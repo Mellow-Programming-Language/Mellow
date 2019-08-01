@@ -1844,6 +1844,7 @@ string compileDestructVariantPattern(DestructVariantPatternNode node,
             case 1:
             case 2:
                 str ~= "    mov    r9, 0\n";
+                goto case;
             case 4:
             case 8:
             default:
@@ -1911,6 +1912,7 @@ string compileStructPattern(StructPatternNode node, Context* vars)
             // If it's not an 8-byte or 4-byte mov, we need to zero the target
             // register
             str ~= "    mov    r9, 0\n";
+            goto case;
         case 4:
         case 8:
         default:
@@ -2100,6 +2102,7 @@ string compileTuplePattern(TuplePatternNode node, Context* vars)
             // If it's not an 8-byte or 4-byte mov, we need to zero the target
             // register
             str ~= "    mov    r9, 0\n";
+            goto case;
         case 4:
         case 8:
         default:
@@ -2205,6 +2208,7 @@ string compileArrayPattern(ArrayPatternNode node, Context* vars)
         case 1:
         case 2:
             str ~= "    mov    r9, 0\n";
+            goto case;
         case 4:
         case 8:
         default:
@@ -2308,6 +2312,7 @@ string compileArrayTailPattern(ArrayTailPatternNode node, Context* vars)
         case 1:
         case 2:
             str ~= "    mov    r9, 0\n";
+            goto case;
         case 4:
         case 8:
         default:

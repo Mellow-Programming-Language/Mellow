@@ -1992,7 +1992,7 @@ class FunctionBuilder : Visitor
                     throw new Exception(
                         errorHeader(node) ~ "\n"
                         ~ "Mismatch between expected and passed variant "
-                        "constructor instantiation type: \n"
+                        ~ "constructor instantiation type: \n"
                       ~ "  Expected: " ~ typeExpected.formatFull ~ "\n"
                       ~ "  Got: " ~ typeGot.formatFull
                     );
@@ -2404,7 +2404,7 @@ class FunctionBuilder : Visitor
             throw new Exception(
                 errorHeader(node) ~ "\n"
                 ~ "Foreach args must match loop types in number, plus optional "
-                "index counter"
+                ~ "index counter"
             );
         }
         // Add the loop variables to the scope
@@ -2968,7 +2968,7 @@ class FunctionBuilder : Visitor
                 throw new Exception(
                     errorHeader(node) ~ "\n"
                     ~ "Right side of `is` expression must be a valid "
-                    "constructor for the left side variant type"
+                    ~ "constructor for the left side variant type"
                 );
             }
             auto member = exprType.variantDef
