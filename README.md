@@ -46,7 +46,8 @@ List of working features:
   * recursively-definable, template-able variants/sum-types (ADTs)
   * `match` statements
   * `is` variant-decomposition expressions
-  * functions (taking arguments and returning results, including multi-return)
+  * functions (taking arguments, returning results including multi-return)
+  * function pointers
   * variables
   * basic data types: strings, bools, integers
   * arrays: array literals, slice ranges, append semantics, `.length` property
@@ -66,6 +67,5 @@ List of unimplemented or broken (but planned) features:
   * `const` semantics
   * sets
   * hashes
-  * function pointers
   * float arithmetic and comparison operators
   * lambdas
