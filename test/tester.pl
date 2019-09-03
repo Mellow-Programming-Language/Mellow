@@ -19,7 +19,7 @@ unless ($issueDir) {
 }
 
 my $scriptDir = "$FindBin::Bin";
-my $binDir = "$scriptDir/../";
+my $binDir = "$scriptDir/..";
 my $compiler = "$scriptDir/../$compiler_exe";
 my $dummyFile = "TEST_RESULT_FILE";
 
@@ -125,7 +125,7 @@ sub testsub {
         }
         if ($continue) {
             my $res = system(
-                "$input $binDir$dummyFile $args >/dev/null 2>&1"
+                "$input $binDir/$dummyFile $args >/dev/null 2>&1"
             );
             my $tester = sub {
                 my ($ret_code, $signal) = @_;
@@ -156,7 +156,8 @@ sub testsub {
                 || $directives->{'NO_OUTPUT'} !~ /true|yes/i
             )
         ) {
-            my $program_cmd = "$input $binDir$dummyFile $args";
+            my $program_cmd = "$input $binDir/$dummyFile $args";
+
             if (exists $directives->{'RUN_WITH'}) {
                 my $outer_cmd = $directives->{'RUN_WITH'};
                 $outer_cmd =~ s/!!PROGRAM!!/$program_cmd/;
