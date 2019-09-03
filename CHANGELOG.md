@@ -1,6 +1,30 @@
 Changelog
 =========
 
+0.11.0
+------
+
+* Implemented garbage collection
+
+* Added a `--verbose` flag to the compiler executable
+
+* Added a `--profile` flag to the compiler executable
+
+* Improvements to the green thread scheduler logic
+
+* Fixes to the language grammar
+
+* Improvements to the type-checker
+
+* Added `std.io.readText(file: File): Maybe!string`
+
+* Introduced `std.sort`
+  * Added `std.sort.heapsort(T)(arr: []T, less: func(T, T): bool)`
+
+* Added additional examples
+
+* Several internal improvements
+
 0.10.0
 ------
 
